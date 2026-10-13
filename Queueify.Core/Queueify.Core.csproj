@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Everything that isn't UI: models, matching, OCR, storage, catalogs and sync. Tested by Queueify.Tests. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>Queueify</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
+  <!-- The security rules users paste into Firebase: the same file the emulator tests run against. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\tools\firestore.rules" LogicalName="firestore.rules" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Queueify.Core/Queueify.Core.csproj" />
+  <Project Path="Queueify.Tests/Queueify.Tests.csproj" />
+  <Project Path="Queueify/Queueify.csproj" />
+</Solution>

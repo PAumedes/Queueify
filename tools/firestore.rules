@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each Queueify queue lives under a long random key that only your PCs know.
+    // A queue holds exactly two kinds of documents: albums and the shared settings.
+    // Nothing else can be read or written, and fields are limited in name and size.
+
+    function isQueue(queueKey) {
+      return queueKey.size() >= 32 && queueKey.size() <= 64;
+    }
+
+    function text(data, field) {
+      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= 500);
+    }
+
+    match /queues/{queueKey}/albums/{albumId} {
+      allow read: if isQueue(queueKey);
+      allow create, update: if isQueue(queueKey) && albumId.size() <= 64
+        && request.resource.data.keys().hasOnly(['uid', 'artist', 'album', 'year', 'source', 'coverUrl',
+             'spotifyId', 'tidalId', 'addedAt', 'listenedAt', 'rating', 'updatedAt', 'deleted', 'serverTime'])
+        && text(request.resource.data, 'uid') && text(request.resource.data, 'artist')
+        && text(request.resource.data, 'album') && text(request.resource.data, 'source')
+        && text(request.resource.data, 'coverUrl') && text(request.resource.data, 'spotifyId')
+        && text(request.resource.data, 'tidalId');
+    }
+
+    match /queues/{queueKey}/config/settings {
+      allow read: if isQueue(queueKey);
+      allow create, update: if isQueue(queueKey)
+        && request.resource.data.keys().hasOnly(['spotifyClientId', 'spotifyClientSecret', 'tidalClientId',
+             'tidalClientSecret', 'preferredService', 'countryCode', 'updatedAt', 'serverTime'])
+        && text(request.resource.data, 'spotifyClientId') && text(request.resource.data, 'spotifyClientSecret')
+        && text(request.resource.data, 'tidalClientId') && text(request.resource.data, 'tidalClientSecret')
+        && text(request.resource.data, 'preferredService') && text(request.resource.data, 'countryCode');
+    }
+  }
+}
