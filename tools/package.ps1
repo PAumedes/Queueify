@@ -29,4 +29,25 @@ if ($mb -gt $maxMB) { throw "Queueify.exe is $mb MB, over the $maxMB MB budget. 
 
 $download = "dist\Queueify-$version-win-x64.exe"
 Copy-Item $exe.FullName $download
-"Built $download ($mb MB)"
+
+# Smoke test of the file users download, under its own name (a browser may also call it "Queueify (1).exe"):
+# started from an empty folder and unpacked fresh, it must stay up without writing a crash log.
+$smoke = Join-Path ([IO.Path]::GetTempPath()) ("queueify-smoke-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory "$smoke\app", "$smoke\unpack" | Out-Null
+try {
+    Copy-Item $download "$smoke\app\Queueify (1).exe"
+    $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "$smoke\unpack"
+    $p = Start-Process "$smoke\app\Queueify (1).exe" -PassThru
+    $alive = -not $p.WaitForExit(15000)
+    if ($alive) { $p.Kill(); $p.WaitForExit(10000) | Out-Null }
+    $crash = "$smoke\app\Data\crash.log"
+    if (-not $alive -or (Test-Path $crash)) {
+        $why = if (Test-Path $crash) { Get-Content -Raw $crash } else { "exit code $('0x{0:X8}' -f $p.ExitCode)" }
+        throw "The downloadable exe doesn't start: $why"
+    }
+}
+finally {
+    Remove-Item Env:DOTNET_BUNDLE_EXTRACT_BASE_DIR -ErrorAction SilentlyContinue
+    Remove-Item $smoke -Recurse -Force -ErrorAction SilentlyContinue
+}
+"Built $download ($mb MB); it starts under another name"
