@@ -38,11 +38,13 @@ try {
     Copy-Item $download "$smoke\app\Queueify (1).exe"
     $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "$smoke\unpack"
     $p = Start-Process "$smoke\app\Queueify (1).exe" -PassThru
-    $alive = -not $p.WaitForExit(15000)
-    if ($alive) { $p.Kill(); $p.WaitForExit(10000) | Out-Null }
+    # Up means a window: a crash before .NET starts writes no crash log and may linger in error reporting.
+    for ($i = 0; $i -lt 30 -and -not $p.HasExited -and $p.MainWindowHandle -eq 0; $i++) { Start-Sleep -Milliseconds 500; $p.Refresh() }
+    $alive = -not $p.HasExited -and $p.MainWindowHandle -ne 0
+    if (-not $p.HasExited) { $p.Kill(); $p.WaitForExit(10000) | Out-Null }
     $crash = "$smoke\app\Data\crash.log"
     if (-not $alive -or (Test-Path $crash)) {
-        $why = if (Test-Path $crash) { Get-Content -Raw $crash } else { "exit code $('0x{0:X8}' -f $p.ExitCode)" }
+        $why = if (Test-Path $crash) { Get-Content -Raw $crash } elseif ($p.HasExited) { "exit code $('0x{0:X8}' -f $p.ExitCode)" } else { 'no window after 15 s' }
         throw "The downloadable exe doesn't start: $why"
     }
 }

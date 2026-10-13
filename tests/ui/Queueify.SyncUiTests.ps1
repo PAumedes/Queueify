@@ -36,7 +36,7 @@ $backup = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-backup-"
 New-Item -ItemType Directory -Force $backup | Out-Null
 # Only the copy under test is stopped; a Queueify running from another folder is left alone.
 function Stop-TestApp {
-    Get-Process Queueify -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
+    Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
         ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
 }
 Stop-TestApp

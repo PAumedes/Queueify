@@ -33,7 +33,7 @@ function Stop-App {
 
 # Only the copy under test is stopped; a Queueify running from another folder is left alone.
 function Stop-TestApp {
-    Get-Process Queueify -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
+    Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
         ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
 }
 
@@ -276,7 +276,7 @@ Check ($null -ne $restart) 'choosing a language offers a restart'
 $oldId = $script:proc.Id
 Invoke $restart
 for ($i = 0; $i -lt 40; $i++) {
-    $next = Get-Process Queueify -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe -and $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
+    $next = Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe -and $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
     if ($next) { break }
     Start-Sleep -Milliseconds 500
 }

@@ -34,6 +34,10 @@ the About section shows it.
 If the security rules (`tools/firestore.rules`) changed, say in the release notes that users must copy
 and publish them again (Sync → Copy security rules).
 
+For **1.2.0**, the first release as a single exe, put this at the top of the published notes (`gh release edit v1.2.0 --notes-file ...`):
+> Coming from 1.1.0? Don't put the new exe in the old folder; it won't start there. Make a new folder for
+> it and move your old `Data` folder next to it.
+
 ## Self-check of the download
 
 `tools\package.ps1` already fails when the build is more than `Queueify.exe` or over its size budget
