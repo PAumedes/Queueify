@@ -38,6 +38,14 @@ public class OcrLanguagesTests
         Assert.Contains(installable, o => o.Tag == "pt-BR");
     }
 
+    [Theory]
+    [InlineData("es-ES", "español (España)")]   // mid-sentence, Spanish writes language names in lowercase
+    [InlineData("en-US", "English (United States)")]
+    public void NameInSentence_KeepsEachLanguagesOwnCapitalization(string tag, string expected)
+    {
+        Assert.Equal(expected, OcrLanguages.NameInSentence(tag));
+    }
+
     [Fact]
     public void Names_AreReadableInTheirOwnLanguage()
     {

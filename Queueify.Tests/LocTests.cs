@@ -115,10 +115,27 @@ public partial class LocTests
         {
             var text = File.ReadAllText(Path.Combine(RepoRoot(), "Queueify.Core", "Services", table));
             var keys = TableKey().Matches(text).Select(m => m.Groups[1].Value).ToList();
+            Assert.Equal(Loc.English.Count, keys.Count);   // the scan really saw the whole table
             Assert.Empty(keys.GroupBy(k => k).Where(g => g.Count() > 1).Select(g => $"{table}: {g.Key}"));
         }
     }
 
+    [Fact]
+    public void BadgeNames_HaveTheirSingular()
+    {
+        // SetBadge adds ".one" for a count of 1 ("Escuchados, 1 escuchado").
+        var badges = Loc.English.Keys.Where(k => k.StartsWith("badge.") && !k.EndsWith(".one")).ToList();
+        Assert.NotEmpty(badges);
+        Assert.All(badges, k => Assert.True(Loc.English.ContainsKey(k + ".one") && Loc.Spanish.ContainsKey(k + ".one"), k));
+    }
+
+    [Fact]
+    public void KeyScan_SeesKeysPassedAlong()
+    {
+        var seen = SourceFiles(".cs").SelectMany(f => KeyLike().Matches(File.ReadAllText(f)).Select(m => m.Groups[1].Value)).ToHashSet();
+        Assert.Contains("badge.waiting", seen);
+        Assert.Contains("toast.moved_back", seen);
+    }
     private static Queueify.Models.BacklogItem Rated(double rating) =>
         new() { Album = "x", AddedAt = DateTime.Now.AddDays(-30), ListenedAt = DateTime.Now, Rating = rating };
 

@@ -37,6 +37,22 @@ public static class OcrLanguages
     }
 
     /// <summary>Offered languages not installed yet; ones waiting for a restart count as installed.</summary>
+    /// <summary>
+    /// The name as written inside a sentence: each language's own capitalization ("español (España)",
+    /// "English (United States)").
+    /// </summary>
+    public static string NameInSentence(string tag)
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo(tag).NativeName is { Length: > 0 } name ? name : tag;
+        }
+        catch (CultureNotFoundException)
+        {
+            return tag;
+        }
+    }
+
     public static IReadOnlyList<OcrLanguageOption> Installable(IEnumerable<string> installed, IEnumerable<string>? pendingRestart = null)
     {
         var have = installed.Concat(pendingRestart ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);

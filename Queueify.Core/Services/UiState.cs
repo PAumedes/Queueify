@@ -56,9 +56,9 @@ public sealed class UiState
             if (File.Exists(path))
                 return JsonSerializer.Deserialize<UiState>(File.ReadAllText(path)) ?? new UiState();
         }
-        catch (Exception ex) when (ex is JsonException or IOException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            // Fall back to defaults; layout preferences aren't worth an error message.
+            // Fall back to defaults: a damaged or locked file shouldn't stop the app from opening.
         }
         return new UiState();
     }
@@ -78,7 +78,7 @@ public sealed class UiState
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Same as above: losing a layout preference is harmless. Don't leave the copy behind.
+            // Not worth an error message: the next save tries again. Don't leave the copy behind.
             try { if (temp != null) File.Delete(temp); } catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
         }
     }

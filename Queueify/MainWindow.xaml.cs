@@ -958,7 +958,7 @@ public sealed partial class MainWindow : Window
         if (OcrService.PendingRestartTags.FirstOrDefault(t => t.StartsWith("es", StringComparison.OrdinalIgnoreCase)) is string pending)
         {
             ShowPhotoOcrOffer(InfoBarSeverity.Informational,
-                Loc.F("ocr.installed_restart_app", OcrLanguages.NameOf(pending)), OcrOffer.Restart | OcrOffer.Dismiss);
+                Loc.F("ocr.installed_restart_app", OcrLanguages.NameInSentence(pending)), OcrOffer.Restart | OcrOffer.Dismiss);
             return;
         }
         ShowPhotoOcrOffer(InfoBarSeverity.Warning,
@@ -1017,7 +1017,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async Task InstallOcrLanguageAsync(string tag, Action<InfoBarSeverity, string, OcrOffer> report)
     {
-        var name = OcrLanguages.NameOf(tag);
+        var name = OcrLanguages.NameInSentence(tag);
         OcrInstallOutcome outcome;
         try
         {
