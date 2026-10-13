@@ -335,7 +335,11 @@
                             </InfoBar.ActionButton>
                         </InfoBar>
 
-                        <TextBox x:Name="SourceBox" Grid.Row="2" Header="{l:Tr Key=pane.magazine}" MaxLength="200"
+                        <TextBox x:Name="SearchBox" Grid.Row="2" Header="{l:Tr Key=pane.search}" MaxLength="300"
+                                 PlaceholderText="{l:Tr Key=pane.search.placeholder}"
+                                 TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
+
+                        <TextBox x:Name="SourceBox" Grid.Row="3" Header="{l:Tr Key=pane.magazine}" MaxLength="200"
                                  PlaceholderText="{l:Tr Key=pane.magazine.placeholder}">
                             <TextBox.Description>
                                 <TextBlock Text="{l:Tr Key=pane.magazine.help}"
@@ -343,10 +347,6 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </TextBox.Description>
                         </TextBox>
-
-                        <TextBox x:Name="SearchBox" Grid.Row="3" Header="{l:Tr Key=pane.search}" MaxLength="300"
-                                 PlaceholderText="{l:Tr Key=pane.search.placeholder}"
-                                 TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
 
                         <StackPanel Grid.Row="4" Spacing="4">
                             <ProgressBar x:Name="SearchProgress" IsIndeterminate="True" Visibility="Collapsed" />

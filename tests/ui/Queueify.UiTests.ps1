@@ -124,12 +124,15 @@ Check ($null -ne (FindId 'PageTitle') -and (FindId 'PageTitle').Current.Name -eq
 Check ((FindId 'PageSummary').Current.Name -like 'Nothing waiting*') "page summary: $((FindId 'PageSummary').Current.Name)"
 
 # ── Add albums panel: both fields titled alike, the magazine field explains itself ──
-$magazineTitle = Find 'Magazine' 'Text'
+$magazineTitle = Find 'Magazine (optional)' 'Text'
 $searchTitle = Find 'Find an album' 'Text'
 Check ($null -ne $magazineTitle -and $null -ne $searchTitle -and
        $magazineTitle.Current.BoundingRectangle.Height -eq $searchTitle.Current.BoundingRectangle.Height) `
     "field titles have the same size ($($magazineTitle.Current.BoundingRectangle.Height) vs $($searchTitle.Current.BoundingRectangle.Height))"
-Check ($null -ne (Find 'Optional. Saved with every album*' 'Text')) 'the magazine field says what it is for'
+Check ($null -ne (Find 'Saved with every album*' 'Text')) 'the magazine field says what it is for'
+Check ($null -ne $magazineTitle -and $null -ne $searchTitle -and
+       $searchTitle.Current.BoundingRectangle.Top -lt $magazineTitle.Current.BoundingRectangle.Top) `
+    'the search comes first; the optional magazine field is below it'
 
 # ── Every button says what it does ──
 $unnamed = All | Where-Object {
@@ -163,7 +166,7 @@ Start-Sleep 1
 Check ($null -ne (Find 'Clics Modernos' 'Text')) 'cover view shows the album'
 Invoke (Find 'Hide this panel*' 'Button')
 $rail = Find 'Show the Add albums panel*' 'Button'
-Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Magazine' 'Edit') -and $null -ne $rail) `
+Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Magazine*' 'Edit') -and $null -ne $rail) `
     'add panel hides and a rail offers it back'
 # The way back sits where the panel was (left of the page), not somewhere else on the screen.
 Check ($null -ne $rail -and $rail.Current.BoundingRectangle.Right -lt (FindId 'PageTitle').Current.BoundingRectangle.Left) `
