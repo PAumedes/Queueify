@@ -16,7 +16,7 @@ syncing through the user's own Firestore. English and Rioplatense Spanish. GPL-3
 $env:DOTNET_ROOT = "$env:LOCALAPPDATA\Microsoft\dotnet"   # if the SDK isn't on PATH
 dotnet test --project Queueify.Tests                      # unit tests, the TDD loop
 tools\firestore-emulator.ps1 -Background; $env:QUEUEIFY_FIRESTORE_EMULATOR = '127.0.0.1:8080'
-tools\package.ps1                                         # dist\Queueify + zip
+tools\package.ps1                                         # dist\Queueify\Queueify.exe + versioned copy
 powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe dist\Queueify\Queueify.exe
 tools\release.ps1 -Preview                                # next changelog
 ```

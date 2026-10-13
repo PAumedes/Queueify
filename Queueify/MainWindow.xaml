@@ -88,7 +88,7 @@
                     <Border Width="56" Height="56" CornerRadius="6" Background="{ThemeResource ControlAltFillColorSecondaryBrush}">
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="22" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                            <Image Source="{Binding CoverUrl}" Stretch="UniformToFill" />
+                            <Image Source="{x:Bind l:Covers.From(CoverUrl)}" Stretch="UniformToFill" />
                         </Grid>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
@@ -148,7 +148,7 @@
                             Background="{ThemeResource ControlAltFillColorSecondaryBrush}">
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="22" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                            <Image Source="{Binding CoverUrl}" Stretch="UniformToFill" />
+                            <Image Source="{x:Bind l:Covers.From(CoverUrl), Mode=OneWay}" Stretch="UniformToFill" />
                         </Grid>
                     </Border>
                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
@@ -193,7 +193,7 @@
                     <Border CornerRadius="8" Background="{ThemeResource ControlAltFillColorSecondaryBrush}">
                         <Grid>
                             <FontIcon Glyph="&#xE8D6;" FontSize="22" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                            <Image Source="{Binding CoverUrl}" Stretch="UniformToFill" />
+                            <Image Source="{x:Bind l:Covers.From(CoverUrl), Mode=OneWay}" Stretch="UniformToFill" />
                         </Grid>
                     </Border>
                     <Grid Margin="8" VerticalAlignment="Top" HorizontalAlignment="Left">
@@ -335,7 +335,18 @@
                             </InfoBar.ActionButton>
                         </InfoBar>
 
-                        <TextBox x:Name="SourceBox" Grid.Row="2" Header="{l:Tr Key=pane.magazine}" MaxLength="200"
+                        <TextBox x:Name="SearchBox" Grid.Row="2" Header="{l:Tr Key=pane.search}" MaxLength="300"
+                                 PlaceholderText="{l:Tr Key=pane.search.placeholder}"
+                                 TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
+
+                        <StackPanel Grid.Row="3" Spacing="4">
+                            <ProgressBar x:Name="SearchProgress" IsIndeterminate="True" Visibility="Collapsed" />
+                            <TextBlock x:Name="SearchStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <HyperlinkButton x:Name="AddWithoutLink" Visibility="Collapsed" Click="OnAddWithoutLink" Padding="0,2" />
+                        </StackPanel>
+
+                        <TextBox x:Name="SourceBox" Grid.Row="4" Header="{l:Tr Key=pane.magazine}" MaxLength="200"
                                  PlaceholderText="{l:Tr Key=pane.magazine.placeholder}">
                             <TextBox.Description>
                                 <TextBlock Text="{l:Tr Key=pane.magazine.help}"
@@ -343,17 +354,6 @@
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </TextBox.Description>
                         </TextBox>
-
-                        <TextBox x:Name="SearchBox" Grid.Row="3" Header="{l:Tr Key=pane.search}" MaxLength="300"
-                                 PlaceholderText="{l:Tr Key=pane.search.placeholder}"
-                                 TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
-
-                        <StackPanel Grid.Row="4" Spacing="4">
-                            <ProgressBar x:Name="SearchProgress" IsIndeterminate="True" Visibility="Collapsed" />
-                            <TextBlock x:Name="SearchStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <HyperlinkButton x:Name="AddWithoutLink" Visibility="Collapsed" Click="OnAddWithoutLink" Padding="0,2" />
-                        </StackPanel>
 
                         <ListView x:Name="ResultsList" Grid.Row="5" ItemTemplate="{StaticResource ResultTemplate}"
                                   SelectionMode="Single" Margin="-8,0" />

@@ -44,13 +44,14 @@ flowchart LR
 | `CloudSync` | Firestore REST: uploads dirty rows, downloads rows newer than the last server time, shared settings. |
 | `OcrService`, `OcrLanguages` | Windows OCR on a photo; which language reads it; installing languages (elevated, allow-listed). |
 | `Loc`, `Strings.En/Es` | All texts, the app language and the formats that go with it. |
-| `AppData`, `UiState` | `Data\settings.json` (synced settings, keys) and `Data\ui.json` (per-PC layout, theme, language). |
+| `AppData`, `UiState` | Where the data folder is; `settings.json` (synced settings, keys) and `ui.json` (per-PC layout, theme, language). |
 | `Countries` | The countries where both services work, named in the app language. |
 
 ## Data
 
-Everything lives in `Data\` next to `Queueify.exe`: `queueify.db`, `settings.json`, `ui.json` and, after a
-crash, `crash.log`. Copying the folder copies the queue, the keys and the sync connection.
+Everything lives in `%LOCALAPPDATA%\Queueify`: `queueify.db`, `settings.json`, `ui.json` and, after a crash,
+`crash.log`. A `Data` folder next to the exe takes its place when it exists (portable mode, and how 1.1.0
+kept it). Copying the folder copies the queue, the keys and the sync connection.
 
 Sync: each PC keeps its own database. Online, a queue is `queues/{key}` in the user's Firestore, where the
 40-hex-character key is the capability (the sync code is `queueify:{project}:{key}`). See

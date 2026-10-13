@@ -2,7 +2,9 @@
 #
 #   powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe <path to Queueify.exe>
 #
-# Starts the app with an empty Data folder, so it behaves like a first run (no API keys, no sync).
+# Starts the app in portable mode with an empty Data folder next to the exe, so it behaves like a first run
+# (no API keys, no sync). Data files already there are put back afterwards, and a Data folder the tests
+# created is removed. The default mode (data in %LOCALAPPDATA%\Queueify) is checked by tools\package.ps1.
 # Prints PASS/FAIL per check and exits with the number of failures.
 param([Parameter(Mandatory)] [string]$Exe)
 $Exe = (Resolve-Path $Exe).Path
@@ -33,7 +35,7 @@ function Stop-App {
 
 # Only the copy under test is stopped; a Queueify running from another folder is left alone.
 function Stop-TestApp {
-    Get-Process Queueify -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
+    Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
         ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
 }
 
@@ -54,7 +56,9 @@ function Keys([string]$keys) {
 
 # Fresh start: the Data files next to the exe are moved to a backup folder first and put back at
 # the end, so running the tests against a real copy never loses a queue, keys or sync settings.
+# A Data folder left behind would switch that copy to portable mode, away from its real queue.
 $data = Join-Path (Split-Path $Exe) 'Data'
+$hadData = Test-Path $data
 $files = 'queueify.db', 'settings.json', 'ui.json', 'crash.log'
 $backup = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-backup-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $backup | Out-Null
@@ -77,6 +81,7 @@ function Restore-Data {
         }
     }
     if ($allBack) { Remove-Item $backup -Recurse -ErrorAction SilentlyContinue }
+    if (-not $hadData -and (Test-Path $data) -and -not (Get-ChildItem $data -Force)) { Remove-Item $data }
 }
 
 # Whatever happens below (a failed step, Ctrl+C), the app is closed and the real data put back.
@@ -96,6 +101,8 @@ Set-FirstRun
 Start-App
 Check ($null -ne (Find '*1 of 4*')) 'quick tour starts on a first run'
 Stop-App
+# The single-file app runs from a copy unpacked elsewhere; in portable mode its data must still land next to the exe.
+Check ((Get-Content -Raw (Join-Path $data 'ui.json')) -match '"TourSeen":\s*true') 'layout is saved in the Data folder next to Queueify.exe'
 Start-App
 Check ($null -eq (Find '*of 4*')) 'quick tour does not come back after closing the app mid-tour'
 Stop-App
@@ -122,12 +129,15 @@ Check ($null -ne (FindId 'PageTitle') -and (FindId 'PageTitle').Current.Name -eq
 Check ((FindId 'PageSummary').Current.Name -like 'Nothing waiting*') "page summary: $((FindId 'PageSummary').Current.Name)"
 
 # ── Add albums panel: both fields titled alike, the magazine field explains itself ──
-$magazineTitle = Find 'Magazine' 'Text'
+$magazineTitle = Find 'Magazine (optional)' 'Text'
 $searchTitle = Find 'Find an album' 'Text'
 Check ($null -ne $magazineTitle -and $null -ne $searchTitle -and
        $magazineTitle.Current.BoundingRectangle.Height -eq $searchTitle.Current.BoundingRectangle.Height) `
     "field titles have the same size ($($magazineTitle.Current.BoundingRectangle.Height) vs $($searchTitle.Current.BoundingRectangle.Height))"
-Check ($null -ne (Find 'Optional. Saved with every album*' 'Text')) 'the magazine field says what it is for'
+Check ($null -ne (Find 'Saved with every album*' 'Text')) 'the magazine field says what it is for'
+Check ($null -ne $magazineTitle -and $null -ne $searchTitle -and
+       $searchTitle.Current.BoundingRectangle.Top -lt $magazineTitle.Current.BoundingRectangle.Top) `
+    'the search comes first; the optional magazine field is below it'
 
 # ── Every button says what it does ──
 $unnamed = All | Where-Object {
@@ -141,6 +151,10 @@ SetText (Find 'Find an album' 'Edit') 'Charly Garcia - Clics Modernos 1983'
 Start-Sleep 2
 $addLink = Find 'Add *without a link' 'Hyperlink'
 Check ($null -ne $addLink) 'offers to add without a link when no service is connected'
+$magazineBox = Find 'Magazine (optional)' 'Edit'
+Check ($null -ne $addLink -and $null -ne $magazineBox -and
+       $addLink.Current.BoundingRectangle.Bottom -le $magazineBox.Current.BoundingRectangle.Top) `
+    'what the search found shows right under it, above the magazine field'
 Invoke $addLink
 Check ((Find 'To listen*' 'ListItem').Current.Name -like '*1*') "badge counts 1 album: $((Find 'To listen*' 'ListItem').Current.Name)"
 Check ($null -ne (Find 'Clics Modernos' 'Text')) 'album shows in the queue'
@@ -161,7 +175,7 @@ Start-Sleep 1
 Check ($null -ne (Find 'Clics Modernos' 'Text')) 'cover view shows the album'
 Invoke (Find 'Hide this panel*' 'Button')
 $rail = Find 'Show the Add albums panel*' 'Button'
-Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Magazine' 'Edit') -and $null -ne $rail) `
+Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Magazine*' 'Edit') -and $null -ne $rail) `
     'add panel hides and a rail offers it back'
 # The way back sits where the panel was (left of the page), not somewhere else on the screen.
 Check ($null -ne $rail -and $rail.Current.BoundingRectangle.Right -lt (FindId 'PageTitle').Current.BoundingRectangle.Left) `
@@ -274,7 +288,7 @@ Check ($null -ne $restart) 'choosing a language offers a restart'
 $oldId = $script:proc.Id
 Invoke $restart
 for ($i = 0; $i -lt 40; $i++) {
-    $next = Get-Process Queueify -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe -and $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
+    $next = Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe -and $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
     if ($next) { break }
     Start-Sleep -Milliseconds 500
 }

@@ -5,7 +5,7 @@
 
 ## Context
 
-Each release needs a version, a changelog and a downloadable zip. Hand-written changelogs drift and
+Each release needs a version, a changelog and a downloadable exe. Hand-written changelogs drift and
 conflict between branches. Commits already follow Conventional Commits, enforced by the `commit-msg` hook.
 The approach comes from [incus-monitor](https://github.com/PAumedes/incus-monitor).
 
@@ -15,7 +15,7 @@ The approach comes from [incus-monitor](https://github.com/PAumedes/incus-monito
 (breaking changes first; chores, style changes and reverts under Other), writes a new section in `CHANGELOG.md`, sets the version in both projects,
 commits `chore(release): vX.Y.Z` and tags it locally. The version bump comes from the commits (breaking →
 major, `feat` → minor, anything else → patch) unless given. The maintainer reviews and pushes; the tag runs
-the release workflow, which builds the zip and publishes the GitHub release with the notes taken from
+the release workflow, which builds the exe and publishes the GitHub release with the notes taken from
 `CHANGELOG.md`.
 
 ## Consequences

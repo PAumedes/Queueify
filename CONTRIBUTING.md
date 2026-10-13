@@ -16,7 +16,7 @@ Thanks for helping. Queueify aims for a small, correct and boring codebase. Read
 | --- | --- |
 | `dotnet test --project Queueify.Tests` | Unit tests (the TDD loop) |
 | `tools\firestore-emulator.ps1 -Background` then `$env:QUEUEIFY_FIRESTORE_EMULATOR = '127.0.0.1:8080'` | Runs the sync tests too instead of skipping them |
-| `tools\package.ps1` | Builds the portable app into `dist\Queueify` and zips it |
+| `tools\package.ps1` | Builds the portable app: one trimmed `dist\Queueify\Queueify.exe`, plus a versioned copy for the release |
 | `tests\ui\Queueify.UiTests.ps1 -Exe dist\Queueify\Queueify.exe` | UI tests through Windows UI Automation |
 | `tests\ui\Queueify.SyncUiTests.ps1 -Exe dist\Queueify\Queueify.exe` | Sync UI test (needs the emulator) |
 | `tests\tools\Release.Tests.ps1` | Tests for the release tool |

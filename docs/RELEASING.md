@@ -5,7 +5,7 @@ Decision: [ADR-0006](adr/0006-release-from-conventional-commits.md).
 ## What a release is
 
 A tag `vX.Y.Z` on `main`. Pushing it runs `.github/workflows/release.yml`, which tests, builds
-`Queueify-X.Y.Z-win-x64.zip` (`tools\package.ps1`) and creates the GitHub release with the notes from
+`Queueify-X.Y.Z-win-x64.exe` (`tools\package.ps1`) and creates the GitHub release with the notes from
 `CHANGELOG.md`. Tags with a suffix (`v1.2.0-rc.1`) become pre-releases.
 
 ## Versions
@@ -29,13 +29,21 @@ the About section shows it.
    version, commits `chore(release): vX.Y.Z` and creates the tag, locally. It never pushes.
 4. Check with `git show vX.Y.Z`, then `git push origin main vX.Y.Z`. Only the maintainer can push to `main`
    directly (the branch rule lets admins bypass it), so the release commit and its tag arrive together.
-5. The release workflow publishes the zip. Download it once and run it on a clean folder.
+5. The release workflow publishes the exe. Download it once and run it from an empty folder.
 
 If the security rules (`tools/firestore.rules`) changed, say in the release notes that users must copy
 and publish them again (Sync → Copy security rules).
 
-## Self-check of the zip
+For **1.2.0**, the first release as a single exe, put this at the top of the published notes (`gh release edit v1.2.0 --notes-file ...`):
+> Coming from 1.1.0? Don't put the new exe in the old folder; it won't start there. Move what's inside your
+> old `Data` folder into `%LOCALAPPDATA%\Queueify` (or keep a `Data` folder next to the new exe), then delete
+> the old folder.
 
-- Contains a single `Queueify` folder with `Queueify.exe`, `Queueify.pri`, the `.xbf` files and `Assets`.
-- No `Data` folder: a download starts empty.
+## Self-check of the download
+
+`tools\package.ps1` already fails when the build is more than `Queueify.exe` or over its size budget
+([ADR-0007](adr/0007-single-trimmed-exe.md)). By hand:
+
+- Run it from an empty folder: it starts and keeps its data in `%LOCALAPPDATA%\Queueify`, not next to itself (`package.ps1` checks this too).
 - Runs on a PC without the .NET or Windows App SDK runtimes installed (it's self-contained).
+- Album covers show in the queue and in search results (they're the part trimming could break).

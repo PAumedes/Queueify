@@ -21,7 +21,7 @@ labels: bug
 
 ## Crash log
 
-If Queueify closed by itself, paste `Data\crash.log` (next to `Queueify.exe`). Remove anything private.
+If Queueify closed by itself, paste `crash.log` from the data folder (Help → *Open data folder*, or `%LOCALAPPDATA%\Queueify`). Remove anything private.
 
 ```text
 

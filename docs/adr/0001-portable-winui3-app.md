@@ -1,6 +1,6 @@
 # ADR-0001: A portable, unpackaged WinUI 3 app
 
-- Status: Accepted
+- Status: Accepted (packaging and where the data lives: see ADR-0007)
 - Date: 2026-10-11
 
 ## Context
@@ -17,9 +17,11 @@ the keys and the sync connection.
 
 ## Consequences
 
-- No installer, no admin rights, no runtime to install; a release is a zip.
-- The zip is large (~90 MB), and the app isn't signed, so SmartScreen warns on first run.
-- Unpackaged publishing misses the app's own `.xbf` and `.pri` files; a target in the project copies them.
+- No installer, no admin rights, no runtime to install. A release was a ~90 MB zip; since ADR-0007 it is
+  one ~35 MB exe.
+- The app isn't signed, so SmartScreen warns on first run.
+- Unpackaged publishing misses the app's own `.xbf` and `.pri` files (since ADR-0007, `EnableMsixTooling`
+  includes them).
 - Features that need package identity (some notifications, the Store) are out of reach.
 
 ## Alternatives considered
