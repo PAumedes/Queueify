@@ -45,6 +45,7 @@ Check ($notes -match 'turn Settings into a page' -and $notes -notmatch 'first' -
 # ── Inserting into the changelog and the project files ──
 $updated = Add-ChangelogSection -Changelog $changelog -Section "## [1.2.0] - 2026-11-01`n`n### Fixes`n`n- x`n"
 Check ($updated.IndexOf('## [1.2.0]') -lt $updated.IndexOf('## [1.1.0]') -and $updated.StartsWith("# Changelog`n`nIntro.")) 'a new section goes above the previous one, below the intro'
+Check (-not $updated.Contains("`n`n`n")) 'one blank line between sections'
 $csproj = "<Project>`n  <PropertyGroup>`n    <Version>1.0.0</Version>`n  </PropertyGroup>`n</Project>"
 Check ((Set-ProjectVersion -Project $csproj -Version '1.1.0') -match '<Version>1\.1\.0</Version>') 'the project version is replaced'
 
@@ -54,6 +55,7 @@ Check ((Get-NextVersion '1.2.0-rc.1' @('feat: a')) -eq '1.2.0') 'even with featu
 Check ((Select-LastTag @('v1.0.0', 'v3.0.0-rc.1', 'v3.0.0', 'v2.5.1')) -eq 'v3.0.0') 'the final tag beats its own pre-release'
 Check ((Select-LastTag @('v1.0.0', 'v1.1.0-rc.2', 'v1.1.0-rc.10')) -eq 'v1.1.0-rc.10') 'pre-releases compare by number'
 Check ($null -eq (Select-LastTag @())) 'no tags yet'
+Check ((Select-LastTag @('v1.0.0', 'v1.1.0-rc.1') -FinalOnly) -eq 'v1.0.0') 'a final release looks back to the last final release'
 
 # ── Breaking-change footers, exactly as the spec writes them ──
 Check ((Get-NextVersion '1.0.0' @('fix: a') 'BREAKING-CHANGE: y') -eq '2.0.0') 'BREAKING-CHANGE: (with a hyphen) bumps the major'
@@ -78,6 +80,9 @@ $repo = Join-Path ([IO.Path]::GetTempPath()) ("queueify-release-test-" + [guid]:
 New-Item -ItemType Directory $repo | Out-Null
 $before = [Console]::OutputEncoding
 Push-Location $repo
+# The developer's own git settings (signing, hooks) mustn't change what this scratch repository does.
+$globalBefore = $env:GIT_CONFIG_GLOBAL
+$env:GIT_CONFIG_GLOBAL = 'NUL'
 try {
     git init -q -b main; git config user.email t@example.com; git config user.name Test
     git commit -q --allow-empty -m 'chore: start'; git tag v1.0.0
@@ -88,9 +93,16 @@ try {
     Check ($read.Count -eq 2) "reads only the commits since the last tag ($($read.Count))"
     Check (($read.Subject -contains 'fix(i18n): show año … right')) "accents survive an OEM console: $($read.Subject -join ' | ')"
     Check (($read | Where-Object Subject -like 'fix*').Body -match 'Body line one') 'bodies are read too'
+
+    # A pre-release, a fix, then the final release: its notes cover everything since 1.0.0.
+    git tag v1.1.0-rc.1
+    git commit -q --allow-empty -m 'fix: after the rc'
+    Check (@(Get-CommitsSinceLastTag).Count -eq 1) 'a pre-release sees what came after the previous pre-release'
+    Check (@(Get-CommitsSinceLastTag -FinalOnly).Count -eq 3) 'the final release sees everything since the last final release'
 }
 finally {
     [Console]::OutputEncoding = $before
+    $env:GIT_CONFIG_GLOBAL = $globalBefore
     Pop-Location
     Remove-Item $repo -Recurse -Force -ErrorAction SilentlyContinue
 }

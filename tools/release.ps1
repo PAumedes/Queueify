@@ -73,14 +73,14 @@ function Get-ChangelogSection([string]$Version, [string]$Date, $Commits) {
         $lines += $inGroup.Line
         $lines += ''
     }
-    ($lines -join "`n") + "`n"
+    ($lines -join "`n").TrimEnd() + "`n"
 }
 
 <# The new section goes above the newest released one, below the file's introduction. #>
 function Add-ChangelogSection([string]$Changelog, [string]$Section) {
     $at = $Changelog.IndexOf("`n## [")
     if ($at -lt 0) { return $Changelog.TrimEnd() + "`n`n" + $Section }
-    $Changelog.Substring(0, $at + 1) + $Section + "`n" + $Changelog.Substring($at + 1)
+    $Changelog.Substring(0, $at + 1) + $Section.TrimEnd() + "`n`n" + $Changelog.Substring($at + 1)
 }
 
 <# A version's section without its heading: the GitHub release notes. #>
@@ -98,10 +98,15 @@ function Set-ProjectVersion([string]$Project, [string]$Version) {
 <# A version given by hand: X.Y.Z or X.Y.Z-suffix, without the v (the tag adds it). #>
 function Test-ReleaseVersion([string]$Version) { $Version -match '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$' }
 
-<# The newest release tag: by version number, and a final release beats its own pre-releases. #>
-function Select-LastTag([string[]]$Tags) {
+<#
+    The newest release tag: by version number, and a final release beats its own pre-releases.
+    -FinalOnly skips pre-releases: a final release's notes cover everything since the last final one.
+    Pre-releases are expected as -rc.N and compare by N.
+#>
+function Select-LastTag([string[]]$Tags, [switch]$FinalOnly) {
     $parsed = foreach ($tag in $Tags) {
         if ($tag -notmatch '^v(\d+)\.(\d+)\.(\d+)(-(.+))?$') { continue }
+        if ($FinalOnly -and $Matches[5]) { continue }
         $key = [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])"
         $pre = $Matches[5]
         $preNumber = if ($pre -match '(\d+)$') { [int]$Matches[1] } else { 0 }
@@ -115,22 +120,30 @@ function Select-LastTag([string[]]$Tags) {
     ($parsed | Sort-Object Key, Final, Pre | Select-Object -Last 1).Tag
 }
 
-<# git's output is UTF-8; an old console code page (850, 437) would garble accents in subjects. #>
+<#
+    Runs git and reads its output as UTF-8 directly, not through the console: an old console code page
+    (850, 437) or the way PowerShell decodes native output would garble accents in commit subjects.
+#>
 function Invoke-Git {
-    $before = [Console]::OutputEncoding
-    [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
-    try {
-        $out = & git -c i18n.logOutputEncoding=UTF-8 @args
-        if ($LASTEXITCODE -ne 0) { throw "git $args failed" }
-        $out
-    }
-    finally {
-        [Console]::OutputEncoding = $before
-    }
+    $start = New-Object System.Diagnostics.ProcessStartInfo 'git'
+    $start.Arguments = (@('-c', 'i18n.logOutputEncoding=UTF-8') + $args | ForEach-Object {
+        $arg = [string]$_
+        if ($arg -match '[\s"]' -or $arg -eq '') { '"' + $arg.Replace('"', '\"') + '"' } else { $arg }
+    }) -join ' '
+    $start.WorkingDirectory = (Get-Location).ProviderPath   # PowerShell's location, not the process's
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.StandardOutputEncoding = New-Object Text.UTF8Encoding $false
+    $process = [System.Diagnostics.Process]::Start($start)
+    $errors = $process.StandardError.ReadToEndAsync()
+    $output = $process.StandardOutput.ReadToEnd()
+    $process.WaitForExit()
+    if ($process.ExitCode -ne 0) { throw "git $args failed: $($errors.Result.Trim())" }
+    if ($output.Length -gt 0) { $output.TrimEnd("`n").Split("`n") }
 }
-
-function Get-CommitsSinceLastTag {
-    $last = Select-LastTag @(Invoke-Git tag --list 'v*' --merged HEAD)
+function Get-CommitsSinceLastTag([switch]$FinalOnly) {
+    $last = Select-LastTag @(Invoke-Git tag --list 'v*' --merged HEAD) -FinalOnly:$FinalOnly
     $range = if ($last) { "$last..HEAD" } else { 'HEAD' }
     $raw = Invoke-Git log $range --no-merges --format='%h%x1f%s%x1f%b%x1e'
     foreach ($record in (($raw -join "`n") -split [char]0x1e)) {
@@ -155,10 +168,15 @@ if ($commits.Count -eq 0) { throw 'Nothing to release: no commits since the last
 $current = ([regex]::Match([IO.File]::ReadAllText($Projects[0]), '<Version>([^<]+)</Version>')).Groups[1].Value
 if (-not $Version) { $Version = Get-NextVersion $current $commits.Subject ($commits.Body -join "`n") }
 if (-not (Test-ReleaseVersion $Version)) { throw "Not a version: $Version. Use X.Y.Z or X.Y.Z-rc.N, without the v." }
+# A final release lists everything since the last final release, its pre-releases included.
+if ($Version -notmatch '-') { $commits = @(Get-CommitsSinceLastTag -FinalOnly) }
 $section = Get-ChangelogSection -Version $Version -Date (Get-Date -Format 'yyyy-MM-dd') -Commits $commits
 
 if ($Preview) {
     "Current version: $current  →  next: $Version`n"
+    if ($current -match '-' -and ($commits | Where-Object { $_.Subject -match '^feat|!:' -or $_.Body -cmatch $BreakingFooter })) {
+        "Note: features or breaking changes came after $current; the release is still $Version unless you pass -Version.`n"
+    }
     $section
     return
 }
