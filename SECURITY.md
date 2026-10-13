@@ -21,6 +21,8 @@ Queueify runs with the user's rights on their own PC. It has no servers of its o
 | The user's Firebase quota | Someone who knows the project ID creates junk under other keys | Known limit: the rules can't stop it without Firebase Auth or App Check. Documented in the README. |
 | JSON from Spotify, Tidal, Firebase | Malformed or hostile data crashing the app | Parsed defensively; failures become user-facing errors; text sizes are clipped before upload. |
 | Elevated OCR install (`Add-WindowsCapability`) | Injection into a script that runs as administrator | Only allow-listed language tags reach it; the log path (from the user's profile) is passed Base64-encoded; tests run the script through PowerShell's parser. |
+| Cover addresses (from the services and from other PCs through sync) | A file or network path reading local files or sending the Windows login to another machine | Only `http` and `https` addresses are loaded (`CoverUrls`, tested). |
+| The folder next to `Queueify.exe` | A planted `System.Private.CoreLib.dll` or other dll there is loaded by the .NET host | The README says to keep the exe in a folder of its own, not Downloads. |
 | Clipboard | Leaking data | Written only on explicit "Copy" clicks (sync code, security rules); read only on Ctrl+V or Paste. |
 | Network | Exfiltration | Only Spotify, Tidal, the user's own Firebase project and Windows Update. No telemetry. |
 

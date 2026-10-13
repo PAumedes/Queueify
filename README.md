@@ -22,15 +22,20 @@ you've heard it, rate it, move on.
 ## Download
 
 1. Download `Queueify-<version>-win-x64.exe` (about 35 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
-2. Put it in a folder of its own (in Documents, on a USB stick…) and run it.
+2. Make a folder of its own for it (say `Documents\Queueify`, or one on a USB stick), move the exe there
+   and run it. Not straight from Downloads: Queueify keeps its `Data` folder next to the exe.
 
 Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
-warn the first time because the app isn't signed: *More info → Run anyway*. The first start takes a few
-seconds longer: the app unpacks itself into your temporary folder.
+warn the first time because the app isn't signed: *More info → Run anyway*. The first start of each
+version takes a few seconds longer: the app unpacks itself into `%TEMP%\.net` (about 70 MB, which you
+can delete when Queueify isn't running).
 
 Your queue, keys and layout live in the `Data` folder Queueify creates next to the exe. To move to a new
-version, put the new exe in the same folder and delete the old one. Coming from 1.1.0 or earlier (a zip
-with many files)? Put the new exe in a new folder and move your old `Data` folder next to it.
+version, put the new exe in the same folder and delete the old one.
+
+**Coming from 1.1.0 (a zip with many files)?** Don't put the new exe in the old folder: it won't start
+there. Make a new folder, put the new exe in it and move your old `Data` folder next to it. Then delete
+the old folder.
 
 ## First steps
 
