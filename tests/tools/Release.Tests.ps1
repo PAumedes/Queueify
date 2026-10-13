@@ -82,7 +82,9 @@ $before = [Console]::OutputEncoding
 Push-Location $repo
 # The developer's own git settings (signing, hooks) mustn't change what this scratch repository does.
 $globalBefore = $env:GIT_CONFIG_GLOBAL
+$systemBefore = $env:GIT_CONFIG_NOSYSTEM
 $env:GIT_CONFIG_GLOBAL = 'NUL'
+$env:GIT_CONFIG_NOSYSTEM = '1'
 try {
     git init -q -b main; git config user.email t@example.com; git config user.name Test
     git commit -q --allow-empty -m 'chore: start'; git tag v1.0.0
@@ -99,10 +101,37 @@ try {
     git commit -q --allow-empty -m 'fix: after the rc'
     Check (@(Get-CommitsSinceLastTag).Count -eq 1) 'a pre-release sees what came after the previous pre-release'
     Check (@(Get-CommitsSinceLastTag -FinalOnly).Count -eq 3) 'the final release sees everything since the last final release'
+
+    # The whole plan, as the script makes it: version, commits listed, and the note.
+    $plan = Get-ReleasePlan -Current '1.1.0-rc.1'
+    Check ($plan.Version -eq '1.1.0' -and $plan.Commits.Count -eq 3) "rc then a fix: final 1.1.0 with all 3 commits ($($plan.Version), $($plan.Commits.Count))"
+    Check (-not [bool]$plan.Note) 'no note when only fixes came after the rc'
+
+    git commit -q --allow-empty -m 'chore(release): v1.1.0-rc.2'; git tag v1.1.0-rc.2
+    $promote = Get-ReleasePlan -Current '1.1.0-rc.2'
+    Check ($promote.Version -eq '1.1.0' -and $promote.Commits.Count -gt 0) 'an rc with nothing new can be promoted to the final release'
+    $section = Get-ChangelogSection -Version '1.1.0' -Date '2026-10-13' -Commits $promote.Commits
+    Check ($section -notmatch 'v1\.1\.0-rc') 'release commits of pre-releases are not listed'
+
+    git commit -q --allow-empty -m 'feat: late feature'
+    Check ([bool](Get-ReleasePlan -Current '1.1.0-rc.2').Note) 'a feature after the rc is pointed out'
+    Check (-not (Get-ReleasePlan -Current '1.1.0-rc.2' -Version '1.2.0').Note) 'no note when the version is given'
+
+    # Arguments reach git exactly, backslashes and quotes included (Windows command-line rules).
+    foreach ($message in 'C:\x y\', 'back\\ slash\\', 'a\"b c', 'fix: a "quoted" path C:\dir\') {
+        Invoke-Git commit -q --allow-empty -m $message
+        $back = (Invoke-Git log -1 --format=%B) -join "`n"
+        Check ($back.Trim() -eq $message) "argument reaches git intact: $message -> $back"
+    }
+}
+catch {
+    # An error here would otherwise skip the remaining checks and still report no failures.
+    Check $false "test stopped with an error: $_"
 }
 finally {
     [Console]::OutputEncoding = $before
     $env:GIT_CONFIG_GLOBAL = $globalBefore
+    $env:GIT_CONFIG_NOSYSTEM = $systemBefore
     Pop-Location
     Remove-Item $repo -Recurse -Force -ErrorAction SilentlyContinue
 }
