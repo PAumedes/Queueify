@@ -3,6 +3,7 @@
     x:Class="Queueify.Controls.ServiceCard"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:l="using:Queueify"
     xmlns:controls="using:Queueify.Controls">
 
     <!-- One music service: logo, name and state in the header; the steps and keys inside. -->
@@ -36,11 +37,11 @@
         <StackPanel Spacing="12" Padding="4,4,4,8" MaxWidth="640" HorizontalAlignment="Left">
             <TextBlock x:Name="StepsText" TextWrapping="Wrap" />
             <HyperlinkButton x:Name="DashboardLink" Padding="0" />
-            <TextBox x:Name="ClientIdBox" Header="Client ID" />
-            <PasswordBox x:Name="ClientSecretBox" Header="Client secret" />
+            <TextBox x:Name="ClientIdBox" Header="{l:Tr Key=service.id}" />
+            <PasswordBox x:Name="ClientSecretBox" Header="{l:Tr Key=service.secret}" />
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button x:Name="SaveButton" Style="{StaticResource AccentButtonStyle}" Content="Save and test" Click="OnSave" />
-                <Button x:Name="RemoveButton" Content="Remove keys" Click="OnRemove" />
+                <Button x:Name="SaveButton" Style="{StaticResource AccentButtonStyle}" Content="{l:Tr Key=service.save}" Click="OnSave" />
+                <Button x:Name="RemoveButton" Content="{l:Tr Key=service.remove}" Click="OnRemove" />
                 <ProgressRing x:Name="Testing" IsActive="False" Width="20" Height="20" />
             </StackPanel>
             <InfoBar x:Name="Result" IsClosable="True" />

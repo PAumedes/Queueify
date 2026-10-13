@@ -184,8 +184,7 @@ public sealed partial class CloudSync(HttpClient http)
         {
             // Reading worked a moment ago, so the rules exist; most likely they are an older version.
             throw new CatalogException(
-                "Firebase refused to save some changes. If you updated Queueify, copy the new security rules " +
-                "(Sync → Copy security rules) and publish them in Firestore → Rules.");
+                Loc.T("firebase.write_refused"));
         }
         await ReadOrThrowAsync(res, ct);
     }
@@ -226,12 +225,12 @@ public sealed partial class CloudSync(HttpClient http)
         return status switch
         {
             HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized =>
-                "Firebase refused access. Check that you published Queueify's security rules in Firestore → Rules.",
+                Loc.T("firebase.refused"),
             HttpStatusCode.NotFound =>
-                "No Firestore database found in that Firebase project. Create it (Build → Firestore Database) or check the project ID.",
+                Loc.T("firebase.no_database"),
             HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable =>
-                "Firebase is busy or the free daily quota is used up. Changes are kept and will sync later.",
-            _ => $"Firebase error {(int)status}: {message}",
+                Loc.T("firebase.busy"),
+            _ => Loc.F("firebase.error", (int)status, message),
         };
     }
 
@@ -256,7 +255,7 @@ public sealed partial class CloudSync(HttpClient http)
 
     private static BacklogItem ToItem(JsonObject f) => new()
     {
-        Uid = Text(f, "uid") ?? throw new CatalogException("Firebase returned an album without an id."),
+        Uid = Text(f, "uid") ?? throw new CatalogException(Loc.T("firebase.no_id")),
         Artist = Text(f, "artist") ?? "",
         Album = Text(f, "album") ?? "",
         Year = f["year"]?["integerValue"]?.GetValue<string>() is string y

@@ -64,8 +64,8 @@ public sealed class AlbumResult
 
     public string ScoreText => Score switch
     {
-        >= 0.8 => "Best match",
-        >= 0.55 => "Possible match",
+        >= 0.8 => Services.Loc.T("result.best"),
+        >= 0.55 => Services.Loc.T("result.possible"),
         _ => "",
     };
 }

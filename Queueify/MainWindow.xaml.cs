@@ -289,7 +289,7 @@ public sealed partial class MainWindow : Window
         {
             _resultsQuery = raw;
             ShowResults([]);
-            SearchStatus.Text = "Connect Spotify or Tidal in Settings to search their catalogs.";
+            SearchStatus.Text = Loc.T("search.no_service");
             ShowAddWithoutLink(raw);
             return;
         }
@@ -301,7 +301,7 @@ public sealed partial class MainWindow : Window
         // While searching, the old results can't be added with Enter (they belong to another query).
         _resultsQuery = null;
         SearchProgress.Visibility = Visibility.Visible;
-        SearchStatus.Text = "Searching Spotify and Tidal…";
+        SearchStatus.Text = Loc.T("search.searching");
         AddWithoutLink.Visibility = Visibility.Collapsed;
 
         var errors = new List<string>();
@@ -343,9 +343,9 @@ public sealed partial class MainWindow : Window
         ResultsList.SelectedIndex = confident ? 0 : -1;
         SearchStatus.Text = string.Join("\n", new[]
         {
-            results.Count == 0 ? "Nothing found. Try fewer words, or check the spelling."
-                : confident ? (results[0].CanAdd ? "Press Enter to add the highlighted album." : "This album is already saved.")
-                : "No close match. Pick one below if it's there.",
+            results.Count == 0 ? Loc.T("search.none")
+                : confident ? (results[0].CanAdd ? Loc.T("search.press_enter") : Loc.T("search.already"))
+                : Loc.T("search.no_close"),
         }.Concat(errors));
 
         if (!confident) ShowAddWithoutLink(raw);
@@ -355,10 +355,10 @@ public sealed partial class MainWindow : Window
     {
         try { return (await search, null); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { return (null, null); } // replaced by a newer search
-        catch (OperationCanceledException) { return (null, "didn't answer in time; try again"); }
+        catch (OperationCanceledException) { return (null, Loc.T("search.timeout")); }
         catch (CatalogException ex) { return (null, ex.Message); }
-        catch (HttpRequestException ex) { return (null, $"network error ({ex.Message})"); }
-        catch (Exception ex) { return (null, $"unexpected response ({ex.Message})"); }
+        catch (HttpRequestException ex) { return (null, Loc.F("search.network", ex.Message)); }
+        catch (Exception ex) { return (null, Loc.F("search.unexpected", ex.Message)); }
     }
 
     private void ShowResults(List<AlbumResult> results)
@@ -376,7 +376,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowAddWithoutLink(string raw)
     {
-        AddWithoutLink.Content = $"Add “{raw}” without a link";
+        AddWithoutLink.Content = Loc.F("search.add_without_link", raw);
         AddWithoutLink.Visibility = Visibility.Visible;
     }
 
@@ -388,7 +388,7 @@ public sealed partial class MainWindow : Window
             (r.Spotify != null && i.SpotifyId == r.Spotify.Id) ||
             (r.Tidal != null && i.TidalId == r.Tidal.Id) ||
             (Matcher.Normalize(i.Album) == titleKey && Matcher.Normalize(i.Artist) == artistKey));
-        return saved == null ? null : saved.IsListened ? "Listened ✓" : "In your queue";
+        return saved == null ? null : saved.IsListened ? Loc.T("search.state.listened") : Loc.T("search.state.queued");
     }
 
     private void OnAddResult(object sender, RoutedEventArgs e)
@@ -405,7 +405,7 @@ public sealed partial class MainWindow : Window
     {
         if (!r.CanAdd)
         {
-            SearchStatus.Text = $"“{r.Title}” is already saved ({r.QueueState}).";
+            SearchStatus.Text = Loc.F("search.already_saved", r.Title, r.QueueState);
             return;
         }
         AddItem(new BacklogItem
@@ -452,7 +452,7 @@ public sealed partial class MainWindow : Window
         _startFreshFromPhoto = true;
         RefreshQueue();
         ScheduleSync();
-        ShowToast($"Added “{item.Album}” to your queue.", undo: () =>
+        ShowToast(Loc.F("toast.added", item.Album), undo: () =>
         {
             if (_store.FindByUid(item.Uid) is { Deleted: false } current) _store.Delete(current);
             ReloadQueue();
@@ -492,16 +492,16 @@ public sealed partial class MainWindow : Window
         // Round count badges in the navigation bar.
         var pending = _all.Where(i => i.IsPending).ToList();
         var heard = _all.Where(i => i.IsListened).ToList();
-        SetBadge(QueueNav, QueueBadge, "To listen", pending.Count, "waiting");
-        SetBadge(ListenedNav, ListenedBadge, "Listened", heard.Count, "listened");
+        SetBadge(QueueNav, QueueBadge, Loc.T("nav.queue"), pending.Count, "badge.waiting");
+        SetBadge(ListenedNav, ListenedBadge, Loc.T("nav.listened"), heard.Count, "badge.listened");
 
         (PageIcon.Glyph, PageTitle.Text, PageSummary.Text) = _page switch
         {
-            Page.Listened => ("", "Listened", QueueText.ListenedSummary(heard)),
-            Page.Photo => ("", "Magazine photo", "Drop a photo of a page, then click the artist and the album on it."),
-            Page.Help => ("", "Help", $"{AppInfo.Name} {AppInfo.Version}  ·  how everything works"),
-            Page.Settings => ("\uE713", "Settings", "Music services, country, theme and layout. Changes are saved right away."),
-            _ => ("", "To listen", QueueText.PendingSummary(pending, DateTime.Now)),
+            Page.Listened => ("", Loc.T("nav.listened"), QueueText.ListenedSummary(heard)),
+            Page.Photo => ("", Loc.T("nav.photo"), Loc.T("page.photo.summary")),
+            Page.Help => ("", Loc.T("nav.help"), Loc.F("page.help.summary", AppInfo.Name, AppInfo.Version)),
+            Page.Settings => ("\uE713", Loc.T("nav.settings"), Loc.T("page.settings.summary")),
+            _ => ("", Loc.T("nav.queue"), QueueText.PendingSummary(pending, DateTime.Now)),
         };
 
         QueuePanel.Visibility = QueueCommands.Visibility = queuePage ? Visibility.Visible : Visibility.Collapsed;
@@ -512,16 +512,16 @@ public sealed partial class MainWindow : Window
 
         EmptyState.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         (EmptyIcon.Glyph, EmptyTitle.Text, EmptyText.Text) =
-            filter.Length > 0 ? ("", "Nothing matches", "Try a different word, or clear the filter.")
-            : listened ? ("", "Nothing listened yet", "Tick the circle next to an album when you've heard it. It moves here so you can rate it.")
-            : ("", "Your queue is empty", "Find an album from a magazine on the left, or drop a photo of the page here.");
+            filter.Length > 0 ? ("", Loc.T("empty.filter.title"), Loc.T("empty.filter.text"))
+            : listened ? ("", Loc.T("empty.listened.title"), Loc.T("empty.listened.text"))
+            : ("", Loc.T("empty.queue.title"), Loc.T("empty.queue.text"));
     }
 
-    private static void SetBadge(NavigationViewItem item, InfoBadge badge, string label, int count, string what)
+    private static void SetBadge(NavigationViewItem item, InfoBadge badge, string label, int count, string nameKey)
     {
         badge.Value = count;
         badge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? $"{label}, {count} {what}" : label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? Loc.F(nameKey, label, count) : label);
     }
 
     private enum Page { Queue, Listened, Photo, Help, Settings }
@@ -595,7 +595,7 @@ public sealed partial class MainWindow : Window
             item.IsChecked = (string)item.Tag == _ui.Sort;
             if (item.IsChecked) SortButton.Label = item.Text;
         }
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SortButton, $"Order by: {SortButton.Label}");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SortButton, Loc.F("sort.name", SortButton.Label));
     }
 
     private void OnCoverViewToggled(object sender, RoutedEventArgs e)
@@ -635,7 +635,7 @@ public sealed partial class MainWindow : Window
         _store.Update(item);
         RefreshQueue();
         ScheduleSync();
-        ShowToast(listened ? $"Marked “{item.Album}” as listened." : $"Moved “{item.Album}” back to your queue.", undo: () =>
+        ShowToast(Loc.F(listened ? "toast.listened" : "toast.moved_back", item.Album), undo: () =>
         {
             // A sync may have replaced this album's data meanwhile: undo on the stored version.
             if (_store.FindByUid(item.Uid) is not { Deleted: false } current) return;
@@ -651,7 +651,7 @@ public sealed partial class MainWindow : Window
         _all.Remove(item);
         RefreshQueue();
         ScheduleSync();
-        ShowToast($"Deleted “{item.Album}”.", undo: () =>
+        ShowToast(Loc.F("toast.deleted", item.Album), undo: () =>
         {
             // The stored version may be newer (or already gone after upload, then it's re-created).
             _store.Restore(_store.FindByUid(item.Uid) ?? item);
@@ -680,13 +680,13 @@ public sealed partial class MainWindow : Window
             return entry;
         }
 
-        menu.Items.Add(Entry("Open in Tidal", "", () => _ = PlayAsync(item, MusicService.Tidal), item.HasTidal));
-        menu.Items.Add(Entry("Open in Spotify", "", () => _ = PlayAsync(item, MusicService.Spotify), item.HasSpotify));
+        menu.Items.Add(Entry(Loc.T("menu.open_tidal"), "", () => _ = PlayAsync(item, MusicService.Tidal), item.HasTidal));
+        menu.Items.Add(Entry(Loc.T("menu.open_spotify"), "", () => _ = PlayAsync(item, MusicService.Spotify), item.HasSpotify));
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(item.IsListened
-            ? Entry("Move back to queue", "", () => SetListened(item, false))
-            : Entry("Mark as listened", "", () => SetListened(item, true)));
-        menu.Items.Add(Entry("Delete", "", () => Delete(item)));
+            ? Entry(Loc.T("menu.move_back"), "", () => SetListened(item, false))
+            : Entry(Loc.T("item.mark_listened"), "", () => SetListened(item, true)));
+        menu.Items.Add(Entry(Loc.T("menu.delete"), "", () => Delete(item)));
     }
 
     private void OnRatingChanged(RatingControl sender, object args)
@@ -702,7 +702,7 @@ public sealed partial class MainWindow : Window
         var pending = _all.Where(i => i.IsPending).ToList();
         if (pending.Count == 0)
         {
-            ShowToast("Your queue is empty. Add some albums first.", severity: InfoBarSeverity.Informational);
+            ShowToast(Loc.T("toast.surprise_empty"), severity: InfoBarSeverity.Informational);
             return;
         }
         var pick = pending[Random.Shared.Next(pending.Count)];
@@ -714,15 +714,15 @@ public sealed partial class MainWindow : Window
         view.SelectedItem = pick;
         view.ScrollIntoView(pick, ScrollIntoViewAlignment.Leading);
 
-        var by = pick.Artist.Length > 0 ? $" by {pick.Artist}" : "";
-        ShowToast($"How about “{pick.Album}”{by}?", undo: () => _ = PlayAsync(pick),
-            actionText: pick.CanPlay ? $"Play on {pick.PlayLabel}" : null, severity: InfoBarSeverity.Informational);
+        var question = pick.Artist.Length > 0 ? Loc.F("toast.surprise_by", pick.Album, pick.Artist) : Loc.F("toast.surprise", pick.Album);
+        ShowToast(question, undo: () => _ = PlayAsync(pick),
+            actionText: pick.CanPlay ? Loc.F("toast.play_on", pick.PlayLabel) : null, severity: InfoBarSeverity.Informational);
     }
 
     private static BacklogItem? ItemOf(object sender) => (sender as FrameworkElement)?.Tag as BacklogItem;
 
     /// <summary>Bottom notification with an optional action (usually Undo) that disappears by itself.</summary>
-    private void ShowToast(string message, Action? undo = null, string? actionText = "Undo",
+    private void ShowToast(string message, Action? undo = null, string? actionText = "",
         InfoBarSeverity severity = InfoBarSeverity.Success)
     {
         Toast.IsOpen = false;
@@ -731,7 +731,7 @@ public sealed partial class MainWindow : Window
         Toast.ActionButton = null;
         if (undo != null && actionText != null)
         {
-            var button = new Button { Content = actionText };
+            var button = new Button { Content = actionText.Length > 0 ? actionText : Loc.T("toast.undo") };
             button.Click += (_, _) =>
             {
                 Toast.IsOpen = false;
@@ -773,7 +773,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             GoTo(Page.Photo);
-            ShowOcrInfo(InfoBarSeverity.Error, $"Couldn't open that image ({ex.Message}). Try saving it as a JPG or PNG file first.");
+            ShowOcrInfo(InfoBarSeverity.Error, Loc.F("photo.open_failed", ex.Message));
         }
     }
 
@@ -803,7 +803,7 @@ public sealed partial class MainWindow : Window
         else if (reportEmpty)
         {
             GoTo(Page.Photo);
-            ShowOcrInfo(InfoBarSeverity.Informational, "The clipboard doesn't contain an image.");
+            ShowOcrInfo(InfoBarSeverity.Informational, Loc.T("photo.clipboard_empty"));
         }
     }
 
@@ -812,7 +812,7 @@ public sealed partial class MainWindow : Window
         if (e.DataView.Contains(StandardDataFormats.StorageItems) || e.DataView.Contains(StandardDataFormats.Bitmap))
         {
             e.AcceptedOperation = DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = "Read this page";
+            e.DragUIOverride.Caption = Loc.T("photo.drop_caption");
         }
     }
 
@@ -851,7 +851,7 @@ public sealed partial class MainWindow : Window
     {
         GoTo(Page.Photo);
         if (AddPane.Visibility != Visibility.Visible) SetPaneVisible(true);
-        ShowOcrInfo(InfoBarSeverity.Informational, "Reading the page…");
+        ShowOcrInfo(InfoBarSeverity.Informational, Loc.T("photo.reading"));
 
         OcrPage page;
         try
@@ -861,7 +861,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowOcrInfo(InfoBarSeverity.Error,
-                $"Couldn't read this image ({ex.Message}). iPhone HEIC photos need \"HEIF Image Extensions\" from the Microsoft Store, or send them as JPG.");
+                Loc.F("photo.read_failed", ex.Message));
             return;
         }
 
@@ -901,7 +901,7 @@ public sealed partial class MainWindow : Window
 
         _startFreshFromPhoto = true;
         if (page.Lines.Count == 0)
-            ShowOcrInfo(InfoBarSeverity.Warning, "No text found. Try a sharper, well-lit photo taken straight on.");
+            ShowOcrInfo(InfoBarSeverity.Warning, Loc.T("photo.no_text"));
         else if (!page.IsSpanish && !OcrService.SpanishAvailable && !_ui.OcrHintDismissed)
             ShowSpanishOcrWarning(page.LanguageName);
         else
@@ -954,10 +954,8 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void ShowSpanishOcrWarning(string? usedLanguage)
     {
-        var readingAs = usedLanguage != null ? $" (reading as {usedLanguage})" : "";
         ShowPhotoOcrOffer(InfoBarSeverity.Warning,
-            $"Spanish text recognition isn't installed on this PC, so accents and ñ may be misread{readingAs}. " +
-            "Matching still works. Installing it takes about a minute and Windows will ask for admin permission.",
+            usedLanguage != null ? Loc.F("ocr.no_spanish_as", usedLanguage) : Loc.T("ocr.no_spanish"),
             OcrOffer.Retry | OcrOffer.Dismiss);
     }
 
@@ -970,11 +968,11 @@ public sealed partial class MainWindow : Window
         ShowOcrInfo(severity, message);
         if (offer.HasFlag(OcrOffer.Retry))
         {
-            var install = new Button { Content = "Install Spanish" };
+            var install = new Button { Content = Loc.T("ocr.install_spanish") };
             install.Click += async (_, _) =>
             {
                 install.IsEnabled = false;
-                install.Content = "Installing…";
+                install.Content = Loc.T("ocr.installing");
                 await InstallOcrLanguageAsync("es-ES", ShowPhotoOcrOffer);
             };
             OcrInfo.ActionButton = install;
@@ -987,13 +985,13 @@ public sealed partial class MainWindow : Window
         var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
         if (offer.HasFlag(OcrOffer.WindowsSettings))
         {
-            var windows = new HyperlinkButton { Content = "Windows language settings" };
+            var windows = new HyperlinkButton { Content = Loc.T("settings.ocr.windows") };
             windows.Click += OnOpenWindowsLanguages;
             links.Children.Add(windows);
         }
         if (offer.HasFlag(OcrOffer.Dismiss) && !_ui.OcrHintDismissed)
         {
-            var dismiss = new HyperlinkButton { Content = "Don't show this again" };
+            var dismiss = new HyperlinkButton { Content = Loc.T("ocr.dismiss") };
             dismiss.Click += (_, _) =>
             {
                 _ui.OcrHintDismissed = true;
@@ -1029,37 +1027,32 @@ public sealed partial class MainWindow : Window
         switch (outcome.Result)
         {
             case OcrInstallResult.Installed:
-                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Open the photo again to re-read it.", offer);
+                report(InfoBarSeverity.Success, Loc.F("ocr.installed", name), offer);
                 break;
             case OcrInstallResult.RestartApp:
-                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Restart Queueify to start using it.", offer);
+                report(InfoBarSeverity.Success, Loc.F("ocr.installed_restart_app", name), offer);
                 break;
             case OcrInstallResult.RestartWindows:
-                report(InfoBarSeverity.Warning, $"{name} text recognition is installed, but Windows needs a restart to finish.", offer);
+                report(InfoBarSeverity.Warning, Loc.F("ocr.installed_restart_windows", name), offer);
                 break;
             case OcrInstallResult.Cancelled:
                 report(InfoBarSeverity.Informational,
-                    "Nothing was installed: Windows' permission prompt was declined. Installing needs an administrator " +
-                    "(on a family or work PC, ask the person who manages it). You can try again any time.", offer);
+                    Loc.T("ocr.cancelled"), offer);
                 break;
             case OcrInstallResult.Interrupted:
                 report(InfoBarSeverity.Warning,
-                    "The install window was closed before it finished. Try again and leave it open; it closes by itself.", offer);
+                    Loc.T("ocr.interrupted"), offer);
                 break;
             case OcrInstallResult.Busy:
-                report(InfoBarSeverity.Informational, "Another install is still running. Wait until its window closes.", offer);
+                report(InfoBarSeverity.Informational, Loc.T("ocr.busy"), offer);
                 break;
             case OcrInstallResult.Blocked:
                 report(InfoBarSeverity.Warning,
-                    $"This PC doesn't let Queueify ask for administrator permission ({outcome.Error}). " +
-                    "Add the language in Windows language settings, or ask the person who manages this PC.", offer);
+                    Loc.F("ocr.blocked", outcome.Error), offer);
                 break;
             default:
-                var detail = outcome.Error != null ? $" Windows said: {outcome.Error}" : "";
-                report(InfoBarSeverity.Error,
-                    $"Windows couldn't install {name} text recognition.{detail} It downloads from Windows Update, so check " +
-                    "the internet connection and try again. On a PC whose updates are managed by an organization, its " +
-                    "administrator has to allow optional features to download from Windows Update.", offer);
+                var detail = outcome.Error != null ? Loc.F("ocr.windows_said", outcome.Error) : "";
+                report(InfoBarSeverity.Error, Loc.F("ocr.failed", name, detail), offer);
                 break;
         }
         if (_page == Page.Settings) FillOcrSettings();
@@ -1067,7 +1060,7 @@ public sealed partial class MainWindow : Window
 
     private Button RestartButton()
     {
-        var restart = new Button { Content = "Restart Queueify" };
+        var restart = new Button { Content = Loc.T("app.restart") };
         restart.Click += (_, _) => RestartApp();
         return restart;
     }
@@ -1083,7 +1076,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            ShowToast($"Couldn't restart ({ex.Message}). Close Queueify and open it again.", severity: InfoBarSeverity.Warning);
+            ShowToast(Loc.F("app.restart_failed", ex.Message), severity: InfoBarSeverity.Warning);
             return;
         }
         Close();
@@ -1125,7 +1118,7 @@ public sealed partial class MainWindow : Window
     private async Task<string?> RunSyncAsync()
     {
         _lastSyncAttempt = DateTime.UtcNow;
-        SyncNav.Content = "Syncing…";
+        SyncNav.Content = Loc.T("sync.syncing");
 
         // Sync a copy: the UI thread keeps using _settings while the sync runs in the background.
         var work = _settings.Clone();
@@ -1178,10 +1171,10 @@ public sealed partial class MainWindow : Window
     private static string DescribeSyncError(Exception ex) => ex switch
     {
         CatalogException => ex.Message,
-        HttpRequestException => "Can't reach Firebase right now. Your changes are kept and will sync when you're online.",
-        TaskCanceledException => "Firebase didn't answer in time. Your changes will sync later.",
-        IOException or UnauthorizedAccessException => $"Couldn't save on this PC ({ex.Message}). Your changes will sync later.",
-        _ => $"Sync failed ({ex.Message}). Your changes are kept and will sync later.",
+        HttpRequestException => Loc.T("sync.err.offline"),
+        TaskCanceledException => Loc.T("sync.err.timeout"),
+        IOException or UnauthorizedAccessException => Loc.F("sync.err.disk", ex.Message),
+        _ => Loc.F("sync.err.other", ex.Message),
     };
 
     /// <summary>The Sync icon in the navigation bar shows the state; its tooltip says why.</summary>
@@ -1189,12 +1182,12 @@ public sealed partial class MainWindow : Window
     {
         string label, glyph, tip;
         if (!_settings.CloudConfigured)
-            (label, glyph, tip) = ("Sync", "", "Sync: keep the same queue on all your PCs");
+            (label, glyph, tip) = (Loc.T("nav.sync"), "", Loc.T("sync.tip.off"));
         else if (_syncError != null)
-            (label, glyph, tip) = ("Not synced", "", $"Not synced: {_syncError}");
+            (label, glyph, tip) = (Loc.T("sync.not_synced"), "", Loc.F("sync.tip.error", _syncError));
         else
-            (label, glyph, tip) = ("Synced", "",
-                _lastSynced is DateTime t ? $"Synced with Firebase at {t:t}" : "Synced with Firebase");
+            (label, glyph, tip) = (Loc.T("sync.synced"), "",
+                _lastSynced is DateTime t ? Loc.F("sync.tip.at", t) : Loc.T("sync.tip.ok"));
 
         SyncNav.Content = label;
         SyncIcon.Glyph = SettingsSyncIcon.Glyph = glyph;
@@ -1212,33 +1205,27 @@ public sealed partial class MainWindow : Window
     /// <summary>First-time setup: create the online queue (first PC) or join it with a sync code.</summary>
     private async Task ShowSyncSetupAsync()
     {
-        var create = new RadioButton { Content = "This is my first PC: create the online queue", GroupName = "sync", IsChecked = true };
-        var join = new RadioButton { Content = "I already set it up on another PC", GroupName = "sync" };
+        var create = new RadioButton { Content = Loc.T("sync.setup.create"), GroupName = "sync", IsChecked = true };
+        var join = new RadioButton { Content = Loc.T("sync.setup.join"), GroupName = "sync" };
 
-        var projectBox = new TextBox { Header = "Firebase project ID", PlaceholderText = "e.g. queueify-1a2b3" };
-        var copyRules = new Button { Content = "Copy security rules" };
+        var projectBox = new TextBox { Header = Loc.T("sync.project"), PlaceholderText = Loc.T("sync.project.placeholder") };
+        var copyRules = new Button { Content = Loc.T("sync.copy_rules") };
         copyRules.Click += (_, _) =>
         {
             CopyToClipboard(CloudSync.SecurityRules);
-            copyRules.Content = "Rules copied ✓";
+            copyRules.Content = Loc.T("sync.rules_copied");
         };
         var createPanel = new StackPanel { Spacing = 10 };
         createPanel.Children.Add(Paragraph(
-            "1. Open the Firebase console and sign in with your Google account.\n" +
-            "2. Create a project with any name (e.g. Queueify). Google Analytics isn't needed.\n" +
-            "3. In the menu, open Build → Firestore Database → Create database. If asked, choose the Standard edition, " +
-            "keep the database ID \"(default)\", pick a location near you (e.g. southamerica-east1) and start in production mode.\n" +
-            "4. Open the Rules tab, replace everything with Queueify's rules (button below) and click Publish.\n" +
-            "5. Copy the project ID (it's in the address bar after /project/, or in Project settings) and paste it here."));
-        createPanel.Children.Add(new HyperlinkButton { Content = "Open the Firebase console", NavigateUri = new Uri("https://console.firebase.google.com/") });
+            Loc.T("sync.setup.steps")));
+        createPanel.Children.Add(new HyperlinkButton { Content = Loc.T("sync.console"), NavigateUri = new Uri("https://console.firebase.google.com/") });
         createPanel.Children.Add(copyRules);
         createPanel.Children.Add(projectBox);
 
-        var codeBox = new TextBox { Header = "Sync code", PlaceholderText = "queueify:…" };
+        var codeBox = new TextBox { Header = Loc.T("sync.code"), PlaceholderText = "queueify:…" };
         var joinPanel = new StackPanel { Spacing = 10, Visibility = Visibility.Collapsed };
         joinPanel.Children.Add(Paragraph(
-            "On the PC that's already synced, click Sync and copy the sync code, then paste it here. " +
-            "(Even easier: copy that PC's whole Queueify folder to this one. It's already connected.)"));
+            Loc.T("sync.setup.join_text")));
         joinPanel.Children.Add(codeBox);
 
         create.Checked += (_, _) => { createPanel.Visibility = Visibility.Visible; joinPanel.Visibility = Visibility.Collapsed; };
@@ -1248,7 +1235,7 @@ public sealed partial class MainWindow : Window
         var error = new InfoBar { Severity = InfoBarSeverity.Error, IsClosable = false, IsOpen = false };
 
         var panel = new StackPanel { Spacing = 12, Width = 480 };
-        panel.Children.Add(Paragraph("Keep one queue on all your PCs. It's stored in your own Google Firebase account, on the free plan (no credit card)."));
+        panel.Children.Add(Paragraph(Loc.T("sync.setup.intro")));
         panel.Children.Add(create);
         panel.Children.Add(join);
         panel.Children.Add(createPanel);
@@ -1258,10 +1245,10 @@ public sealed partial class MainWindow : Window
 
         var dialog = new ContentDialog
         {
-            Title = "Sync between your PCs",
+            Title = Loc.T("sync.title"),
             Content = new ScrollViewer { Content = panel, MaxHeight = 600 },
-            PrimaryButtonText = "Connect",
-            CloseButtonText = "Cancel",
+            PrimaryButtonText = Loc.T("sync.connect"),
+            CloseButtonText = Loc.T("dialog.cancel"),
             DefaultButton = ContentDialogButton.Primary,
             XamlRoot = Root.XamlRoot,
         };
@@ -1278,7 +1265,7 @@ public sealed partial class MainWindow : Window
                 {
                     if (!CloudSync.TryParseSyncCode(codeBox.Text, out project, out key))
                     {
-                        Fail("That doesn't look like a sync code. It starts with \"queueify:\".");
+                        Fail(Loc.T("sync.bad_code"));
                         return;
                     }
                 }
@@ -1286,7 +1273,7 @@ public sealed partial class MainWindow : Window
                 {
                     if (CloudSync.NormalizeProjectId(projectBox.Text) is not string id)
                     {
-                        Fail("Paste the Firebase project ID, e.g. queueify-1a2b3.");
+                        Fail(Loc.T("sync.no_project"));
                         return;
                     }
                     project = id;
@@ -1359,7 +1346,7 @@ public sealed partial class MainWindow : Window
         if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary || !_settings.CloudConfigured) return;
 
         if (joined)
-            ShowToast($"Connected. Your queue now has {_all.Count} albums from all your PCs.");
+            ShowToast(Loc.F("sync.joined", QueueText.Albums(_all.Count)));
         else
             await ShowSyncConnectedAsync(justCreated: true);
     }
@@ -1368,33 +1355,32 @@ public sealed partial class MainWindow : Window
     private async Task ShowSyncConnectedAsync(bool justCreated = false)
     {
         var code = CloudSync.SyncCode(_settings);
-        var codeBox = new TextBox { Header = "Sync code", Text = code, IsReadOnly = true, TextWrapping = TextWrapping.Wrap };
-        var copy = new Button { Content = "Copy sync code" };
+        var codeBox = new TextBox { Header = Loc.T("sync.code"), Text = code, IsReadOnly = true, TextWrapping = TextWrapping.Wrap };
+        var copy = new Button { Content = Loc.T("sync.copy_code") };
         copy.Click += (_, _) =>
         {
             CopyToClipboard(code);
-            copy.Content = "Copied ✓";
+            copy.Content = Loc.T("sync.copied");
         };
 
-        var status = _syncError ?? (_lastSynced is DateTime t ? $"Last synced at {t:t}." : "Synced.");
+        var status = _syncError ?? (_lastSynced is DateTime t ? Loc.F("sync.last", t) : Loc.T("sync.ok"));
         var panel = new StackPanel { Spacing = 12, Width = 480 };
         panel.Children.Add(Paragraph(justCreated
-            ? "Done! Your queue is online now."
-            : $"This PC is synced with your Firebase project \"{_settings.CloudProjectId}\". {status}"));
+            ? Loc.T("sync.done")
+            : Loc.F("sync.this_pc", _settings.CloudProjectId, status)));
         panel.Children.Add(Paragraph(
-            "To add another PC, copy this whole Queueify folder to it: it's already connected. " +
-            "Or open Sync on the other PC, choose \"I already set it up on another PC\" and paste this code:"));
+            Loc.T("sync.add_pc")));
         panel.Children.Add(codeBox);
         panel.Children.Add(copy);
-        panel.Children.Add(Paragraph("Keep the code private: anyone who has it can see and change your queue."));
+        panel.Children.Add(Paragraph(Loc.T("sync.private")));
 
         var dialog = new ContentDialog
         {
-            Title = "Sync between your PCs",
+            Title = Loc.T("sync.title"),
             Content = new ScrollViewer { Content = panel, MaxHeight = 560 },
-            PrimaryButtonText = "Sync now",
-            SecondaryButtonText = "Disconnect this PC",
-            CloseButtonText = "Close",
+            PrimaryButtonText = Loc.T("sync.now"),
+            SecondaryButtonText = Loc.T("sync.disconnect"),
+            CloseButtonText = Loc.T("dialog.close"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = Root.XamlRoot,
         };
@@ -1403,7 +1389,7 @@ public sealed partial class MainWindow : Window
         {
             case ContentDialogResult.Primary:
                 var problem = await SyncNowAsync();
-                ShowToast(problem ?? "Synced.", severity: problem == null ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
+                ShowToast(problem ?? Loc.T("sync.ok"), severity: problem == null ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
                 break;
             case ContentDialogResult.Secondary:
                 _settings.CloudProjectId = _settings.CloudQueueKey = "";
@@ -1411,7 +1397,7 @@ public sealed partial class MainWindow : Window
                 _syncError = null;
                 AppData.SaveSettings(_settings);
                 UpdateSyncButton();
-                ShowToast("This PC no longer syncs. Its queue stays here; the online copy is untouched.",
+                ShowToast(Loc.T("sync.disconnected"),
                     severity: InfoBarSeverity.Informational);
                 break;
         }
@@ -1451,7 +1437,7 @@ public sealed partial class MainWindow : Window
     private void FillHelp()
     {
         ShortcutList.ItemsSource = Shortcuts.All;
-        AboutVersion.Text = $"Version {AppInfo.Version}";
+        AboutVersion.Text = Loc.F("about.version", AppInfo.Version);
         AboutTagline.Text = AppInfo.Tagline;
         AboutCredits.ItemsSource = AppInfo.Credits;
         AboutDataPath.Text = AppData.Folder;
@@ -1468,14 +1454,10 @@ public sealed partial class MainWindow : Window
     /// <summary>The four stops of the quick tour: what to point at and what to say.</summary>
     private (FrameworkElement Target, string Title, string Text)[] TourSteps =>
     [
-        (SearchBox, "Find an album",
-            "Type what the magazine says, like “Charly García Clics Modernos”. Press Enter to search Spotify and Tidal, and Enter again to add the best match."),
-        (QueueNav, "Your queue",
-            "Everything you add waits here. Press Play to open it in Tidal or Spotify. Tick the circle when you've heard it; it moves to Listened, where you can rate it."),
-        (PhotoNav, "Too lazy to type?",
-            "Photograph a magazine page with your phone and drop the photo into this window. Then click the artist and the album on it."),
-        (SyncNav, "All your PCs",
-            "Connect Sync once to keep the same queue on every PC. Help (F1) explains everything else."),
+        (SearchBox, Loc.T("pane.search"), Loc.T("tour.1")),
+        (QueueNav, Loc.T("tour.2.title"), Loc.T("tour.2")),
+        (PhotoNav, Loc.T("tour.3.title"), Loc.T("tour.3")),
+        (SyncNav, Loc.T("tour.4.title"), Loc.T("tour.4")),
     ];
 
     private void ShowTourStep(int step)
@@ -1499,9 +1481,9 @@ public sealed partial class MainWindow : Window
         var (target, title, text) = steps[step];
         Tour.IsOpen = false;
         Tour.Target = target;
-        Tour.Title = $"{title}  ·  {step + 1} of {steps.Length}";
+        Tour.Title = Loc.F("tour.counter", title, step + 1, steps.Length);
         Tour.Subtitle = text;
-        Tour.ActionButtonContent = step == steps.Length - 1 ? "Done" : "Next";
+        Tour.ActionButtonContent = Loc.T(step == steps.Length - 1 ? "tour.done" : "tour.next");
         Tour.IsOpen = true;
     }
 
@@ -1604,6 +1586,9 @@ public sealed partial class MainWindow : Window
             CountryBox.SelectedItem = countries.FirstOrDefault(c => c.Code == shown.CountryCode);
             ThemeBox.SelectedItem = ThemeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Theme)
                                     ?? ThemeBox.Items[0];
+            LanguageBox.SelectedItem = LanguageBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Language)
+                                       ?? LanguageBox.Items[0];
+            UpdateLanguageRestart();
             SettingsDataPath.Text = AppData.Folder;
             FillOcrSettings();
             UpdateServiceCards();
@@ -1622,15 +1607,15 @@ public sealed partial class MainWindow : Window
         void Show(ServiceCard card, MusicService service, bool configured)
         {
             if (!configured)
-                card.ShowState(false, false, "Not connected", $"Not connected. Add your free developer keys to search {service}.");
+                card.ShowState(false, false, Loc.T("service.not_connected.pill"), Loc.F("service.not_connected", service));
             else if (_testing.Contains(service))
-                card.ShowState(false, true, "Testing", "Testing the keys with a search…");
+                card.ShowState(false, true, Loc.T("service.testing.pill"), Loc.T("service.testing"));
             else if (_serviceProblem.TryGetValue(service, out var problem))
-                card.ShowState(false, true, problem.KeysRejected ? "Check keys" : "Not reachable", problem.Message);
+                card.ShowState(false, true, Loc.T(problem.KeysRejected ? "service.check_keys.pill" : "service.unreachable.pill"), problem.Message);
             else if (_verified.Contains(service))
-                card.ShowState(true, true, "Connected", $"Searches include {service}. The keys passed the test.");
+                card.ShowState(true, true, Loc.T("service.connected.pill"), Loc.F("service.connected", service));
             else
-                card.ShowState(true, true, "Keys saved", $"Searches include {service}. “Save and test” checks the keys.");
+                card.ShowState(true, true, Loc.T("service.saved.pill"), Loc.F("service.saved", service));
         }
     }
 
@@ -1661,7 +1646,7 @@ public sealed partial class MainWindow : Window
         var service = card == TidalCard ? MusicService.Tidal : MusicService.Spotify;
         if (card.ClientId.Length == 0 || card.ClientSecret.Length == 0)
         {
-            card.ShowResult(InfoBarSeverity.Warning, "Paste both the Client ID and the Client secret.");
+            card.ShowResult(InfoBarSeverity.Warning, Loc.T("service.need_both"));
             return;
         }
 
@@ -1702,9 +1687,9 @@ public sealed partial class MainWindow : Window
             found = (await search).Count;
         }
         catch (CatalogException ex) { problem = (ex.Message, ex.KeysRejected); }
-        catch (OperationCanceledException) { problem = ($"{service} didn't answer in time. Try again in a moment.", false); }
-        catch (HttpRequestException ex) { problem = ($"Couldn't reach {service} ({ex.Message}). Check the internet connection.", false); }
-        catch (Exception ex) { problem = ($"Unexpected answer from {service} ({ex.Message}).", false); }
+        catch (OperationCanceledException) { problem = (Loc.F("service.timeout", service), false); }
+        catch (HttpRequestException ex) { problem = (Loc.F("service.unreachable", service, ex.Message), false); }
+        catch (Exception ex) { problem = (Loc.F("service.unexpected", service, ex.Message), false); }
         finally
         {
             _testing.Remove(service);
@@ -1722,7 +1707,7 @@ public sealed partial class MainWindow : Window
         if (problem is { } shown)
             card.ShowResult(InfoBarSeverity.Error, shown.Message);
         else
-            card.ShowResult(InfoBarSeverity.Success, $"Connected. A test search found {QueueText.Albums(found)}.");
+            card.ShowResult(InfoBarSeverity.Success, Loc.F("service.test_ok", QueueText.Albums(found)));
     }
 
     private void OnRemoveServiceKeys(object? sender, EventArgs e)
@@ -1734,12 +1719,12 @@ public sealed partial class MainWindow : Window
             : (_settings.SpotifyClientId, _settings.SpotifyClientSecret);
 
         SetKeys(service, "", "");
-        ShowToast($"Removed the {service} keys.", undo: () =>
+        ShowToast(Loc.F("service.removed", service), undo: () =>
         {
             // Keys saved here or synced from another PC since then are newer: undo must not replace them.
             if (KeysOf(service) != ":")
             {
-                ShowToast($"Not undone: other {service} keys were saved since.", severity: InfoBarSeverity.Warning);
+                ShowToast(Loc.F("service.undo_refused", service), severity: InfoBarSeverity.Warning);
                 return;
             }
             SetKeys(service, oldId, oldSecret);
@@ -1791,7 +1776,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var installed = OcrService.InstalledTags;
-            var choices = new List<OcrLanguageOption> { new("auto", "Automatic (Spanish when installed)") };
+            var choices = new List<OcrLanguageOption> { new("auto", Loc.T("ocr.auto")) };
             choices.AddRange(installed.Select(t => new OcrLanguageOption(t, OcrLanguages.NameOf(t))));
             OcrLanguageBox.ItemsSource = choices;
             OcrLanguageBox.SelectedItem = choices.FirstOrDefault(c => c.Tag.Equals(_ui.OcrLanguage, StringComparison.OrdinalIgnoreCase))
@@ -1799,9 +1784,9 @@ public sealed partial class MainWindow : Window
 
             var pending = OcrService.PendingRestartTags;
             var names = installed.Select(OcrLanguages.NameOf)
-                .Concat(pending.Select(t => $"{OcrLanguages.NameOf(t)} (after restarting Queueify)")).ToList();
+                .Concat(pending.Select(t => Loc.F("ocr.after_restart", OcrLanguages.NameOf(t)))).ToList();
             OcrInstalledList.Text = names.Count == 0
-                ? "None. Photos can't be read until a language is installed."
+                ? Loc.T("ocr.none_installed")
                 : string.Join(", ", names);
 
             // The button and progress follow the install actually running, wherever it was started.
@@ -1811,7 +1796,7 @@ public sealed partial class MainWindow : Window
             OcrInstallBox.SelectedIndex = installable.Count > 0 ? 0 : -1;
             OcrInstallBox.IsEnabled = OcrInstallButton.IsEnabled = installable.Count > 0 && !installing;
             OcrInstallProgress.Visibility = installing ? Visibility.Visible : Visibility.Collapsed;
-            OcrInstallBox.PlaceholderText = installable.Count > 0 ? "" : "All offered languages are installed";
+            OcrInstallBox.PlaceholderText = installable.Count > 0 ? "" : Loc.T("ocr.all_installed");
         }
         finally
         {
@@ -1850,6 +1835,22 @@ public sealed partial class MainWindow : Window
     private async void OnOpenWindowsLanguages(object sender, RoutedEventArgs e) =>
         await Launcher.LaunchUriAsync(new Uri("ms-settings:regionlanguage"));
 
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_fillingSettings || LanguageBox.SelectedItem is not ComboBoxItem { Tag: string language }) return;
+        _ui.Language = language;
+        _ui.Save();
+        UpdateLanguageRestart();
+    }
+
+    /// <summary>The window's texts are set when it loads, so a new language shows after a restart.</summary>
+    private void UpdateLanguageRestart()
+    {
+        bool pending = Loc.Resolve(_ui.Language, Loc.WindowsLanguage) != Loc.Language;
+        LanguageRestartInfo.ActionButton = pending ? RestartButton() : null;
+        LanguageRestartInfo.IsOpen = pending;
+    }
+
     private void ApplyTheme()
     {
         Root.RequestedTheme = _ui.Theme switch
@@ -1883,7 +1884,7 @@ public sealed partial class MainWindow : Window
         if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized } presenter) presenter.Restore();
         SizeToScreen(1440, 920);
         GoTo(Page.Queue);
-        ShowToast("Layout reset: the panel, the list view, the order and the window are back as they started.",
+        ShowToast(Loc.T("settings.layout.done"),
             severity: InfoBarSeverity.Informational);
     }
 

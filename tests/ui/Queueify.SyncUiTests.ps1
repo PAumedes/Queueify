@@ -1,4 +1,4 @@
-# UI test for connecting Sync, against the local Firestore emulator.
+﻿# UI test for connecting Sync, against the local Firestore emulator.
 #
 #   1. Start the emulator with tools\firestore.rules on 127.0.0.1:8080 (see README, "Running the tests").
 #   2. powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.SyncUiTests.ps1 -Exe <path to Queueify.exe>
@@ -49,7 +49,7 @@ foreach ($f in $files) { $p = Join-Path $data $f; if (Test-Path $p) { Move-Item 
 
 # Skip the first-run tour so it doesn't cover the dialog.
 New-Item -ItemType Directory -Force $data | Out-Null
-'{ "TourSeen": true }' | Set-Content -Encoding UTF8 (Join-Path $data 'ui.json')
+'{ "TourSeen": true, "Language": "en" }' | Set-Content -Encoding UTF8 (Join-Path $data 'ui.json')
 
 $env:QUEUEIFY_FIRESTORE_EMULATOR = $Emulator
 $proc = Start-Process $Exe -PassThru

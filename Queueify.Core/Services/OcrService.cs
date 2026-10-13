@@ -226,7 +226,7 @@ public static partial class OcrService
 
         var fallback = OcrEngine.TryCreateFromUserProfileLanguages()
             ?? OcrEngine.AvailableRecognizerLanguages.Select(OcrEngine.TryCreateFromLanguage).FirstOrDefault(e => e != null)
-            ?? throw new InvalidOperationException("No OCR language is installed in Windows.");
+            ?? throw new InvalidOperationException(Loc.T("ocr.none_in_windows"));
         return (fallback, IsSpanishTag(fallback.RecognizerLanguage.LanguageTag));
     }
 

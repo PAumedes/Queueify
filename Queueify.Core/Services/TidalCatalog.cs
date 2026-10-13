@@ -122,9 +122,9 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
             bool refused = res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
             throw new CatalogException(res.StatusCode switch
             {
-                HttpStatusCode.TooManyRequests => "Tidal is rate limiting requests. Wait a few seconds and retry.",
-                _ when refused => "Tidal refused the request. Check the Client ID / Client Secret in Settings.",
-                _ => $"Tidal error {(int)res.StatusCode}: {SpotifyCatalog.Truncate(body)}",
+                HttpStatusCode.TooManyRequests => Loc.F("catalog.rate_limited", "Tidal"),
+                _ when refused => Loc.T("tidal.refused"),
+                _ => Loc.F("catalog.error", "Tidal", (int)res.StatusCode, SpotifyCatalog.Truncate(body)),
             }, keysRejected: refused);
         }
         return JsonDocument.Parse(body);
@@ -146,11 +146,11 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
 
         using var res = await http.SendAsync(req, ct);
         if (res.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
-            throw new CatalogException("Tidal rejected the Client ID / Client Secret. Check them in Settings.", keysRejected: true);
+            throw new CatalogException(Loc.F("catalog.rejected", "Tidal"), keysRejected: true);
         if (!res.IsSuccessStatusCode)
             throw new CatalogException(res.StatusCode == HttpStatusCode.TooManyRequests
-                ? "Tidal is rate limiting requests. Wait a few seconds and retry."
-                : $"Tidal's sign-in service answered with error {(int)res.StatusCode}. Try again later.");
+                ? Loc.F("catalog.rate_limited", "Tidal")
+                : Loc.F("tidal.signin_error", (int)res.StatusCode));
 
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
         _token = doc.RootElement.GetProperty("access_token").GetString();

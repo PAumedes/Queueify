@@ -1,4 +1,4 @@
-# UI tests for Queueify, driven through Windows UI Automation.
+﻿# UI tests for Queueify, driven through Windows UI Automation.
 #
 #   powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe <path to Queueify.exe>
 #
@@ -88,6 +88,10 @@ foreach ($f in $files) {
     if (Test-Path $path) { Move-Item $path (Join-Path $backup $f) -ErrorAction Stop }
 }
 
+# The checks read English texts, whatever language Windows is in. Everything else is a first run.
+function Set-FirstRun { New-Item -ItemType Directory -Force $data | Out-Null; '{ "Language": "en" }' | Set-Content -Encoding UTF8 (Join-Path $data 'ui.json') }
+Set-FirstRun
+
 # ── Closing the app during the tour must not bring the tour back ──
 Start-App
 Check ($null -ne (Find '*1 of 4*')) 'quick tour starts on a first run'
@@ -95,7 +99,7 @@ Stop-App
 Start-App
 Check ($null -eq (Find '*of 4*')) 'quick tour does not come back after closing the app mid-tour'
 Stop-App
-Remove-Item (Join-Path $data 'ui.json')
+Set-FirstRun
 
 Start-App
 
@@ -256,6 +260,33 @@ $uiFile = Get-Content (Join-Path $data 'ui.json') -Raw | ConvertFrom-Json
 Check ($uiFile.Theme -eq 'light' -and $uiFile.TourSeen -eq $true) "theme saved, tour still seen (theme: $($uiFile.Theme))"
 $settingsFile = Get-Content (Join-Path $data 'settings.json') -Raw | ConvertFrom-Json
 Check ($settingsFile.TidalClientId -eq 'test-client-id' -and $settingsFile.TidalClientSecret -eq 'test-secret') 'Tidal keys saved'
+
+# ── Language: Español, applied by restarting from the button ──
+Start-App
+Select-Item (Find 'Settings*' 'ListItem')
+Check ($null -eq (Find 'Restart Queueify' 'Button')) 'no restart offered while the language is unchanged'
+$languageBox = FindId 'LanguageBox'
+$languageBox.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+Start-Sleep 1
+Select-Item (Find 'Español' 'ListItem')
+$restart = Find 'Restart Queueify' 'Button'
+Check ($null -ne $restart) 'choosing a language offers a restart'
+$oldId = $script:proc.Id
+Invoke $restart
+for ($i = 0; $i -lt 40; $i++) {
+    $next = Get-Process Queueify -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe -and $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
+    if ($next) { break }
+    Start-Sleep -Milliseconds 500
+}
+Check ($null -ne $next -and (Get-Process -Id $oldId -ErrorAction SilentlyContinue) -eq $null) 'Queueify restarted itself'
+if ($next) {
+    Start-Sleep 3
+    $script:proc = $next | Select-Object -First 1
+    $script:root = $A::FromHandle($script:proc.MainWindowHandle)
+    Check ((FindId 'PageTitle').Current.Name -eq 'Para escuchar') "in Spanish after the restart: $((FindId 'PageTitle').Current.Name)"
+    Check ($null -ne (Find 'Configuración*' 'ListItem') -and $null -ne (Find 'Buscar un álbum' 'Edit')) 'navigation and fields are in Spanish'
+    Stop-App
+}
 
 $crash = Join-Path $data 'crash.log'
 Check (-not (Test-Path $crash)) 'no crash log (includes unobserved background task errors)'

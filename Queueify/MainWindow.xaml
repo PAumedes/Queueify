@@ -3,6 +3,7 @@
     x:Class="Queueify.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:l="using:Queueify"
     xmlns:models="using:Queueify.Models"
     xmlns:services="using:Queueify.Services"
     xmlns:controls="using:Queueify.Controls"
@@ -107,10 +108,10 @@
                     </StackPanel>
                     <Button Grid.Column="2" Tag="{x:Bind}" Click="OnAddResult" Visibility="{x:Bind CanAdd}"
                             Style="{StaticResource AccentButtonStyle}"
-                            AutomationProperties.Name="Add to your queue" ToolTipService.ToolTip="Add to your queue (Enter)">
+                            AutomationProperties.Name="{l:Tr Key=result.add.name}" ToolTipService.ToolTip="{l:Tr Key=result.add.tip}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE710;" FontSize="12" />
-                            <TextBlock Text="Add" />
+                            <TextBlock Text="{l:Tr Key=result.add}" />
                         </StackPanel>
                     </Button>
                     <TextBlock Grid.Column="2" Text="{x:Bind QueueState}" Visibility="{x:Bind HasQueueState}"
@@ -134,12 +135,12 @@
                     <Grid VerticalAlignment="Center">
                         <Button Tag="{x:Bind}" Click="OnToggleListened" Style="{StaticResource CheckCircle}"
                                 Visibility="{x:Bind IsPending}"
-                                AutomationProperties.Name="Mark as listened" ToolTipService.ToolTip="Mark as listened">
+                                AutomationProperties.Name="{l:Tr Key=item.mark_listened}" ToolTipService.ToolTip="{l:Tr Key=item.mark_listened}">
                             <FontIcon Glyph="&#xE73E;" FontSize="14" />
                         </Button>
                         <Button Tag="{x:Bind}" Click="OnToggleListened" Style="{StaticResource CheckCircleDone}"
                                 Visibility="{x:Bind IsListened}"
-                                AutomationProperties.Name="Move back to your queue" ToolTipService.ToolTip="Move back to your queue">
+                                AutomationProperties.Name="{l:Tr Key=item.move_back}" ToolTipService.ToolTip="{l:Tr Key=item.move_back}">
                             <FontIcon Glyph="&#xE73E;" FontSize="14" />
                         </Button>
                     </Grid>
@@ -160,16 +161,16 @@
                         <!-- Tag before Value so a recycled row never saves its rating onto the previous album. -->
                         <RatingControl Tag="{x:Bind}" Value="{x:Bind Rating, Mode=OneWay}" ValueChanged="OnRatingChanged"
                                        Visibility="{x:Bind IsListened}" IsClearEnabled="True" VerticalAlignment="Center"
-                                       AutomationProperties.Name="Your rating" />
+                                       AutomationProperties.Name="{l:Tr Key=item.rating}" />
                         <Button Tag="{x:Bind}" Click="OnPlay" IsEnabled="{x:Bind CanPlay}"
-                                AutomationProperties.Name="Play" ToolTipService.ToolTip="Open the album to listen (double-click works too)">
+                                AutomationProperties.Name="{l:Tr Key=item.play}" ToolTipService.ToolTip="{l:Tr Key=item.play.tip}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE768;" FontSize="13" />
                                 <TextBlock Text="{x:Bind PlayLabel}" />
                             </StackPanel>
                         </Button>
                         <Button Tag="{x:Bind}" Width="36" Padding="0" Height="32"
-                                AutomationProperties.Name="More actions" ToolTipService.ToolTip="More actions (right-click works too)">
+                                AutomationProperties.Name="{l:Tr Key=item.more}" ToolTipService.ToolTip="{l:Tr Key=item.more.tip}">
                             <FontIcon Glyph="&#xE712;" FontSize="14" />
                             <Button.Flyout>
                                 <MenuFlyout Opening="OnItemMenuOpening" />
@@ -198,19 +199,19 @@
                     <Grid Margin="8" VerticalAlignment="Top" HorizontalAlignment="Left">
                         <Button Tag="{x:Bind}" Click="OnToggleListened" Style="{StaticResource CheckCircle}"
                                 Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}" Visibility="{x:Bind IsPending}"
-                                AutomationProperties.Name="Mark as listened" ToolTipService.ToolTip="Mark as listened">
+                                AutomationProperties.Name="{l:Tr Key=item.mark_listened}" ToolTipService.ToolTip="{l:Tr Key=item.mark_listened}">
                             <FontIcon Glyph="&#xE73E;" FontSize="14" />
                         </Button>
                         <Button Tag="{x:Bind}" Click="OnToggleListened" Style="{StaticResource CheckCircleDone}"
                                 Visibility="{x:Bind IsListened}"
-                                AutomationProperties.Name="Move back to your queue" ToolTipService.ToolTip="Move back to your queue">
+                                AutomationProperties.Name="{l:Tr Key=item.move_back}" ToolTipService.ToolTip="{l:Tr Key=item.move_back}">
                             <FontIcon Glyph="&#xE73E;" FontSize="14" />
                         </Button>
                     </Grid>
                     <Button Tag="{x:Bind}" Click="OnPlay" IsEnabled="{x:Bind CanPlay}" Style="{StaticResource AccentButtonStyle}"
                             Width="44" Height="44" CornerRadius="22" Padding="0" Margin="8"
                             HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                            AutomationProperties.Name="Play" ToolTipService.ToolTip="{x:Bind PlayLabel}">
+                            AutomationProperties.Name="{l:Tr Key=item.play}" ToolTipService.ToolTip="{x:Bind PlayLabel}">
                         <FontIcon Glyph="&#xE768;" FontSize="16" />
                     </Button>
                     <StackPanel Grid.Row="1" Spacing="1" Padding="2,0">
@@ -252,8 +253,8 @@
                         IsSettingsVisible="False" OpenPaneLength="220" IsTitleBarAutoPaddingEnabled="False"
                         SelectionChanged="OnNavSelectionChanged" ItemInvoked="OnNavItemInvoked">
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="QueueNav" Content="To listen" Tag="queue" IsSelected="True"
-                                    ToolTipService.ToolTip="To listen: albums waiting for you">
+                <NavigationViewItem x:Name="QueueNav" Content="{l:Tr Key=nav.queue}" Tag="queue" IsSelected="True"
+                                    ToolTipService.ToolTip="{l:Tr Key=nav.queue.tip}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE8D6;" />
                     </NavigationViewItem.Icon>
@@ -261,8 +262,8 @@
                         <InfoBadge x:Name="QueueBadge" Visibility="Collapsed" />
                     </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="ListenedNav" Content="Listened" Tag="listened"
-                                    ToolTipService.ToolTip="Listened: albums you've heard, with your ratings">
+                <NavigationViewItem x:Name="ListenedNav" Content="{l:Tr Key=nav.listened}" Tag="listened"
+                                    ToolTipService.ToolTip="{l:Tr Key=nav.listened.tip}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE930;" />
                     </NavigationViewItem.Icon>
@@ -270,26 +271,26 @@
                         <InfoBadge x:Name="ListenedBadge" Visibility="Collapsed" Style="{ThemeResource InformationalValueInfoBadgeStyle}" />
                     </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="PhotoNav" Content="Magazine photo" Tag="photo"
-                                    ToolTipService.ToolTip="Magazine photo: click albums on a photo of the page">
+                <NavigationViewItem x:Name="PhotoNav" Content="{l:Tr Key=nav.photo}" Tag="photo"
+                                    ToolTipService.ToolTip="{l:Tr Key=nav.photo.tip}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE722;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem x:Name="HelpNav" Content="Help" Tag="help" ToolTipService.ToolTip="Help, shortcuts and about (F1)">
+                <NavigationViewItem x:Name="HelpNav" Content="{l:Tr Key=nav.help}" Tag="help" ToolTipService.ToolTip="{l:Tr Key=nav.help.tip}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE897;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="SyncNav" Content="Sync" Tag="sync" SelectsOnInvoked="False">
+                <NavigationViewItem x:Name="SyncNav" Content="{l:Tr Key=nav.sync}" Tag="sync" SelectsOnInvoked="False">
                     <NavigationViewItem.Icon>
                         <FontIcon x:Name="SyncIcon" Glyph="&#xE895;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="SettingsNav" Content="Settings" Tag="settings"
-                                    ToolTipService.ToolTip="Settings: Tidal and Spotify, country, theme, layout">
+                <NavigationViewItem x:Name="SettingsNav" Content="{l:Tr Key=nav.settings}" Tag="settings"
+                                    ToolTipService.ToolTip="{l:Tr Key=nav.settings.tip}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>
@@ -319,32 +320,32 @@
                         </Grid.RowDefinitions>
 
                         <Grid>
-                            <TextBlock Text="Add albums" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                            <TextBlock Text="{l:Tr Key=pane.title}" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
                             <Button HorizontalAlignment="Right" Click="OnHidePane" Background="Transparent" BorderThickness="0"
-                                    AutomationProperties.Name="Hide this panel" ToolTipService.ToolTip="Hide this panel (Ctrl+B)">
+                                    AutomationProperties.Name="{l:Tr Key=pane.hide}" ToolTipService.ToolTip="{l:Tr Key=pane.hide.tip}">
                                 <FontIcon Glyph="&#xE76B;" FontSize="14" />
                             </Button>
                         </Grid>
 
                         <InfoBar x:Name="SetupInfo" Grid.Row="1" Severity="Informational" IsClosable="False"
-                                 Title="Connect Spotify and Tidal"
-                                 Message="Paste your free developer keys once so Queueify can search their catalogs.">
+                                 Title="{l:Tr Key=pane.setup.title}"
+                                 Message="{l:Tr Key=pane.setup.text}">
                             <InfoBar.ActionButton>
-                                <Button Content="Open settings" Click="OnSettings" />
+                                <Button Content="{l:Tr Key=pane.setup.open}" Click="OnSettings" />
                             </InfoBar.ActionButton>
                         </InfoBar>
 
-                        <TextBox x:Name="SourceBox" Grid.Row="2" Header="Magazine" MaxLength="200"
-                                 PlaceholderText="e.g. Rolling Stone #45">
+                        <TextBox x:Name="SourceBox" Grid.Row="2" Header="{l:Tr Key=pane.magazine}" MaxLength="200"
+                                 PlaceholderText="{l:Tr Key=pane.magazine.placeholder}">
                             <TextBox.Description>
-                                <TextBlock Text="Optional. Saved with every album you add, so you remember where it came from."
+                                <TextBlock Text="{l:Tr Key=pane.magazine.help}"
                                            TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </TextBox.Description>
                         </TextBox>
 
-                        <TextBox x:Name="SearchBox" Grid.Row="3" Header="Find an album" MaxLength="300"
-                                 PlaceholderText="Artist and album, e.g. Charly García Clics Modernos"
+                        <TextBox x:Name="SearchBox" Grid.Row="3" Header="{l:Tr Key=pane.search}" MaxLength="300"
+                                 PlaceholderText="{l:Tr Key=pane.search.placeholder}"
                                  TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
 
                         <StackPanel Grid.Row="4" Spacing="4">
@@ -359,7 +360,7 @@
 
                         <!-- Three-step how-to while nothing is being searched -->
                         <StackPanel x:Name="SearchTips" Grid.Row="5" Spacing="16" VerticalAlignment="Center" Margin="4,0">
-                            <TextBlock Text="How it works" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="{l:Tr Key=pane.how}" Style="{StaticResource BodyStrongTextBlockStyle}" />
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -369,7 +370,7 @@
                                     <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                 </Border>
-                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"><Run Text="Type what the magazine says and press " /><Run Text="Enter" FontWeight="SemiBold" /><Run Text="." /></TextBlock>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"><Run Text="{l:Tr Key=pane.how.1a}" /><Run Text="Enter" FontWeight="SemiBold" /><Run Text="." /></TextBlock>
                             </Grid>
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
@@ -380,7 +381,7 @@
                                     <TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"
                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                 </Border>
-                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"><Run Text="The best match from Spotify and Tidal is highlighted. Press " /><Run Text="Enter" FontWeight="SemiBold" /><Run Text=" again to add it." /></TextBlock>
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"><Run Text="{l:Tr Key=pane.how.2a}" /><Run Text="Enter" FontWeight="SemiBold" /><Run Text="{l:Tr Key=pane.how.2b}" /></TextBlock>
                             </Grid>
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
@@ -392,13 +393,13 @@
                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                 </Border>
                                 <TextBlock Grid.Column="1" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                           Text="When you've listened, tick the circle next to the album. Too lazy to type? Drop a photo of the page into the window." />
+                                           Text="{l:Tr Key=pane.how.3}" />
                             </Grid>
                         </StackPanel>
 
                         <TextBlock Grid.Row="6" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                   Text="Enter search / add  ·  ↑ ↓ choose  ·  Esc clear  ·  F1 help" />
+                                   Text="{l:Tr Key=pane.keys}" />
                     </Grid>
                 </Border>
 
@@ -409,15 +410,15 @@
                         Padding="0,14" CornerRadius="8"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        AutomationProperties.Name="Show the Add albums panel"
-                        ToolTipService.ToolTip="Show the Add albums panel (Ctrl+B)">
+                        AutomationProperties.Name="{l:Tr Key=pane.show}"
+                        ToolTipService.ToolTip="{l:Tr Key=pane.show.tip}">
                     <StackPanel Spacing="16">
                         <FontIcon Glyph="&#xE76C;" FontSize="14" />
                         <FontIcon Glyph="&#xE710;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <!-- Canvas: the rotated label must not be clipped by the narrow column. Left-aligned
                              text starts at the top after rotating; the box leaves room for large text sizes. -->
                         <Canvas Width="20" Height="240">
-                            <TextBlock Text="Add albums" Width="240" TextAlignment="Left" FontWeight="SemiBold"
+                            <TextBlock Text="{l:Tr Key=pane.title}" Width="240" TextAlignment="Left" FontWeight="SemiBold"
                                        Canvas.Left="-110" Canvas.Top="110" RenderTransformOrigin="0.5,0.5">
                                 <TextBlock.RenderTransform>
                                     <RotateTransform Angle="90" />
@@ -448,7 +449,7 @@
                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock x:Name="PageTitle" AutomationProperties.AutomationId="PageTitle"
-                                       Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold" Text="To listen" />
+                                       Style="{StaticResource TitleTextBlockStyle}" FontWeight="Bold" Text="{l:Tr Key=nav.queue}" />
                             <TextBlock x:Name="PageSummary" AutomationProperties.AutomationId="PageSummary"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -459,32 +460,32 @@
                     <CommandBar x:Name="QueueCommands" Grid.Row="1" DefaultLabelPosition="Right" HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch" IsDynamicOverflowEnabled="True" Background="Transparent">
                         <CommandBar.Content>
-                            <TextBox x:Name="FilterBox" Width="260" Margin="4,6,0,0" PlaceholderText="Filter (Ctrl+F)"
-                                     TextChanged="OnFilterChanged" AutomationProperties.Name="Filter the queue" />
+                            <TextBox x:Name="FilterBox" Width="260" Margin="4,6,0,0" PlaceholderText="{l:Tr Key=queue.filter.placeholder}"
+                                     TextChanged="OnFilterChanged" AutomationProperties.Name="{l:Tr Key=queue.filter}" />
                         </CommandBar.Content>
-                        <AppBarButton x:Name="SurpriseButton" Label="Surprise me" Click="OnSurprise"
-                                      ToolTipService.ToolTip="Pick a random album to listen to">
+                        <AppBarButton x:Name="SurpriseButton" Label="{l:Tr Key=queue.surprise}" Click="OnSurprise"
+                                      ToolTipService.ToolTip="{l:Tr Key=queue.surprise.tip}">
                             <AppBarButton.Icon>
                                 <FontIcon Glyph="&#xE8B1;" />
                             </AppBarButton.Icon>
                         </AppBarButton>
                         <AppBarSeparator />
-                        <AppBarButton x:Name="SortButton" Label="Oldest first" ToolTipService.ToolTip="Order by">
+                        <AppBarButton x:Name="SortButton" Label="{l:Tr Key=sort.oldest}" ToolTipService.ToolTip="{l:Tr Key=sort.tip}">
                             <AppBarButton.Icon>
                                 <FontIcon Glyph="&#xE8CB;" />
                             </AppBarButton.Icon>
                             <AppBarButton.Flyout>
                                 <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                    <RadioMenuFlyoutItem x:Name="SortOldest" Text="Oldest first" GroupName="sort" Tag="oldest" Click="OnSortChosen" />
-                                    <RadioMenuFlyoutItem x:Name="SortNewest" Text="Newest first" GroupName="sort" Tag="newest" Click="OnSortChosen" />
-                                    <RadioMenuFlyoutItem x:Name="SortArtist" Text="Artist A–Z" GroupName="sort" Tag="artist" Click="OnSortChosen" />
-                                    <RadioMenuFlyoutItem x:Name="SortYear" Text="Release year" GroupName="sort" Tag="year" Click="OnSortChosen" />
-                                    <RadioMenuFlyoutItem x:Name="SortSource" Text="Magazine" GroupName="sort" Tag="source" Click="OnSortChosen" />
+                                    <RadioMenuFlyoutItem x:Name="SortOldest" Text="{l:Tr Key=sort.oldest}" GroupName="sort" Tag="oldest" Click="OnSortChosen" />
+                                    <RadioMenuFlyoutItem x:Name="SortNewest" Text="{l:Tr Key=sort.newest}" GroupName="sort" Tag="newest" Click="OnSortChosen" />
+                                    <RadioMenuFlyoutItem x:Name="SortArtist" Text="{l:Tr Key=sort.artist}" GroupName="sort" Tag="artist" Click="OnSortChosen" />
+                                    <RadioMenuFlyoutItem x:Name="SortYear" Text="{l:Tr Key=sort.year}" GroupName="sort" Tag="year" Click="OnSortChosen" />
+                                    <RadioMenuFlyoutItem x:Name="SortSource" Text="{l:Tr Key=pane.magazine}" GroupName="sort" Tag="source" Click="OnSortChosen" />
                                 </MenuFlyout>
                             </AppBarButton.Flyout>
                         </AppBarButton>
-                        <AppBarToggleButton x:Name="CoverViewToggle" Label="Cover view" Click="OnCoverViewToggled"
-                                            ToolTipService.ToolTip="Show album covers in a grid">
+                        <AppBarToggleButton x:Name="CoverViewToggle" Label="{l:Tr Key=queue.covers}" Click="OnCoverViewToggled"
+                                            ToolTipService.ToolTip="{l:Tr Key=queue.covers.tip}">
                             <AppBarToggleButton.Icon>
                                 <FontIcon Glyph="&#xF0E2;" />
                             </AppBarToggleButton.Icon>
@@ -494,18 +495,18 @@
                     <!-- Toolbar for the photo page -->
                     <CommandBar x:Name="PhotoCommands" Grid.Row="1" DefaultLabelPosition="Right" HorizontalAlignment="Left"
                                 Visibility="Collapsed" Background="Transparent">
-                        <AppBarButton Label="Open photo…" Click="OnOpenPhoto" ToolTipService.ToolTip="Open a photo of a magazine page">
+                        <AppBarButton Label="{l:Tr Key=photo.open}" Click="OnOpenPhoto" ToolTipService.ToolTip="{l:Tr Key=photo.open.tip}">
                             <AppBarButton.Icon>
                                 <FontIcon Glyph="&#xE8E5;" />
                             </AppBarButton.Icon>
                         </AppBarButton>
-                        <AppBarButton Label="Paste" Click="OnPastePhoto" ToolTipService.ToolTip="Paste an image (Ctrl+V)">
+                        <AppBarButton Label="{l:Tr Key=photo.paste}" Click="OnPastePhoto" ToolTipService.ToolTip="{l:Tr Key=photo.paste.tip}">
                             <AppBarButton.Icon>
                                 <FontIcon Glyph="&#xE77F;" />
                             </AppBarButton.Icon>
                         </AppBarButton>
                         <AppBarSeparator />
-                        <AppBarButton Label="Fit to window" Click="OnFitPhoto" ToolTipService.ToolTip="Fit the page to the window (Ctrl+scroll zooms)">
+                        <AppBarButton Label="{l:Tr Key=photo.fit}" Click="OnFitPhoto" ToolTipService.ToolTip="{l:Tr Key=photo.fit.tip}">
                             <AppBarButton.Icon>
                                 <FontIcon Glyph="&#xE9A6;" />
                             </AppBarButton.Icon>
@@ -550,9 +551,9 @@
                                 </ScrollViewer>
                                 <StackPanel x:Name="PhotoHint" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="420">
                                     <FontIcon Glyph="&#xE722;" FontSize="44" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                                    <TextBlock Text="Drop a photo of the page" Style="{StaticResource SubtitleTextBlockStyle}" TextAlignment="Center" />
+                                    <TextBlock Text="{l:Tr Key=photo.hint.title}" Style="{StaticResource SubtitleTextBlockStyle}" TextAlignment="Center" />
                                     <TextBlock TextAlignment="Center" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               Text="Take it with your phone, send it to the PC, and drop it anywhere in this window, paste it with Ctrl+V, or use Open photo." />
+                                               Text="{l:Tr Key=photo.hint.text}" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -563,40 +564,40 @@
                         <StackPanel Spacing="16" MaxWidth="900" HorizontalAlignment="Left">
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="14">
-                                    <TextBlock Text="Quick guide" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                    <TextBlock TextWrapping="Wrap" Text="1.  Type the artist and album from the magazine in “Find an album” and press Enter. Queueify searches Spotify and Tidal together and highlights the best match; Enter again adds it. The year can be off by one." />
-                                    <TextBlock TextWrapping="Wrap" Text="2.  Write the magazine and issue in “Magazine” once; every album you add remembers where it came from." />
-                                    <TextBlock TextWrapping="Wrap" Text="3.  When you want to listen, press Play (or double-click the album) and it opens in Tidal or Spotify. Choose which one in Settings." />
-                                    <TextBlock TextWrapping="Wrap" Text="4.  Tick the circle when you've heard it. It moves to Listened, where you can give it stars. Changed your mind? Every action has Undo." />
-                                    <TextBlock TextWrapping="Wrap" Text="5.  Lazy mode: photograph a page, drop the photo into the window, then click the artist and the album on it instead of typing." />
-                                    <Button x:Name="ReplayTourButton" Content="Replay the quick tour" Click="OnReplayTour" />
+                                    <TextBlock Text="{l:Tr Key=help.guide}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.guide.1}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.guide.2}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.guide.3}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.guide.4}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.guide.5}" />
+                                    <Button x:Name="ReplayTourButton" Content="{l:Tr Key=help.replay}" Click="OnReplayTour" />
                                 </StackPanel>
                             </Border>
 
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="Keyboard shortcuts" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                    <TextBlock Text="{l:Tr Key=help.shortcuts}" Style="{StaticResource SubtitleTextBlockStyle}" />
                                     <ItemsControl x:Name="ShortcutList" ItemTemplate="{StaticResource ShortcutTemplate}" />
                                     <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               Text="Mouse: double-click an album to play it, right-click for more, drag the edge of the Add albums panel to resize it." />
+                                               Text="{l:Tr Key=help.mouse}" />
                                 </StackPanel>
                             </Border>
 
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="Sync between your PCs" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                    <TextBlock TextWrapping="Wrap" Text="Click Sync in the bar on the left. On the first PC you connect a free Google Firebase project (the dialog lists the steps); you then get a sync code. On other PCs, copy the whole Queueify folder, or open Sync and paste the code. Albums and your Spotify/Tidal keys come along." />
-                                    <TextBlock TextWrapping="Wrap" Text="The Sync icon shows the state: a cloud when everything is up to date, a warning when something failed. Point at it to see why. Changes are never lost: they upload the next time it works." />
+                                    <TextBlock Text="{l:Tr Key=sync.title}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.sync.1}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.sync.2}" />
                                 </StackPanel>
                             </Border>
 
                             <Border Style="{StaticResource Card}">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="Troubleshooting" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                    <TextBlock TextWrapping="Wrap" Text="• “Spotify rejected the Client ID”: open Settings and paste the keys again from developer.spotify.com/dashboard. The account that owns the app needs Premium." />
-                                    <TextBlock TextWrapping="Wrap" Text="• An album isn't found: use fewer words (artist + main title), check the spelling, or add it without a link." />
-                                    <TextBlock TextWrapping="Wrap" Text="• Text on a photo is read wrong: use good light and shoot the page straight on. Install Spanish text recognition from the Magazine photo page for accents and ñ." />
-                                    <TextBlock TextWrapping="Wrap" Text="• Sync shows a warning: point at the Sync icon for the reason. Usually it's no internet, or the security rules weren't published in Firebase." />
+                                    <TextBlock Text="{l:Tr Key=help.trouble}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.1}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.2}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.3}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.4}" />
                                 </StackPanel>
                             </Border>
 
@@ -608,7 +609,7 @@
                                     </Grid.ColumnDefinitions>
                                     <Image Source="ms-appx:///Assets/Queueify.svg" Width="72" Height="72" VerticalAlignment="Top" />
                                     <StackPanel Grid.Column="1" Spacing="6">
-                                        <TextBlock Text="About Queueify" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                        <TextBlock Text="{l:Tr Key=help.about}" Style="{StaticResource SubtitleTextBlockStyle}" />
                                         <TextBlock x:Name="AboutVersion" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         <TextBlock x:Name="AboutTagline" TextWrapping="Wrap" />
                                         <ItemsControl x:Name="AboutCredits" Margin="0,6,0,0">
@@ -620,8 +621,8 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
-                                            <Button Content="Open data folder" Click="OnOpenDataFolder"
-                                                    ToolTipService.ToolTip="Your queue, settings and layout live here" />
+                                            <Button Content="{l:Tr Key=help.data}" Click="OnOpenDataFolder"
+                                                    ToolTipService.ToolTip="{l:Tr Key=help.data.tip}" />
                                         </StackPanel>
                                         <TextBlock x:Name="AboutDataPath" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" IsTextSelectionEnabled="True" />
@@ -640,14 +641,14 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Music services" Style="{StaticResource SettingsSection}" Margin="0,0,0,4" />
+                            <TextBlock Text="{l:Tr Key=settings.music}" Style="{StaticResource SettingsSection}" Margin="0,0,0,4" />
                             <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"
-                                       Text="Queueify searches Tidal and Spotify with free developer keys of your own. One service is enough; both is best." />
+                                       Text="{l:Tr Key=settings.music.text}" />
                             <controls:ServiceCard x:Name="TidalCard" Service="Tidal" DashboardUrl="https://developer.tidal.com/dashboard"
-                                                  Steps="1. Open the Tidal developer dashboard and log in.&#x0a;2. Create an app (any name).&#x0a;3. Copy its Client ID and Client secret here."
+                                                  Steps="{l:Tr Key=settings.tidal.steps}"
                                                   SaveRequested="OnSaveServiceKeys" RemoveRequested="OnRemoveServiceKeys" />
                             <controls:ServiceCard x:Name="SpotifyCard" Service="Spotify" DashboardUrl="https://developer.spotify.com/dashboard"
-                                                  Steps="1. Open the Spotify developer dashboard and log in with your Premium account.&#x0a;2. Create an app: any name and description, Redirect URI http://127.0.0.1:8888/callback (required, but unused), tick &quot;Web API&quot;.&#x0a;3. Open the app's settings and copy the Client ID and Client secret here."
+                                                  Steps="{l:Tr Key=settings.spotify.steps}"
                                                   SaveRequested="OnSaveServiceKeys" RemoveRequested="OnRemoveServiceKeys" />
 
                             <Border Style="{StaticResource SettingRow}">
@@ -659,12 +660,12 @@
                                     </Grid.ColumnDefinitions>
                                     <FontIcon Glyph="&#xE768;" FontSize="20" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="Play opens albums in" />
-                                        <TextBlock Text="When an album is on both services" Style="{StaticResource CaptionTextBlockStyle}"
+                                        <TextBlock Text="{l:Tr Key=settings.preferred}" />
+                                        <TextBlock Text="{l:Tr Key=settings.preferred.text}" Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <ComboBox x:Name="PreferredBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
-                                              AutomationProperties.AutomationId="PreferredBox" AutomationProperties.Name="Play opens albums in"
+                                              AutomationProperties.AutomationId="PreferredBox" AutomationProperties.Name="{l:Tr Key=settings.preferred}"
                                               SelectionChanged="OnPreferredChanged">
                                         <x:String>Tidal</x:String>
                                         <x:String>Spotify</x:String>
@@ -681,19 +682,19 @@
                                     </Grid.ColumnDefinitions>
                                     <FontIcon Glyph="&#xE909;" FontSize="20" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="Country" />
-                                        <TextBlock Text="Searches show what's available in this country. Only countries where Tidal and Spotify both work are listed."
+                                        <TextBlock Text="{l:Tr Key=settings.country}" />
+                                        <TextBlock Text="{l:Tr Key=settings.country.text}"
                                                    Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <ComboBox x:Name="CountryBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                               DisplayMemberPath="Name" MaxDropDownHeight="420"
-                                              AutomationProperties.AutomationId="CountryBox" AutomationProperties.Name="Country"
+                                              AutomationProperties.AutomationId="CountryBox" AutomationProperties.Name="{l:Tr Key=settings.country}"
                                               SelectionChanged="OnCountryChanged" />
                                 </Grid>
                             </Border>
 
-                            <TextBlock Text="Text recognition (magazine photos)" Style="{StaticResource SettingsSection}" />
+                            <TextBlock Text="{l:Tr Key=settings.ocr}" Style="{StaticResource SettingsSection}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
@@ -703,14 +704,14 @@
                                     </Grid.ColumnDefinitions>
                                     <FontIcon Glyph="&#xE8D2;" FontSize="20" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="Read photos in" />
-                                        <TextBlock Text="The language Windows uses to read the text on a photo"
+                                        <TextBlock Text="{l:Tr Key=settings.ocr.read}" />
+                                        <TextBlock Text="{l:Tr Key=settings.ocr.read.text}"
                                                    Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <ComboBox x:Name="OcrLanguageBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                               DisplayMemberPath="Name"
-                                              AutomationProperties.AutomationId="OcrLanguageBox" AutomationProperties.Name="Read photos in"
+                                              AutomationProperties.AutomationId="OcrLanguageBox" AutomationProperties.Name="{l:Tr Key=settings.ocr.read}"
                                               SelectionChanged="OnOcrLanguageChanged" />
                                 </Grid>
                             </Border>
@@ -728,25 +729,25 @@
                                     </Grid.RowDefinitions>
                                     <FontIcon Glyph="&#xE774;" FontSize="20" VerticalAlignment="Top" Margin="0,2,0,0" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="Languages installed in Windows" />
+                                        <TextBlock Text="{l:Tr Key=settings.ocr.installed}" />
                                         <TextBlock x:Name="OcrInstalledList" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    AutomationProperties.AutomationId="OcrInstalledList"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <HyperlinkButton Grid.Column="2" Content="Windows language settings" Click="OnOpenWindowsLanguages"
+                                    <HyperlinkButton Grid.Column="2" Content="{l:Tr Key=settings.ocr.windows}" Click="OnOpenWindowsLanguages"
                                                      VerticalAlignment="Center"
-                                                     ToolTipService.ToolTip="Add or remove languages in Windows itself (Settings → Time &amp; language)" />
+                                                     ToolTipService.ToolTip="{l:Tr Key=settings.ocr.windows.tip}" />
 
                                     <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="Add a language" />
-                                        <TextBlock Text="Downloads from Windows Update in about a minute. Windows asks for administrator permission."
+                                        <TextBlock Text="{l:Tr Key=settings.ocr.add}" />
+                                        <TextBlock Text="{l:Tr Key=settings.ocr.add.text}"
                                                    Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                         <ComboBox x:Name="OcrInstallBox" MinWidth="200" DisplayMemberPath="Name"
-                                                  AutomationProperties.AutomationId="OcrInstallBox" AutomationProperties.Name="Language to install" />
-                                        <Button x:Name="OcrInstallButton" Content="Install" Click="OnInstallOcrLanguage"
+                                                  AutomationProperties.AutomationId="OcrInstallBox" AutomationProperties.Name="{l:Tr Key=settings.ocr.add.name}" />
+                                        <Button x:Name="OcrInstallButton" Content="{l:Tr Key=settings.ocr.install}" Click="OnInstallOcrLanguage"
                                                 AutomationProperties.AutomationId="OcrInstallButton" />
                                     </StackPanel>
 
@@ -757,7 +758,7 @@
                                 </Grid>
                             </Border>
 
-                            <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
+                            <TextBlock Text="{l:Tr Key=settings.appearance}" Style="{StaticResource SettingsSection}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
@@ -767,17 +768,45 @@
                                     </Grid.ColumnDefinitions>
                                     <FontIcon Glyph="&#xE790;" FontSize="20" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="Theme" />
-                                        <TextBlock Text="Light or dark; by default the same as Windows" Style="{StaticResource CaptionTextBlockStyle}"
+                                        <TextBlock Text="{l:Tr Key=settings.theme}" />
+                                        <TextBlock Text="{l:Tr Key=settings.theme.text}" Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <ComboBox x:Name="ThemeBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
-                                              AutomationProperties.AutomationId="ThemeBox" AutomationProperties.Name="Theme"
+                                              AutomationProperties.AutomationId="ThemeBox" AutomationProperties.Name="{l:Tr Key=settings.theme}"
                                               SelectionChanged="OnThemeChanged">
-                                        <ComboBoxItem Content="Use Windows setting" Tag="system" />
-                                        <ComboBoxItem Content="Light" Tag="light" />
-                                        <ComboBoxItem Content="Dark" Tag="dark" />
+                                        <ComboBoxItem Content="{l:Tr Key=settings.theme.system}" Tag="system" />
+                                        <ComboBoxItem Content="{l:Tr Key=settings.theme.light}" Tag="light" />
+                                        <ComboBoxItem Content="{l:Tr Key=settings.theme.dark}" Tag="dark" />
                                     </ComboBox>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16" RowSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <FontIcon Glyph="&#xF2B7;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{l:Tr Key=settings.language}" />
+                                        <TextBlock Text="{l:Tr Key=settings.language.text}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="LanguageBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                              AutomationProperties.AutomationId="LanguageBox" AutomationProperties.Name="{l:Tr Key=settings.language}"
+                                              SelectionChanged="OnLanguageChanged">
+                                        <ComboBoxItem Content="{l:Tr Key=settings.language.system}" Tag="system" />
+                                        <ComboBoxItem Content="English" Tag="en" />
+                                        <ComboBoxItem Content="Español" Tag="es" />
+                                    </ComboBox>
+                                    <InfoBar x:Name="LanguageRestartInfo" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                             Severity="Informational" IsClosable="False" Message="{l:Tr Key=settings.language.restart}" />
                                 </Grid>
                             </Border>
                             <Border Style="{StaticResource SettingRow}">
@@ -789,16 +818,16 @@
                                     </Grid.ColumnDefinitions>
                                     <FontIcon Glyph="&#xE737;" FontSize="20" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="Layout" />
-                                        <TextBlock Text="Brings back the Add albums panel at its first width, the list view, the original order (oldest first) and the window size"
+                                        <TextBlock Text="{l:Tr Key=settings.layout}" />
+                                        <TextBlock Text="{l:Tr Key=settings.layout.text}"
                                                    Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <Button Grid.Column="2" Content="Reset layout" Click="OnResetLayout" VerticalAlignment="Center" />
+                                    <Button Grid.Column="2" Content="{l:Tr Key=settings.layout.reset}" Click="OnResetLayout" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
 
-                            <TextBlock Text="Sync between your PCs" Style="{StaticResource SettingsSection}" />
+                            <TextBlock Text="{l:Tr Key=sync.title}" Style="{StaticResource SettingsSection}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
@@ -812,14 +841,14 @@
                                         <TextBlock x:Name="SettingsSyncStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <Button Grid.Column="2" Content="Open sync" Click="OnSync" VerticalAlignment="Center" />
+                                    <Button Grid.Column="2" Content="{l:Tr Key=settings.sync.open}" Click="OnSync" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
 
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
                                 <TextBlock x:Name="SettingsDataPath" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center"
                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}" IsTextSelectionEnabled="True" />
-                                <HyperlinkButton Content="Open data folder" Click="OnOpenDataFolder" FontSize="12" />
+                                <HyperlinkButton Content="{l:Tr Key=help.data}" Click="OnOpenDataFolder" FontSize="12" />
                             </StackPanel>
                         </StackPanel>
                         </Grid>
@@ -834,7 +863,7 @@
 
         <!-- Quick tour: one tip that moves from control to control -->
         <TeachingTip x:Name="Tour" Grid.Row="1" IsLightDismissEnabled="False" PreferredPlacement="Auto"
-                     ActionButtonContent="Next" CloseButtonContent="Skip tour"
+                     ActionButtonContent="{l:Tr Key=tour.next}" CloseButtonContent="{l:Tr Key=tour.skip}"
                      ActionButtonClick="OnTourNext" CloseButtonClick="OnTourClosed" />
     </Grid>
 </Window>

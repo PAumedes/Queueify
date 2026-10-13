@@ -24,6 +24,8 @@ public partial class App : Application
     {
         try
         {
+            // Before any window exists: XAML reads its texts while it loads.
+            Loc.Use(UiState.Load().Language);
             _window = new MainWindow();
             _window.Activate();
         }

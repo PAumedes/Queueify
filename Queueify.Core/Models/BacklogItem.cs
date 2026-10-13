@@ -53,8 +53,8 @@ public sealed class BacklogItem : INotifyPropertyChanged
         : (HasSpotify ? MusicService.Spotify : HasTidal ? MusicService.Tidal : null);
 
     public bool CanPlay => PlayService != null;
-    public string PlayLabel => PlayService?.ToString() ?? "No link";
-    public string ArtistLine => Artist.Length > 0 ? Artist : "Not found on Spotify or Tidal";
+    public string PlayLabel => PlayService?.ToString() ?? Services.Loc.T("item.no_link");
+    public string ArtistLine => Artist.Length > 0 ? Artist : Services.Loc.T("item.not_found");
 
     public string Subtitle
     {
@@ -63,7 +63,7 @@ public sealed class BacklogItem : INotifyPropertyChanged
             var parts = new List<string>();
             if (Year is int y) parts.Add(y.ToString());
             if (!string.IsNullOrWhiteSpace(Source)) parts.Add(Source!);
-            parts.Add(ListenedAt is DateTime l ? $"listened {l:d MMM yyyy}" : $"added {AddedAt:d MMM yyyy}");
+            parts.Add(ListenedAt is DateTime l ? Services.Loc.F("item.listened_on", l) : Services.Loc.F("item.added_on", AddedAt));
             return string.Join("  ·  ", parts);
         }
     }

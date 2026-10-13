@@ -154,6 +154,19 @@ public sealed class UiStateTests : IDisposable
     }
 
     [Fact]
+    public void Language_FollowsWindowsUntilChosen_AndIsRemembered()
+    {
+        var path = Path.Combine(_dir, "ui.json");
+        Assert.Equal("system", UiState.Load(path).Language);
+
+        var state = UiState.Load(path);
+        state.Language = "es";
+        state.Save(path);
+
+        Assert.Equal("es", UiState.Load(path).Language);
+    }
+
+    [Fact]
     public void OcrChoices_StartAutomaticAndAsking_AndAreRemembered()
     {
         var path = Path.Combine(_dir, "ui.json");

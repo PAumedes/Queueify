@@ -29,7 +29,7 @@ public sealed partial class PaneSplitter : Grid
     {
         Background = new SolidColorBrush(Colors.Transparent);
         ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
-        ToolTipService.SetToolTip(this, "Drag to resize · double-click to reset");
+        ToolTipService.SetToolTip(this, Services.Loc.T("pane.resize"));
 
         _line = new Border
         {

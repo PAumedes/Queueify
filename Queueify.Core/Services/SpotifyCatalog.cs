@@ -64,7 +64,7 @@ public sealed class SpotifyCatalog(HttpClient http, Func<AppSettings> settings)
 
         using var res = await http.SendAsync(req, ct);
         if (res.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
-            throw new CatalogException("Spotify rejected the Client ID / Client Secret. Check them in Settings.", keysRejected: true);
+            throw new CatalogException(Loc.F("catalog.rejected", "Spotify"), keysRejected: true);
         await ThrowIfFailedAsync(res, ct);
 
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
@@ -83,11 +83,11 @@ public sealed class SpotifyCatalog(HttpClient http, Func<AppSettings> settings)
         throw new CatalogException(res.StatusCode switch
         {
             HttpStatusCode.TooManyRequests when body.Contains("QUOTA_EXCEEDED") =>
-                "Spotify's Development Mode quota is used up for now. Try again later.",
-            HttpStatusCode.TooManyRequests => "Spotify is rate limiting requests. Wait a few seconds and retry.",
+                Loc.T("spotify.quota"),
+            HttpStatusCode.TooManyRequests => Loc.F("catalog.rate_limited", "Spotify"),
             HttpStatusCode.Forbidden =>
-                "Spotify refused the request. Development Mode apps need the owner account to have Premium.",
-            _ => $"Spotify error {(int)res.StatusCode}: {Truncate(body)}",
+                Loc.T("spotify.premium"),
+            _ => Loc.F("catalog.error", "Spotify", (int)res.StatusCode, Truncate(body)),
         });
     }
 

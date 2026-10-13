@@ -27,6 +27,9 @@ public sealed class UiState
     /// <summary>"system" (follow Windows), "light" or "dark".</summary>
     public string Theme { get; set; } = "system";
 
+    /// <summary>"system" (Windows' language), "en" or "es". Applied at startup.</summary>
+    public string Language { get; set; } = "system";
+
     /// <summary>Which installed text recognition language reads photos: "auto" (Spanish when installed) or a tag.</summary>
     public string OcrLanguage { get; set; } = "auto";
 
