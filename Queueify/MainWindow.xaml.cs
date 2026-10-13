@@ -560,7 +560,7 @@ public sealed partial class MainWindow : Window
         };
         if (_page == Page.Settings && previous != Page.Settings) FillSettingsPage();
         RefreshQueue();
-        if (_page == Page.Photo && !OcrInfo.IsOpen && !OcrService.SpanishAvailable)
+        if (_page == Page.Photo && !OcrInfo.IsOpen && !OcrService.SpanishAvailable && !_ui.OcrHintDismissed)
             ShowSpanishOcrWarning(null);
     }
 
@@ -856,7 +856,7 @@ public sealed partial class MainWindow : Window
         OcrPage page;
         try
         {
-            page = await OcrService.RecognizeAsync(stream);
+            page = await OcrService.RecognizeAsync(stream, _ui.OcrLanguage);
         }
         catch (Exception ex)
         {
@@ -902,7 +902,7 @@ public sealed partial class MainWindow : Window
         _startFreshFromPhoto = true;
         if (page.Lines.Count == 0)
             ShowOcrInfo(InfoBarSeverity.Warning, "No text found. Try a sharper, well-lit photo taken straight on.");
-        else if (!page.IsSpanish)
+        else if (!page.IsSpanish && !OcrService.SpanishAvailable && !_ui.OcrHintDismissed)
             ShowSpanishOcrWarning(page.LanguageName);
         else
             OcrInfo.IsOpen = false;
@@ -942,41 +942,122 @@ public sealed partial class MainWindow : Window
     private void ShowOcrInfo(InfoBarSeverity severity, string message)
     {
         OcrInfo.ActionButton = null;
+        OcrInfo.Content = null;
         OcrInfo.Severity = severity;
         OcrInfo.Message = message;
         OcrInfo.IsOpen = true;
     }
 
+    /// <summary>
+    /// The Photo page's offer to install Spanish text recognition. It can be dismissed for good;
+    /// Settings → Text recognition still offers it.
+    /// </summary>
     private void ShowSpanishOcrWarning(string? usedLanguage)
     {
         var readingAs = usedLanguage != null ? $" (reading as {usedLanguage})" : "";
         ShowOcrInfo(InfoBarSeverity.Warning,
             $"Spanish text recognition isn't installed on this PC, so accents and ñ may be misread{readingAs}. " +
             "Matching still works. Installing it takes about a minute and Windows will ask for admin permission.");
-        var install = new Button { Content = "Install Spanish OCR" };
+        var install = new Button { Content = "Install Spanish" };
         install.Click += async (_, _) =>
         {
             install.IsEnabled = false;
             install.Content = "Installing…";
-            switch (await OcrService.InstallSpanishAsync())
+            await InstallOcrLanguageAsync("es-ES", ShowOcrInstallOutcome);
+            if (OcrInfo.ActionButton == install)
             {
-                case OcrInstallResult.Installed:
-                    ShowOcrInfo(InfoBarSeverity.Success, "Spanish text recognition is installed. Open the photo again to re-read it.");
-                    break;
-                case OcrInstallResult.RestartApp:
-                    ShowOcrInfo(InfoBarSeverity.Success, "Spanish text recognition is installed. Restart Queueify to start using it.");
-                    break;
-                case OcrInstallResult.Cancelled:
-                    install.IsEnabled = true;
-                    install.Content = "Install Spanish OCR";
-                    break;
-                case OcrInstallResult.Failed:
-                    ShowOcrInfo(InfoBarSeverity.Error,
-                        "The install didn't finish. It downloads from Windows Update, so check the internet connection and try again later.");
-                    break;
+                install.IsEnabled = true;
+                install.Content = "Install Spanish";
             }
         };
+        var dismiss = new HyperlinkButton { Content = "Don't show this again" };
+        dismiss.Click += (_, _) =>
+        {
+            _ui.OcrHintDismissed = true;
+            _ui.Save();
+            OcrInfo.IsOpen = false;
+        };
         OcrInfo.ActionButton = install;
+        OcrInfo.Content = dismiss;
+    }
+
+    private void ShowOcrInstallOutcome(InfoBarSeverity severity, string message, bool offerRestart)
+    {
+        ShowOcrInfo(severity, message);
+        if (offerRestart) OcrInfo.ActionButton = RestartButton();
+    }
+
+    /// <summary>
+    /// Installs a text recognition language and explains every outcome: done, needs a restart,
+    /// permission declined, window closed, Windows Update error, or another install still running.
+    /// </summary>
+    private async Task InstallOcrLanguageAsync(string tag, Action<InfoBarSeverity, string, bool> report)
+    {
+        var name = OcrLanguages.NameOf(tag);
+        OcrInstallOutcome outcome;
+        try
+        {
+            outcome = await OcrService.InstallAsync(tag);
+        }
+        catch (Exception ex)
+        {
+            outcome = new OcrInstallOutcome(OcrInstallResult.Failed, ex.Message);
+        }
+
+        switch (outcome.Result)
+        {
+            case OcrInstallResult.Installed:
+                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Open the photo again to re-read it.", false);
+                break;
+            case OcrInstallResult.RestartApp:
+                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Restart Queueify to start using it.", true);
+                break;
+            case OcrInstallResult.RestartWindows:
+                report(InfoBarSeverity.Warning, $"{name} text recognition is installed, but Windows needs a restart to finish.", false);
+                break;
+            case OcrInstallResult.Cancelled:
+                report(InfoBarSeverity.Informational,
+                    "Nothing was installed: Windows' permission prompt was declined. Installing needs an administrator " +
+                    "(on a family or work PC, ask the person who manages it). You can try again any time.", false);
+                break;
+            case OcrInstallResult.Interrupted:
+                report(InfoBarSeverity.Warning,
+                    "The install window was closed before it finished. Try again and leave it open; it closes by itself.", false);
+                break;
+            case OcrInstallResult.Busy:
+                report(InfoBarSeverity.Informational, "Another install is still running. Wait until its window closes.", false);
+                break;
+            default:
+                var detail = outcome.Error != null ? $" Windows said: {outcome.Error}" : "";
+                report(InfoBarSeverity.Error,
+                    $"Windows couldn't install {name} text recognition.{detail} It downloads from Windows Update, so check " +
+                    "the internet connection. On PCs where an organization manages updates, add the language in Windows " +
+                    "language settings instead (with \"Optical character recognition\").", false);
+                break;
+        }
+        if (_page == Page.Settings) FillOcrSettings();
+    }
+
+    private Button RestartButton()
+    {
+        var restart = new Button { Content = "Restart Queueify" };
+        restart.Click += (_, _) => RestartApp();
+        return restart;
+    }
+
+    /// <summary>Starts a fresh copy and closes this one (which saves the window and layout as usual).</summary>
+    private void RestartApp()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            ShowToast($"Couldn't restart ({ex.Message}). Close Queueify and open it again.", severity: InfoBarSeverity.Warning);
+            return;
+        }
+        Close();
     }
 
     // ───────────────────────── Sync between PCs ─────────────────────────
@@ -1495,6 +1576,7 @@ public sealed partial class MainWindow : Window
             ThemeBox.SelectedItem = ThemeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Theme)
                                     ?? ThemeBox.Items[0];
             SettingsDataPath.Text = AppData.Folder;
+            FillOcrSettings();
             UpdateServiceCards();
         }
         finally
@@ -1671,6 +1753,69 @@ public sealed partial class MainWindow : Window
         _ui.Save();
         ApplyTheme();
     }
+
+    /// <summary>Text recognition: what Windows has installed, which one reads photos, what can be added.</summary>
+    private void FillOcrSettings()
+    {
+        bool wasFilling = _fillingSettings;
+        _fillingSettings = true;
+        try
+        {
+            var installed = OcrService.InstalledTags;
+            var choices = new List<OcrLanguageOption> { new("auto", "Automatic (Spanish when installed)") };
+            choices.AddRange(installed.Select(t => new OcrLanguageOption(t, OcrLanguages.NameOf(t))));
+            OcrLanguageBox.ItemsSource = choices;
+            OcrLanguageBox.SelectedItem = choices.FirstOrDefault(c => c.Tag.Equals(_ui.OcrLanguage, StringComparison.OrdinalIgnoreCase))
+                                          ?? choices[0];
+
+            OcrInstalledList.Text = installed.Count == 0
+                ? "None. Photos can't be read until a language is installed."
+                : string.Join(", ", installed.Select(OcrLanguages.NameOf));
+
+            var installable = OcrLanguages.Installable(installed);
+            OcrInstallBox.ItemsSource = installable;
+            OcrInstallBox.SelectedIndex = installable.Count > 0 ? 0 : -1;
+            OcrInstallBox.IsEnabled = OcrInstallButton.IsEnabled = installable.Count > 0;
+            OcrInstallBox.PlaceholderText = installable.Count > 0 ? "" : "All offered languages are installed";
+        }
+        finally
+        {
+            _fillingSettings = wasFilling;
+        }
+    }
+
+    private void OnOcrLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_fillingSettings || OcrLanguageBox.SelectedItem is not OcrLanguageOption choice) return;
+        _ui.OcrLanguage = choice.Tag;
+        _ui.Save();
+    }
+
+    private async void OnInstallOcrLanguage(object sender, RoutedEventArgs e)
+    {
+        if (OcrInstallBox.SelectedItem is not OcrLanguageOption choice) return;
+        OcrInstallButton.IsEnabled = false;
+        OcrInstallProgress.Visibility = Visibility.Visible;
+        OcrInstallInfo.IsOpen = false;
+        try
+        {
+            await InstallOcrLanguageAsync(choice.Tag, (severity, message, offerRestart) =>
+            {
+                OcrInstallInfo.Severity = severity;
+                OcrInstallInfo.Message = message;
+                OcrInstallInfo.ActionButton = offerRestart ? RestartButton() : null;
+                OcrInstallInfo.IsOpen = true;
+            });
+        }
+        finally
+        {
+            OcrInstallProgress.Visibility = Visibility.Collapsed;
+            OcrInstallButton.IsEnabled = OcrInstallBox.Items.Count > 0;
+        }
+    }
+
+    private async void OnOpenWindowsLanguages(object sender, RoutedEventArgs e) =>
+        await Launcher.LaunchUriAsync(new Uri("ms-settings:regionlanguage"));
 
     private void ApplyTheme()
     {

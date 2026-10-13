@@ -34,9 +34,16 @@ view, the original order and the original window size.
 The keys, the app Play opens and the country sync between your PCs as one set: when two PCs change
 them, the most recent change wins. Theme and layout stay per PC.
 
-**Spanish OCR** (optional, for magazine photos): open *Magazine photo* and click *Install Spanish OCR*.
-It needs an admin prompt and internet, once per PC. Without it, OCR still works and matching ignores
-accents; only albums with no Spotify/Tidal match keep misread accents.
+**Spanish text recognition** (optional, for magazine photos): click *Install Spanish* on the *Magazine
+photo* page, or use Settings → *Text recognition*, which lists the languages installed in Windows, lets
+you choose which one reads photos, and installs others (Spanish, English, Portuguese, French, Italian,
+German). Installing needs an administrator's permission and internet, once per PC. Without Spanish, OCR
+still works and matching ignores accents; only albums with no Spotify/Tidal match keep misread accents.
+
+If the install doesn't work, Queueify says why: the permission prompt was declined (nothing changes; try
+again any time), the progress window was closed early, Windows Update failed (no internet, or updates
+managed by an organization; then add the language in Windows language settings), or Queueify or Windows
+needs a restart. *Don't show this again* hides the offer on the photo page.
 
 ## Same queue on several PCs (Google Firebase, free)
 

@@ -152,4 +152,21 @@ public sealed class UiStateTests : IDisposable
 
         Assert.Equal("light", UiState.Load(path).Theme);
     }
+
+    [Fact]
+    public void OcrChoices_StartAutomaticAndAsking_AndAreRemembered()
+    {
+        var path = Path.Combine(_dir, "ui.json");
+        var state = UiState.Load(path);
+        Assert.Equal("auto", state.OcrLanguage);
+        Assert.False(state.OcrHintDismissed);
+
+        state.OcrLanguage = "pt-BR";
+        state.OcrHintDismissed = true;
+        state.Save(path);
+
+        var loaded = UiState.Load(path);
+        Assert.Equal("pt-BR", loaded.OcrLanguage);
+        Assert.True(loaded.OcrHintDismissed);
+    }
 }

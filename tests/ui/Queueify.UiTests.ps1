@@ -230,6 +230,16 @@ Check ($null -ne $country -and $country.Current.ControlType.ProgrammaticName -eq
 $countryValue = $country.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() | ForEach-Object { $_.Current.Name }
 Check ($countryValue -eq 'Argentina') "country shows its name: $countryValue"
 
+# Text recognition: what's installed, which one reads photos, and installing more.
+Check ($null -ne (Find 'Text recognition (magazine photos)' 'Text')) 'settings section: Text recognition'
+$ocrBox = FindId 'OcrLanguageBox'
+$ocrValue = "$(if ($ocrBox) { $ocrBox.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() | ForEach-Object { $_.Current.Name } })"
+Check ($ocrValue -like 'Automatic*') "photos are read in: $ocrValue"
+$installed = "$((FindId 'OcrInstalledList').Current.Name)"
+Check ($installed.Length -gt 0) "installed text recognition languages are listed: $installed"
+Check ($null -ne (FindId 'OcrInstallBox') -and $null -ne (FindId 'OcrInstallButton')) 'more languages can be installed'
+Check ($null -ne (Find 'Windows language settings' 'Hyperlink')) 'a way out to Windows language settings'
+
 $theme = FindId 'ThemeBox'
 $theme.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
 Start-Sleep 1

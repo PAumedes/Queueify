@@ -27,6 +27,12 @@ public sealed class UiState
     /// <summary>"system" (follow Windows), "light" or "dark".</summary>
     public string Theme { get; set; } = "system";
 
+    /// <summary>Which installed text recognition language reads photos: "auto" (Spanish when installed) or a tag.</summary>
+    public string OcrLanguage { get; set; } = "auto";
+
+    /// <summary>"Don't show this again" on the Photo page's offer to install Spanish text recognition.</summary>
+    public bool OcrHintDismissed { get; set; }
+
     /// <summary>Back to the original layout (panel, list view, order, window size); the tour isn't repeated.</summary>
     public void ResetLayout()
     {

@@ -12,7 +12,25 @@ public sealed record OcrLine(string Text, Rect Bounds);
 
 public sealed record OcrPage(SoftwareBitmap Bitmap, IReadOnlyList<OcrLine> Lines, string LanguageName, bool IsSpanish);
 
-public enum OcrInstallResult { Installed, RestartApp, Cancelled, Failed }
+public enum OcrInstallResult
+{
+    /// <summary>Installed and ready to use.</summary>
+    Installed,
+    /// <summary>Installed, but this running copy of Queueify can't see it until it restarts.</summary>
+    RestartApp,
+    /// <summary>Installed; Windows wants a restart to finish.</summary>
+    RestartWindows,
+    /// <summary>The permission prompt was declined (or no administrator was available). Nothing changed.</summary>
+    Cancelled,
+    /// <summary>The progress window was closed before the install finished.</summary>
+    Interrupted,
+    /// <summary>Windows reported an error (no internet, Windows Update blocked by the organization…).</summary>
+    Failed,
+    /// <summary>Another install started from Queueify is still running.</summary>
+    Busy,
+}
+
+public sealed record OcrInstallOutcome(OcrInstallResult Result, string? Error = null);
 
 /// <summary>
 /// Text recognition with the OCR engine built into Windows (free, offline).
@@ -20,57 +38,114 @@ public enum OcrInstallResult { Installed, RestartApp, Cancelled, Failed }
 /// </summary>
 public static partial class OcrService
 {
-    private const string SpanishCapability = "Language.OCR~~~es-ES~0.0.1.0";
     private const int ErrorCancelled = 1223;
+    private const int ExitInstalled = 0;
+    private const int ExitRestartWindows = 2;
+    private const int ExitWindowClosed = unchecked((int)0xC000013A);
+
+    private static Task<OcrInstallOutcome>? _install;
+
+    /// <summary>Tags of the OCR languages installed in Windows, e.g. "es-ES", "en-US".</summary>
+    public static IReadOnlyList<string> InstalledTags =>
+        OcrEngine.AvailableRecognizerLanguages.Select(l => l.LanguageTag).ToList();
 
     public static bool SpanishAvailable =>
-        OcrEngine.AvailableRecognizerLanguages.Any(l => l.LanguageTag.StartsWith("es", StringComparison.OrdinalIgnoreCase));
+        InstalledTags.Any(t => t.StartsWith("es", StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsInstalled(string tag) =>
+        InstalledTags.Any(t => t.Equals(tag, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Installs the Spanish OCR component from Windows Update. Needs admin rights, so Windows shows
-    /// a UAC prompt; a small PowerShell window shows progress and any error.
+    /// Installs an OCR language from Windows Update. Needs admin rights, so Windows shows a permission
+    /// prompt; a small PowerShell window shows progress. One install at a time.
     /// </summary>
-    public static async Task<OcrInstallResult> InstallSpanishAsync()
+    public static Task<OcrInstallOutcome> InstallAsync(string tag)
     {
-        var script = $$"""
-            $Host.UI.RawUI.WindowTitle = 'Queueify - Spanish text recognition'
-            Write-Host 'Installing Spanish text recognition from Windows Update. This can take a minute...'
-            try {
-                Add-WindowsCapability -Online -Name '{{SpanishCapability}}' -ErrorAction Stop | Out-Null
-                exit 0
-            } catch {
-                Write-Host $_ -ForegroundColor Red
-                Start-Sleep -Seconds 15
-                exit 1
-            }
-            """;
-        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+        OcrLanguages.CapabilityName(tag); // throws for anything not offered
+        if (IsInstalled(tag)) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Installed));
+        if (_install is { IsCompleted: false }) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Busy));
+        return _install = RunInstallAsync(tag);
+    }
+
+    private static async Task<OcrInstallOutcome> RunInstallAsync(string tag)
+    {
+        var log = Path.Combine(Path.GetTempPath(), $"queueify-ocr-{Guid.NewGuid():N}.log");
+        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(InstallScript(tag, log)));
         var start = new System.Diagnostics.ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}")
         {
             UseShellExecute = true,
             Verb = "runas",
         };
 
-        System.Diagnostics.Process? process;
         try
         {
-            process = System.Diagnostics.Process.Start(start);
+            using var process = System.Diagnostics.Process.Start(start);
+            if (process == null) return new OcrInstallOutcome(OcrInstallResult.Failed);
+            await process.WaitForExitAsync();
+            var result = ResultOf(process.ExitCode, IsInstalled(tag));
+            return new OcrInstallOutcome(result, result == OcrInstallResult.Failed ? ReadLog(log) : null);
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
         {
-            return OcrInstallResult.Cancelled;
+            return new OcrInstallOutcome(OcrInstallResult.Cancelled);
         }
-        if (process == null) return OcrInstallResult.Failed;
-
-        using (process)
+        catch (System.ComponentModel.Win32Exception ex)
         {
-            await process.WaitForExitAsync();
-            if (process.ExitCode != 0) return OcrInstallResult.Failed;
+            return new OcrInstallOutcome(OcrInstallResult.Failed, ex.Message);
         }
-        return SpanishAvailable ? OcrInstallResult.Installed : OcrInstallResult.RestartApp;
+        finally
+        {
+            try { File.Delete(log); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
     }
 
-    public static async Task<OcrPage> RecognizeAsync(IRandomAccessStream stream)
+    private static string? ReadLog(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path).Trim() is { Length: > 0 } text ? text : null : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>What the elevated installer's exit code means.</summary>
+    public static OcrInstallResult ResultOf(int exitCode, bool nowAvailable) => exitCode switch
+    {
+        ExitInstalled => nowAvailable ? OcrInstallResult.Installed : OcrInstallResult.RestartApp,
+        ExitRestartWindows => OcrInstallResult.RestartWindows,
+        ExitWindowClosed => OcrInstallResult.Interrupted,
+        _ => OcrInstallResult.Failed,
+    };
+
+    /// <summary>
+    /// The script that runs as administrator. Its only inputs are an offered language (checked by
+    /// <see cref="OcrLanguages.CapabilityName"/>) and the log path, quoted for PowerShell.
+    /// </summary>
+    public static string InstallScript(string tag, string logPath)
+    {
+        var capability = OcrLanguages.CapabilityName(tag);
+        var log = logPath.Replace("'", "''");
+        return $$"""
+            $Host.UI.RawUI.WindowTitle = 'Queueify - text recognition'
+            Write-Host 'Installing text recognition ({{tag}}) from Windows Update. This can take a minute...'
+            try {
+                $result = Add-WindowsCapability -Online -Name '{{capability}}' -ErrorAction Stop
+                if ($result.RestartNeeded) { exit {{ExitRestartWindows}} }
+                exit {{ExitInstalled}}
+            } catch {
+                Set-Content -LiteralPath '{{log}}' -Value $_.Exception.Message -Encoding UTF8 -ErrorAction SilentlyContinue
+                Write-Host $_ -ForegroundColor Red
+                Start-Sleep -Seconds 10
+                exit 1
+            }
+            """;
+    }
+
+    /// <param name="preference">"auto" (Spanish when installed) or an installed language tag.</param>
+    public static async Task<OcrPage> RecognizeAsync(IRandomAccessStream stream, string preference = "auto")
     {
         var decoder = await BitmapDecoder.CreateAsync(stream);
 
@@ -88,7 +163,7 @@ public static partial class OcrService
             BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied, transform,
             ExifOrientationMode.RespectExifOrientation, ColorManagementMode.DoNotColorManage);
 
-        var (engine, isSpanish) = CreateEngine();
+        var (engine, isSpanish) = CreateEngine(preference);
         var result = await engine.RecognizeAsync(bitmap);
 
         var lines = new List<OcrLine>();
@@ -105,18 +180,19 @@ public static partial class OcrService
         return new OcrPage(bitmap, lines, engine.RecognizerLanguage.DisplayName, isSpanish);
     }
 
-    private static (OcrEngine Engine, bool IsSpanish) CreateEngine()
+    private static (OcrEngine Engine, bool IsSpanish) CreateEngine(string preference)
     {
-        var spanish = OcrEngine.AvailableRecognizerLanguages
-            .FirstOrDefault(l => l.LanguageTag.StartsWith("es", StringComparison.OrdinalIgnoreCase));
-        if (spanish != null && OcrEngine.TryCreateFromLanguage(spanish) is OcrEngine es)
-            return (es, true);
+        if (OcrLanguages.Choose(preference, InstalledTags) is string tag
+            && OcrEngine.TryCreateFromLanguage(new Language(tag)) is OcrEngine chosen)
+            return (chosen, IsSpanishTag(chosen.RecognizerLanguage.LanguageTag));
 
         var fallback = OcrEngine.TryCreateFromUserProfileLanguages()
             ?? OcrEngine.AvailableRecognizerLanguages.Select(OcrEngine.TryCreateFromLanguage).FirstOrDefault(e => e != null)
             ?? throw new InvalidOperationException("No OCR language is installed in Windows.");
-        return (fallback, false);
+        return (fallback, IsSpanishTag(fallback.RecognizerLanguage.LanguageTag));
     }
+
+    private static bool IsSpanishTag(string tag) => tag.StartsWith("es", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Cleans a clicked OCR line: pulls out a release year, drops "(Label, 1983)"-style notes and

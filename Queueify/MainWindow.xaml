@@ -693,6 +693,70 @@
                                 </Grid>
                             </Border>
 
+                            <TextBlock Text="Text recognition (magazine photos)" Style="{StaticResource SettingsSection}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE8D2;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Read photos in" />
+                                        <TextBlock Text="The language Windows uses to read the text on a photo"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="OcrLanguageBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                              DisplayMemberPath="Name"
+                                              AutomationProperties.AutomationId="OcrLanguageBox" AutomationProperties.Name="Read photos in"
+                                              SelectionChanged="OnOcrLanguageChanged" />
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16" RowSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <FontIcon Glyph="&#xE774;" FontSize="20" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Languages installed in Windows" />
+                                        <TextBlock x:Name="OcrInstalledList" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   AutomationProperties.AutomationId="OcrInstalledList"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <HyperlinkButton Grid.Column="2" Content="Windows language settings" Click="OnOpenWindowsLanguages"
+                                                     VerticalAlignment="Center"
+                                                     ToolTipService.ToolTip="Add or remove languages in Windows itself (Settings → Time &amp; language)" />
+
+                                    <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="Add a language" />
+                                        <TextBlock Text="Downloads from Windows Update in about a minute. Windows asks for administrator permission."
+                                                   Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <ComboBox x:Name="OcrInstallBox" MinWidth="200" DisplayMemberPath="Name"
+                                                  AutomationProperties.AutomationId="OcrInstallBox" AutomationProperties.Name="Language to install" />
+                                        <Button x:Name="OcrInstallButton" Content="Install" Click="OnInstallOcrLanguage"
+                                                AutomationProperties.AutomationId="OcrInstallButton" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="6">
+                                        <ProgressBar x:Name="OcrInstallProgress" IsIndeterminate="True" Visibility="Collapsed" />
+                                        <InfoBar x:Name="OcrInstallInfo" IsClosable="True" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
                             <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnSpacing="16">
