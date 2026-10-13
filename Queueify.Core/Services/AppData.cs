@@ -4,21 +4,28 @@ using Queueify.Models;
 namespace Queueify.Services;
 
 /// <summary>
-/// Portable storage: everything lives in a "Data" folder next to Queueify.exe, so copying the app
-/// folder to another PC copies the queue, the keys and the online sync connection too.
+/// Where the queue, the settings and the layout live: %LOCALAPPDATA%\Queueify, or a "Data" folder next
+/// to the exe when there is one (portable mode: 1.1.0 and earlier, or a copy on a USB stick).
 /// </summary>
 public static class AppData
 {
-    public static string Folder { get; } = FolderFor(Environment.ProcessPath);
+    public static string Folder { get; } = FolderFor(
+        Environment.ProcessPath,
+        // The variable first, so the UI tests can point a test run somewhere else.
+        Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } local ? local
+            : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        Directory.Exists);
     public static string DatabasePath => Path.Combine(Folder, "queueify.db");
     private static string SettingsPath => Path.Combine(Folder, "settings.json");
 
     /// <summary>
-    /// The folder next to the exe the user started. Not <see cref="AppContext.BaseDirectory"/>: the
-    /// single-file app runs from a copy unpacked into a temporary folder.
+    /// Next to the exe the user started, not <see cref="AppContext.BaseDirectory"/>: the single-file app
+    /// runs from a copy unpacked into a temporary folder.
     /// </summary>
-    public static string FolderFor(string? exePath) =>
-        Path.Combine(Path.GetDirectoryName(exePath) is { Length: > 0 } dir ? dir : AppContext.BaseDirectory, "Data");
+    public static string FolderFor(string? exePath, string localAppData, Func<string, bool> directoryExists) =>
+        Path.GetDirectoryName(exePath) is { Length: > 0 } dir && directoryExists(Path.Combine(dir, "Data"))
+            ? Path.Combine(dir, "Data")
+            : Path.Combine(localAppData, "Queueify");
 
     public static AppSettings LoadSettings(string? path = null)
     {

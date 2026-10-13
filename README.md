@@ -17,25 +17,27 @@ you've heard it, rate it, move on.
 - A queue and a Listened list with ratings, filters, order, cover view and "Surprise me"
 - The **same queue on all your PCs**, through your own free Google Firebase project
 - **English and Spanish**, light and dark, keyboard shortcuts everywhere, a quick tour and full Help (F1)
-- **Portable**: no installer; everything lives next to the exe
+- **One exe**, no installer; optionally portable (a `Data` folder next to the exe)
 
 ## Download
 
 1. Download `Queueify-<version>-win-x64.exe` (about 35 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
-2. Make a folder of its own for it (say `Documents\Queueify`, or one on a USB stick), move the exe there
-   and run it. Not straight from Downloads: Queueify keeps its `Data` folder next to the exe.
+2. Put it anywhere you like (say `Documents`) and run it.
 
 Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
 warn the first time because the app isn't signed: *More info → Run anyway*. The first start of each
 version takes a few seconds longer: the app unpacks itself into `%TEMP%\.net` (about 70 MB, which you
 can delete when Queueify isn't running).
 
-Your queue, keys and layout live in the `Data` folder Queueify creates next to the exe. To move to a new
-version, put the new exe in the same folder and delete the old one.
+Your queue, keys and layout live in `%LOCALAPPDATA%\Queueify` (Help → *Open data folder*). To move to a new
+version, replace the exe.
+
+**Portable mode**: if there's a folder called `Data` next to the exe, Queueify keeps everything there
+instead, so a copy on a USB stick carries its queue along.
 
 **Coming from 1.1.0 (a zip with many files)?** Don't put the new exe in the old folder: it won't start
-there. Make a new folder, put the new exe in it and move your old `Data` folder next to it. Then delete
-the old folder.
+there. Either make a new folder with the new exe and your old `Data` folder next to it (portable), or move
+what's inside your old `Data` folder into `%LOCALAPPDATA%\Queueify`. Then delete the old folder.
 
 ## First steps
 
@@ -57,8 +59,7 @@ language and **Reset layout**.
 ## Same queue on several PCs
 
 Click **Sync** in the left bar. On the first PC you connect a free Google Firebase project (Spark plan, no
-credit card; the dialog lists every step), then copy the whole Queueify folder to your other PCs, or
-paste the sync code there. Changes go up a moment after you make them and come down when you switch back
+credit card; the dialog lists every step), then paste the sync code on your other PCs. Changes go up a moment after you make them and come down when you switch back
 to the window; when two PCs change the same album, the newest change wins.
 
 Keep the sync code private: anyone who has it can see and change your queue. Someone who only knows your
@@ -79,8 +80,8 @@ internet, updates managed by an organization), Queueify says what happened and h
 
 Queueify has no servers and no telemetry. It talks to Tidal and Spotify (searches, with your keys), to
 your own Firebase project (only if you turn on sync) and to Windows Update (only when you install a text
-recognition language). Your keys are stored unencrypted in `Data\settings.json`, like the rest of your
-data, so treat the Queueify folder as private. See [SECURITY.md](SECURITY.md).
+recognition language). Your keys are stored unencrypted in `settings.json` in the data folder, like the
+rest of your data, so treat that folder as private. See [SECURITY.md](SECURITY.md).
 
 ## Contributing
 

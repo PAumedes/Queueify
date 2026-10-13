@@ -16,7 +16,7 @@ These rules apply to every change. Reviewers (human and agent) cite them by sect
 - **External data is untrusted**: JSON from Spotify, Tidal and Firebase is read defensively, and a bad
   answer becomes a `CatalogException` with a message the user can act on, never a crash.
 - **No exception escapes an event handler.** `async void` handlers catch and show what happened; unhandled
-  ones are written to `Data\crash.log`.
+  ones are written to `crash.log` in the data folder.
 - **Undo never overwrites newer data**: undo re-reads the stored version (a sync may have changed it).
 
 ## 3. Data and sync

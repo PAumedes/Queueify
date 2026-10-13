@@ -15,9 +15,18 @@ public sealed class AppDataTests : IDisposable
     }
 
     [Fact]
-    public void Data_is_next_to_the_exe_not_where_a_single_file_app_unpacks_itself()
+    public void Data_lives_in_the_users_local_app_data()
     {
-        Assert.Equal(Path.Combine(@"D:\Apps\Queueify", "Data"), AppData.FolderFor(@"D:\Apps\Queueify\Queueify.exe"));
+        Assert.Equal(@"C:\Users\ana\AppData\Local\Queueify",
+            AppData.FolderFor(@"C:\Users\ana\Downloads\Queueify-1.2.0-win-x64.exe", @"C:\Users\ana\AppData\Local", _ => false));
+    }
+
+    [Fact]
+    public void A_Data_folder_next_to_the_exe_keeps_the_app_portable()
+    {
+        // How 1.1.0 and earlier kept everything, and how a copy on a USB stick carries its queue along.
+        Assert.Equal(@"E:\Queueify\Data",
+            AppData.FolderFor(@"E:\Queueify\Queueify.exe", @"C:\Users\ana\AppData\Local", dir => dir == @"E:\Queueify\Data"));
     }
 
     [Fact]

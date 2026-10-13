@@ -31,24 +31,31 @@ $download = "dist\Queueify-$version-win-x64.exe"
 Copy-Item $exe.FullName $download
 
 # Smoke test of the file users download, under its own name (a browser may also call it "Queueify (1).exe"):
-# started from an empty folder and unpacked fresh, it must stay up without writing a crash log.
+# started from an empty folder and unpacked fresh, it must stay up without writing a crash log, and keep
+# its data in local app data (a scratch one here, never the build machine's), not next to the exe.
 $smoke = Join-Path ([IO.Path]::GetTempPath()) ("queueify-smoke-" + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory "$smoke\app", "$smoke\unpack" | Out-Null
+New-Item -ItemType Directory "$smoke\app", "$smoke\unpack", "$smoke\local" | Out-Null
+$realLocal = $env:LOCALAPPDATA
 try {
     Copy-Item $download "$smoke\app\Queueify (1).exe"
     $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "$smoke\unpack"
+    $env:LOCALAPPDATA = "$smoke\local"
     $p = Start-Process "$smoke\app\Queueify (1).exe" -PassThru
     # Up means a window: a crash before .NET starts writes no crash log and may linger in error reporting.
     for ($i = 0; $i -lt 30 -and -not $p.HasExited -and $p.MainWindowHandle -eq 0; $i++) { Start-Sleep -Milliseconds 500; $p.Refresh() }
     $alive = -not $p.HasExited -and $p.MainWindowHandle -ne 0
     if (-not $p.HasExited) { $p.Kill(); $p.WaitForExit(10000) | Out-Null }
-    $crash = "$smoke\app\Data\crash.log"
+    $crash = "$smoke\local\Queueify\crash.log"
     if (-not $alive -or (Test-Path $crash)) {
         $why = if (Test-Path $crash) { Get-Content -Raw $crash } elseif ($p.HasExited) { "exit code $('0x{0:X8}' -f $p.ExitCode)" } else { 'no window after 15 s' }
         throw "The downloadable exe doesn't start: $why"
     }
+    if ((Test-Path "$smoke\app\Data") -or -not (Test-Path "$smoke\local\Queueify\queueify.db")) {
+        throw "The downloadable exe should keep its data in %LOCALAPPDATA%\Queueify, not next to itself."
+    }
 }
 finally {
+    $env:LOCALAPPDATA = $realLocal
     Remove-Item Env:DOTNET_BUNDLE_EXTRACT_BASE_DIR -ErrorAction SilentlyContinue
     Remove-Item $smoke -Recurse -Force -ErrorAction SilentlyContinue
 }

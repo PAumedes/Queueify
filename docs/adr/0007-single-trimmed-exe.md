@@ -19,8 +19,10 @@ Measured in the 1.1.0 build:
 - Reference `Microsoft.WindowsAppSDK.WinUI` (WinUI and what it depends on) instead of the metapackage.
 - Publish **trimmed** and as a **single compressed file** (`PublishSingleFile`, with the Windows App SDK's
   `EnableMsixTooling`), so the release is one `Queueify-X.Y.Z-win-x64.exe` of about 35 MB.
-- `Data` is found next to the exe the user started (`Environment.ProcessPath`), because a single-file app
-  runs from a copy unpacked into the temporary folder.
+- The data moves to `%LOCALAPPDATA%\Queueify`, so the exe can live anywhere, Downloads included. A `Data`
+  folder next to the exe the user started (`Environment.ProcessPath`, not `AppContext.BaseDirectory`: a
+  single-file app runs from a copy unpacked into the temporary folder) still wins, for portable copies and
+  for 1.1.0's layout.
 - Trimming turns off reflection-based JSON, so `settings.json` and `ui.json` go through a source-generated
   context (`StorageJson`); the tests run with reflection-based JSON off too. Covers use `{x:Bind}`; the
   country and text recognition lists still use `DisplayMemberPath` on records, which trimming keeps
@@ -35,8 +37,7 @@ Measured in the 1.1.0 build:
 - One file to download and keep; nothing to extract. From 1.2.0 on, updating is replacing the exe.
 - **Not inside a 1.1.0 folder**: the .NET host loads `System.Private.CoreLib.dll` from the exe's folder, so
   1.1.0's untrimmed copy breaks the trimmed app before it can show anything. The README and the 1.2.0
-  release notes say to use a new folder. For the same reason the exe should live in a folder of its own,
-  not Downloads (see SECURITY.md).
+  release notes say to use a new folder.
 - The first start of each version takes a few seconds longer while it unpacks (about 70 MB, to
   `%TEMP%\.net\<exe name>\<build>`); later starts reuse it. Nothing removes old versions' copies.
 - Debug information is embedded in the dlls, so `crash.log` stack traces keep file and line.

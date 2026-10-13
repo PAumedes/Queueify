@@ -35,14 +35,15 @@ If the security rules (`tools/firestore.rules`) changed, say in the release note
 and publish them again (Sync → Copy security rules).
 
 For **1.2.0**, the first release as a single exe, put this at the top of the published notes (`gh release edit v1.2.0 --notes-file ...`):
-> Coming from 1.1.0? Don't put the new exe in the old folder; it won't start there. Make a new folder for
-> it and move your old `Data` folder next to it.
+> Coming from 1.1.0? Don't put the new exe in the old folder; it won't start there. Move what's inside your
+> old `Data` folder into `%LOCALAPPDATA%\Queueify` (or keep a `Data` folder next to the new exe), then delete
+> the old folder.
 
 ## Self-check of the download
 
 `tools\package.ps1` already fails when the build is more than `Queueify.exe` or over its size budget
 ([ADR-0007](adr/0007-single-trimmed-exe.md)). By hand:
 
-- Run it from an empty folder: it starts, and creates `Data` next to itself, not in the temporary folder.
+- Run it from an empty folder: it starts and keeps its data in `%LOCALAPPDATA%\Queueify`, not next to itself (`package.ps1` checks this too).
 - Runs on a PC without the .NET or Windows App SDK runtimes installed (it's self-contained).
 - Album covers show in the queue and in search results (they're the part trimming could break).
