@@ -954,6 +954,13 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void ShowSpanishOcrWarning(string? usedLanguage)
     {
+        // Installed earlier in this run: it only needs Queueify to restart, not another install.
+        if (OcrService.PendingRestartTags.FirstOrDefault(t => t.StartsWith("es", StringComparison.OrdinalIgnoreCase)) is string pending)
+        {
+            ShowPhotoOcrOffer(InfoBarSeverity.Informational,
+                Loc.F("ocr.installed_restart_app", OcrLanguages.NameOf(pending)), OcrOffer.Restart);
+            return;
+        }
         ShowPhotoOcrOffer(InfoBarSeverity.Warning,
             usedLanguage != null ? Loc.F("ocr.no_spanish_as", usedLanguage) : Loc.T("ocr.no_spanish"),
             OcrOffer.Retry | OcrOffer.Dismiss);

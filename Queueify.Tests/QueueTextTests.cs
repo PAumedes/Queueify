@@ -154,6 +154,18 @@ public sealed class UiStateTests : IDisposable
     }
 
     [Fact]
+    public void Save_ReplacesTheFileWholeAndLeavesNoTemporaryFile()
+    {
+        // Another copy of Queueify starting (a restart) must never read a half-written file.
+        var path = Path.Combine(_dir, "ui.json");
+        new UiState { Theme = "dark" }.Save(path);
+        new UiState { Theme = "light" }.Save(path);
+
+        Assert.Equal("light", UiState.Load(path).Theme);
+        Assert.Equal(["ui.json"], Directory.GetFiles(_dir).Select(Path.GetFileName));
+    }
+
+    [Fact]
     public void Language_FollowsWindowsUntilChosen_AndIsRemembered()
     {
         var path = Path.Combine(_dir, "ui.json");

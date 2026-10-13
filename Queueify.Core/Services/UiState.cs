@@ -69,9 +69,12 @@ public sealed class UiState
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(this, JsonOptions));
+            // Written aside and swapped in, so a copy starting meanwhile never reads half a file.
+            var temp = path + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
+            File.Move(temp, path, overwrite: true);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Same as above: losing a layout preference is harmless.
         }

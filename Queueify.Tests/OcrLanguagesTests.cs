@@ -120,7 +120,7 @@ public class OcrLanguagesTests
     [InlineData(OcrInstallResult.RestartApp, OcrOffer.Restart)]
     [InlineData(OcrInstallResult.Installed, OcrOffer.None)]
     [InlineData(OcrInstallResult.RestartWindows, OcrOffer.None)]
-    [InlineData(OcrInstallResult.Busy, OcrOffer.None)]
+    [InlineData(OcrInstallResult.Busy, OcrOffer.Retry)]               // the other install may finish; try again then
     public void OfferAfter_SaysWhatTheUserCanDoNext(OcrInstallResult result, OcrOffer expected)
     {
         // Declining the permission prompt must leave the offer to try again.
@@ -134,6 +134,40 @@ public class OcrLanguagesTests
     public void ResultOfLaunchError_TellsDecliningFromBeingBlocked(int nativeError, OcrInstallResult expected)
     {
         Assert.Equal(expected, OcrService.ResultOfLaunchError(nativeError));
+    }
+
+    [Theory]
+    [InlineData(@"C:\Users\O'Brien\AppData\Local\Temp\q.log")]
+    [InlineData("C:\\Users\\O\u2019Brien\\AppData\\Local\\Temp\\q.log")]
+    public void InstallScript_TheLogPathDecodesBackToTheSamePath(string log)
+    {
+        // Runs only the script's $log line (nothing elevated) and prints the result.
+        var line = OcrService.InstallScript("es-ES", log).Split('\n').Single(l => l.TrimStart().StartsWith("$log ="));
+        var check = line + "; [Console]::OutputEncoding = [Text.Encoding]::UTF8; [Console]::Out.Write($log)";
+        var start = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+            "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(check)))
+        {
+            RedirectStandardOutput = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            UseShellExecute = false,
+        };
+        using var process = System.Diagnostics.Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+
+        Assert.Equal(log, output);
+    }
+
+    [Fact]
+    public async Task InstallAsync_ALanguageWaitingForARestart_IsNotInstalledAgain()
+    {
+        // Installed earlier in this run: no second permission prompt, just "restart Queueify".
+        OcrService.MarkPendingRestart("pt-PT");
+
+        var outcome = await OcrService.InstallAsync("pt-PT");
+
+        Assert.Equal(OcrInstallResult.RestartApp, outcome.Result);
+        Assert.Contains("pt-PT", OcrService.PendingRestartTags);
     }
 
     [Fact]

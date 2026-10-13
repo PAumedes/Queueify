@@ -64,6 +64,8 @@ public static partial class OcrService
     /// <summary>The language being installed right now, or null.</summary>
     public static string? InstallingTag { get; private set; }
 
+    internal static void MarkPendingRestart(string tag) => PendingRestart.Add(tag);
+
     /// <summary>Installed during this run but not usable until Queueify restarts.</summary>
     public static IReadOnlyCollection<string> PendingRestartTags => PendingRestart;
 
@@ -85,6 +87,7 @@ public static partial class OcrService
     {
         OcrLanguages.CapabilityName(tag); // throws for anything not offered
         if (IsInstalled(tag)) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Installed));
+        if (PendingRestart.Contains(tag)) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.RestartApp));
         if (_install is { IsCompleted: false }) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Busy));
         InstallingTag = tag;
         return _install = RunInstallAsync(tag);
@@ -102,11 +105,12 @@ public static partial class OcrService
 
         try
         {
-            using var process = System.Diagnostics.Process.Start(start);
+            // The permission prompt blocks Process.Start until it's answered: keep it off the UI thread.
+            using var process = await Task.Run(() => System.Diagnostics.Process.Start(start));
             if (process == null) return new OcrInstallOutcome(OcrInstallResult.Failed);
             await process.WaitForExitAsync();
             var result = ResultOf(process.ExitCode, IsInstalled(tag));
-            if (result == OcrInstallResult.RestartApp) PendingRestart.Add(tag);
+            if (result == OcrInstallResult.RestartApp) MarkPendingRestart(tag);
             return new OcrInstallOutcome(result, result == OcrInstallResult.Failed ? ReadLog(log) : null);
         }
         catch (System.ComponentModel.Win32Exception ex)
@@ -144,6 +148,7 @@ public static partial class OcrService
         OcrInstallResult.Failed => OcrOffer.Retry | OcrOffer.Dismiss | OcrOffer.WindowsSettings,
         OcrInstallResult.Blocked => OcrOffer.Dismiss | OcrOffer.WindowsSettings,
         OcrInstallResult.RestartApp => OcrOffer.Restart,
+        OcrInstallResult.Busy => OcrOffer.Retry,
         _ => OcrOffer.None,
     };
 
