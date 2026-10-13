@@ -28,6 +28,21 @@ public enum OcrInstallResult
     Failed,
     /// <summary>Another install started from Queueify is still running.</summary>
     Busy,
+    /// <summary>This PC doesn't let Queueify ask for administrator permission (a policy, or PowerShell is blocked).</summary>
+    Blocked,
+}
+
+/// <summary>What the user can do after an install attempt.</summary>
+[Flags]
+public enum OcrOffer
+{
+    None = 0,
+    Retry = 1,
+    /// <summary>"Don't show this again" on the Photo page.</summary>
+    Dismiss = 2,
+    Restart = 4,
+    /// <summary>Windows' own language settings, the way around when Queueify can't install.</summary>
+    WindowsSettings = 8,
 }
 
 public sealed record OcrInstallOutcome(OcrInstallResult Result, string? Error = null);
@@ -44,6 +59,13 @@ public static partial class OcrService
     private const int ExitWindowClosed = unchecked((int)0xC000013A);
 
     private static Task<OcrInstallOutcome>? _install;
+    private static readonly HashSet<string> PendingRestart = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The language being installed right now, or null.</summary>
+    public static string? InstallingTag { get; private set; }
+
+    /// <summary>Installed during this run but not usable until Queueify restarts.</summary>
+    public static IReadOnlyCollection<string> PendingRestartTags => PendingRestart;
 
     /// <summary>Tags of the OCR languages installed in Windows, e.g. "es-ES", "en-US".</summary>
     public static IReadOnlyList<string> InstalledTags =>
@@ -64,6 +86,7 @@ public static partial class OcrService
         OcrLanguages.CapabilityName(tag); // throws for anything not offered
         if (IsInstalled(tag)) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Installed));
         if (_install is { IsCompleted: false }) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Busy));
+        InstallingTag = tag;
         return _install = RunInstallAsync(tag);
     }
 
@@ -83,18 +106,17 @@ public static partial class OcrService
             if (process == null) return new OcrInstallOutcome(OcrInstallResult.Failed);
             await process.WaitForExitAsync();
             var result = ResultOf(process.ExitCode, IsInstalled(tag));
+            if (result == OcrInstallResult.RestartApp) PendingRestart.Add(tag);
             return new OcrInstallOutcome(result, result == OcrInstallResult.Failed ? ReadLog(log) : null);
-        }
-        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
-        {
-            return new OcrInstallOutcome(OcrInstallResult.Cancelled);
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            return new OcrInstallOutcome(OcrInstallResult.Failed, ex.Message);
+            var result = ResultOfLaunchError(ex.NativeErrorCode);
+            return new OcrInstallOutcome(result, result == OcrInstallResult.Cancelled ? null : ex.Message);
         }
         finally
         {
+            InstallingTag = null;
             try { File.Delete(log); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
@@ -111,6 +133,20 @@ public static partial class OcrService
         }
     }
 
+    /// <summary>Starting the elevated installer failed: declined at the prompt, or not allowed at all.</summary>
+    public static OcrInstallResult ResultOfLaunchError(int nativeError) =>
+        nativeError == ErrorCancelled ? OcrInstallResult.Cancelled : OcrInstallResult.Blocked;
+
+    /// <summary>What to offer next. Declining or an interrupted install always leaves a way to try again.</summary>
+    public static OcrOffer OfferAfter(OcrInstallResult result) => result switch
+    {
+        OcrInstallResult.Cancelled or OcrInstallResult.Interrupted => OcrOffer.Retry | OcrOffer.Dismiss,
+        OcrInstallResult.Failed => OcrOffer.Retry | OcrOffer.Dismiss | OcrOffer.WindowsSettings,
+        OcrInstallResult.Blocked => OcrOffer.Dismiss | OcrOffer.WindowsSettings,
+        OcrInstallResult.RestartApp => OcrOffer.Restart,
+        _ => OcrOffer.None,
+    };
+
     /// <summary>What the elevated installer's exit code means.</summary>
     public static OcrInstallResult ResultOf(int exitCode, bool nowAvailable) => exitCode switch
     {
@@ -122,21 +158,23 @@ public static partial class OcrService
 
     /// <summary>
     /// The script that runs as administrator. Its only inputs are an offered language (checked by
-    /// <see cref="OcrLanguages.CapabilityName"/>) and the log path, quoted for PowerShell.
+    /// <see cref="OcrLanguages.CapabilityName"/>) and the log path. The path comes from the user's profile
+    /// name and may contain any quote character PowerShell knows, so it travels Base64-encoded.
     /// </summary>
     public static string InstallScript(string tag, string logPath)
     {
         var capability = OcrLanguages.CapabilityName(tag);
-        var log = logPath.Replace("'", "''");
+        var log = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(logPath));
         return $$"""
             $Host.UI.RawUI.WindowTitle = 'Queueify - text recognition'
+            $log = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{{log}}'))
             Write-Host 'Installing text recognition ({{tag}}) from Windows Update. This can take a minute...'
             try {
                 $result = Add-WindowsCapability -Online -Name '{{capability}}' -ErrorAction Stop
                 if ($result.RestartNeeded) { exit {{ExitRestartWindows}} }
                 exit {{ExitInstalled}}
             } catch {
-                Set-Content -LiteralPath '{{log}}' -Value $_.Exception.Message -Encoding UTF8 -ErrorAction SilentlyContinue
+                Set-Content -LiteralPath $log -Value $_.Exception.Message -Encoding UTF8 -ErrorAction SilentlyContinue
                 Write-Host $_ -ForegroundColor Red
                 Start-Sleep -Seconds 10
                 exit 1

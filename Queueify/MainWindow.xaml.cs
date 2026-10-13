@@ -955,84 +955,111 @@ public sealed partial class MainWindow : Window
     private void ShowSpanishOcrWarning(string? usedLanguage)
     {
         var readingAs = usedLanguage != null ? $" (reading as {usedLanguage})" : "";
-        ShowOcrInfo(InfoBarSeverity.Warning,
+        ShowPhotoOcrOffer(InfoBarSeverity.Warning,
             $"Spanish text recognition isn't installed on this PC, so accents and ñ may be misread{readingAs}. " +
-            "Matching still works. Installing it takes about a minute and Windows will ask for admin permission.");
-        var install = new Button { Content = "Install Spanish" };
-        install.Click += async (_, _) =>
-        {
-            install.IsEnabled = false;
-            install.Content = "Installing…";
-            await InstallOcrLanguageAsync("es-ES", ShowOcrInstallOutcome);
-            if (OcrInfo.ActionButton == install)
-            {
-                install.IsEnabled = true;
-                install.Content = "Install Spanish";
-            }
-        };
-        var dismiss = new HyperlinkButton { Content = "Don't show this again" };
-        dismiss.Click += (_, _) =>
-        {
-            _ui.OcrHintDismissed = true;
-            _ui.Save();
-            OcrInfo.IsOpen = false;
-        };
-        OcrInfo.ActionButton = install;
-        OcrInfo.Content = dismiss;
+            "Matching still works. Installing it takes about a minute and Windows will ask for admin permission.",
+            OcrOffer.Retry | OcrOffer.Dismiss);
     }
 
-    private void ShowOcrInstallOutcome(InfoBarSeverity severity, string message, bool offerRestart)
+    /// <summary>
+    /// The Photo page's message with the actions that make sense next: install (again), restart,
+    /// Windows language settings, or "Don't show this again".
+    /// </summary>
+    private void ShowPhotoOcrOffer(InfoBarSeverity severity, string message, OcrOffer offer)
     {
         ShowOcrInfo(severity, message);
-        if (offerRestart) OcrInfo.ActionButton = RestartButton();
+        if (offer.HasFlag(OcrOffer.Retry))
+        {
+            var install = new Button { Content = "Install Spanish" };
+            install.Click += async (_, _) =>
+            {
+                install.IsEnabled = false;
+                install.Content = "Installing…";
+                await InstallOcrLanguageAsync("es-ES", ShowPhotoOcrOffer);
+            };
+            OcrInfo.ActionButton = install;
+        }
+        else if (offer.HasFlag(OcrOffer.Restart))
+        {
+            OcrInfo.ActionButton = RestartButton();
+        }
+
+        var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+        if (offer.HasFlag(OcrOffer.WindowsSettings))
+        {
+            var windows = new HyperlinkButton { Content = "Windows language settings" };
+            windows.Click += OnOpenWindowsLanguages;
+            links.Children.Add(windows);
+        }
+        if (offer.HasFlag(OcrOffer.Dismiss) && !_ui.OcrHintDismissed)
+        {
+            var dismiss = new HyperlinkButton { Content = "Don't show this again" };
+            dismiss.Click += (_, _) =>
+            {
+                _ui.OcrHintDismissed = true;
+                _ui.Save();
+                OcrInfo.IsOpen = false;
+            };
+            links.Children.Add(dismiss);
+        }
+        if (links.Children.Count > 0) OcrInfo.Content = links;
     }
 
     /// <summary>
     /// Installs a text recognition language and explains every outcome: done, needs a restart,
-    /// permission declined, window closed, Windows Update error, or another install still running.
+    /// permission declined or not allowed, window closed, Windows Update error, or another install
+    /// still running. <paramref name="report"/> gets what to say and what to offer next.
     /// </summary>
-    private async Task InstallOcrLanguageAsync(string tag, Action<InfoBarSeverity, string, bool> report)
+    private async Task InstallOcrLanguageAsync(string tag, Action<InfoBarSeverity, string, OcrOffer> report)
     {
         var name = OcrLanguages.NameOf(tag);
         OcrInstallOutcome outcome;
         try
         {
-            outcome = await OcrService.InstallAsync(tag);
+            var install = OcrService.InstallAsync(tag);
+            if (_page == Page.Settings) FillOcrSettings();   // shows it as running
+            outcome = await install;
         }
         catch (Exception ex)
         {
             outcome = new OcrInstallOutcome(OcrInstallResult.Failed, ex.Message);
         }
 
+        var offer = OcrService.OfferAfter(outcome.Result);
         switch (outcome.Result)
         {
             case OcrInstallResult.Installed:
-                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Open the photo again to re-read it.", false);
+                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Open the photo again to re-read it.", offer);
                 break;
             case OcrInstallResult.RestartApp:
-                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Restart Queueify to start using it.", true);
+                report(InfoBarSeverity.Success, $"{name} text recognition is installed. Restart Queueify to start using it.", offer);
                 break;
             case OcrInstallResult.RestartWindows:
-                report(InfoBarSeverity.Warning, $"{name} text recognition is installed, but Windows needs a restart to finish.", false);
+                report(InfoBarSeverity.Warning, $"{name} text recognition is installed, but Windows needs a restart to finish.", offer);
                 break;
             case OcrInstallResult.Cancelled:
                 report(InfoBarSeverity.Informational,
                     "Nothing was installed: Windows' permission prompt was declined. Installing needs an administrator " +
-                    "(on a family or work PC, ask the person who manages it). You can try again any time.", false);
+                    "(on a family or work PC, ask the person who manages it). You can try again any time.", offer);
                 break;
             case OcrInstallResult.Interrupted:
                 report(InfoBarSeverity.Warning,
-                    "The install window was closed before it finished. Try again and leave it open; it closes by itself.", false);
+                    "The install window was closed before it finished. Try again and leave it open; it closes by itself.", offer);
                 break;
             case OcrInstallResult.Busy:
-                report(InfoBarSeverity.Informational, "Another install is still running. Wait until its window closes.", false);
+                report(InfoBarSeverity.Informational, "Another install is still running. Wait until its window closes.", offer);
+                break;
+            case OcrInstallResult.Blocked:
+                report(InfoBarSeverity.Warning,
+                    $"This PC doesn't let Queueify ask for administrator permission ({outcome.Error}). " +
+                    "Add the language in Windows language settings, or ask the person who manages this PC.", offer);
                 break;
             default:
                 var detail = outcome.Error != null ? $" Windows said: {outcome.Error}" : "";
                 report(InfoBarSeverity.Error,
                     $"Windows couldn't install {name} text recognition.{detail} It downloads from Windows Update, so check " +
-                    "the internet connection. On PCs where an organization manages updates, add the language in Windows " +
-                    "language settings instead (with \"Optical character recognition\").", false);
+                    "the internet connection and try again. On a PC whose updates are managed by an organization, its " +
+                    "administrator has to allow optional features to download from Windows Update.", offer);
                 break;
         }
         if (_page == Page.Settings) FillOcrSettings();
@@ -1048,6 +1075,8 @@ public sealed partial class MainWindow : Window
     /// <summary>Starts a fresh copy and closes this one (which saves the window and layout as usual).</summary>
     private void RestartApp()
     {
+        // Saved first, so the new copy opens where this one was.
+        SaveWindow();
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false });
@@ -1768,14 +1797,20 @@ public sealed partial class MainWindow : Window
             OcrLanguageBox.SelectedItem = choices.FirstOrDefault(c => c.Tag.Equals(_ui.OcrLanguage, StringComparison.OrdinalIgnoreCase))
                                           ?? choices[0];
 
-            OcrInstalledList.Text = installed.Count == 0
+            var pending = OcrService.PendingRestartTags;
+            var names = installed.Select(OcrLanguages.NameOf)
+                .Concat(pending.Select(t => $"{OcrLanguages.NameOf(t)} (after restarting Queueify)")).ToList();
+            OcrInstalledList.Text = names.Count == 0
                 ? "None. Photos can't be read until a language is installed."
-                : string.Join(", ", installed.Select(OcrLanguages.NameOf));
+                : string.Join(", ", names);
 
-            var installable = OcrLanguages.Installable(installed);
+            // The button and progress follow the install actually running, wherever it was started.
+            var installable = OcrLanguages.Installable(installed, pending);
+            bool installing = OcrService.InstallingTag != null;
             OcrInstallBox.ItemsSource = installable;
             OcrInstallBox.SelectedIndex = installable.Count > 0 ? 0 : -1;
-            OcrInstallBox.IsEnabled = OcrInstallButton.IsEnabled = installable.Count > 0;
+            OcrInstallBox.IsEnabled = OcrInstallButton.IsEnabled = installable.Count > 0 && !installing;
+            OcrInstallProgress.Visibility = installing ? Visibility.Visible : Visibility.Collapsed;
             OcrInstallBox.PlaceholderText = installable.Count > 0 ? "" : "All offered languages are installed";
         }
         finally
@@ -1794,23 +1829,21 @@ public sealed partial class MainWindow : Window
     private async void OnInstallOcrLanguage(object sender, RoutedEventArgs e)
     {
         if (OcrInstallBox.SelectedItem is not OcrLanguageOption choice) return;
-        OcrInstallButton.IsEnabled = false;
-        OcrInstallProgress.Visibility = Visibility.Visible;
         OcrInstallInfo.IsOpen = false;
         try
         {
-            await InstallOcrLanguageAsync(choice.Tag, (severity, message, offerRestart) =>
+            // Retry and Windows settings are already on this page; only a restart needs a button here.
+            await InstallOcrLanguageAsync(choice.Tag, (severity, message, offer) =>
             {
                 OcrInstallInfo.Severity = severity;
                 OcrInstallInfo.Message = message;
-                OcrInstallInfo.ActionButton = offerRestart ? RestartButton() : null;
+                OcrInstallInfo.ActionButton = offer.HasFlag(OcrOffer.Restart) ? RestartButton() : null;
                 OcrInstallInfo.IsOpen = true;
             });
         }
         finally
         {
-            OcrInstallProgress.Visibility = Visibility.Collapsed;
-            OcrInstallButton.IsEnabled = OcrInstallBox.Items.Count > 0;
+            FillOcrSettings();
         }
     }
 

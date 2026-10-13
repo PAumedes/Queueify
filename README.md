@@ -41,9 +41,10 @@ German). Installing needs an administrator's permission and internet, once per P
 still works and matching ignores accents; only albums with no Spotify/Tidal match keep misread accents.
 
 If the install doesn't work, Queueify says why: the permission prompt was declined (nothing changes; try
-again any time), the progress window was closed early, Windows Update failed (no internet, or updates
-managed by an organization; then add the language in Windows language settings), or Queueify or Windows
-needs a restart. *Don't show this again* hides the offer on the photo page.
+again any time), the progress window was closed early, Windows Update failed (no internet; on PCs whose updates are
+managed by an organization, its administrator has to allow optional features from Windows Update), the PC
+doesn't allow asking for administrator permission at all (then use Windows language settings), or Queueify
+or Windows needs a restart. After declining or a failure, the offer to install stays. *Don't show this again* hides the offer on the photo page.
 
 ## Same queue on several PCs (Google Firebase, free)
 

@@ -70,10 +70,76 @@ public class OcrLanguagesTests
     [Fact]
     public void InstallScript_InstallsOnlyTheRequestedFeature_AndReportsErrorsToTheLog()
     {
-        var script = OcrService.InstallScript("pt-BR", @"C:\Temp\log.txt");
+        var log = @"C:\Temp\log.txt";
+        var script = OcrService.InstallScript("pt-BR", log);
 
         Assert.Contains("Add-WindowsCapability -Online -Name 'Language.OCR~~~pt-BR~0.0.1.0'", script);
-        Assert.Contains(@"C:\Temp\log.txt", script);
-        Assert.Throws<ArgumentException>(() => OcrService.InstallScript("xx-XX", @"C:\Temp\log.txt"));
+        Assert.Contains(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(log)), script);
+        Assert.Throws<ArgumentException>(() => OcrService.InstallScript("xx-XX", log));
+    }
+
+    [Theory]
+    [InlineData(@"C:\Users\O'Brien\AppData\Local\Temp\q.log")]
+    [InlineData("C:\\Users\\O\u2019Brien\\AppData\\Local\\Temp\\q.log")]   // PowerShell also ends strings at ’ ‘ ‚ ‛
+    [InlineData("C:\\Users\\X\u2019; Write-Host PWNED; \u2019x\\q.log")]
+    public void InstallScript_NeverPutsThePathItselfIntoTheScript(string log)
+    {
+        // The script runs as administrator; the path comes from the user's profile name. Encoded, it
+        // can't end a string early or add commands, whatever quote characters it contains.
+        var script = OcrService.InstallScript("es-ES", log);
+
+        Assert.DoesNotContain(log, script);
+        Assert.DoesNotContain("PWNED", script);
+        Assert.DoesNotContain("\u2019", script);
+        Assert.Equal("0", PowerShellParseErrors(script));
+    }
+
+    /// <summary>Asks Windows PowerShell's own parser how many syntax errors the script has.</summary>
+    private static string PowerShellParseErrors(string script)
+    {
+        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+        var check = "$s = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('" + encoded + "')); " +
+                    "$t = $null; $e = $null; [void][System.Management.Automation.Language.Parser]::ParseInput($s, [ref]$t, [ref]$e); $e.Count";
+        var start = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+            "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(check)))
+        {
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+        using var process = System.Diagnostics.Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+        return output;
+    }
+
+    [Theory]
+    [InlineData(OcrInstallResult.Cancelled, OcrOffer.Retry | OcrOffer.Dismiss)]
+    [InlineData(OcrInstallResult.Interrupted, OcrOffer.Retry | OcrOffer.Dismiss)]
+    [InlineData(OcrInstallResult.Failed, OcrOffer.Retry | OcrOffer.Dismiss | OcrOffer.WindowsSettings)]
+    [InlineData(OcrInstallResult.Blocked, OcrOffer.Dismiss | OcrOffer.WindowsSettings)]
+    [InlineData(OcrInstallResult.RestartApp, OcrOffer.Restart)]
+    [InlineData(OcrInstallResult.Installed, OcrOffer.None)]
+    [InlineData(OcrInstallResult.RestartWindows, OcrOffer.None)]
+    [InlineData(OcrInstallResult.Busy, OcrOffer.None)]
+    public void OfferAfter_SaysWhatTheUserCanDoNext(OcrInstallResult result, OcrOffer expected)
+    {
+        // Declining the permission prompt must leave the offer to try again.
+        Assert.Equal(expected, OcrService.OfferAfter(result));
+    }
+
+    [Theory]
+    [InlineData(1223, OcrInstallResult.Cancelled)]   // the prompt was declined
+    [InlineData(5, OcrInstallResult.Blocked)]        // a policy denies elevation outright
+    [InlineData(1260, OcrInstallResult.Blocked)]     // powershell.exe blocked (AppLocker / SRP)
+    public void ResultOfLaunchError_TellsDecliningFromBeingBlocked(int nativeError, OcrInstallResult expected)
+    {
+        Assert.Equal(expected, OcrService.ResultOfLaunchError(nativeError));
+    }
+
+    [Fact]
+    public void PendingRestart_CountsAsInstalledWhenOffering()
+    {
+        var installable = OcrLanguages.Installable(["en-US"], pendingRestart: ["pt-BR"]);
+        Assert.DoesNotContain(installable, o => o.Tag == "pt-BR");
     }
 }

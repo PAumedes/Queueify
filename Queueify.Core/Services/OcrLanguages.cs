@@ -36,9 +36,10 @@ public static class OcrLanguages
         }
     }
 
-    public static IReadOnlyList<OcrLanguageOption> Installable(IEnumerable<string> installed)
+    /// <summary>Offered languages not installed yet; ones waiting for a restart count as installed.</summary>
+    public static IReadOnlyList<OcrLanguageOption> Installable(IEnumerable<string> installed, IEnumerable<string>? pendingRestart = null)
     {
-        var have = installed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var have = installed.Concat(pendingRestart ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return Offered.Where(t => !have.Contains(t)).Select(t => new OcrLanguageOption(t, NameOf(t))).ToList();
     }
 
