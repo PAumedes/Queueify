@@ -1,5 +1,5 @@
 # Unit tests (with the Firestore emulator), the release-tool tests and the portable build, on every
-# push to main and every pull request. The zip is attached to the run as an artifact.
+# push to main and every pull request. The exe is attached to the run as an artifact.
 name: CI
 
 on:
@@ -51,5 +51,5 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Queueify-portable
-          path: dist/*.zip
+          path: dist/*.exe
           if-no-files-found: error

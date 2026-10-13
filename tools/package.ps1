@@ -1,10 +1,15 @@
-﻿<#
+<#
 .SYNOPSIS
-    Builds the portable app into dist\Queueify and zips it as dist\Queueify-<version>-win-x64.zip.
-    Used by CI and the release workflow; works the same on a dev PC.
+    Builds the portable app: dist\Queueify\Queueify.exe, a single trimmed file, and a copy named
+    dist\Queueify-<version>-win-x64.exe for the release. Used by CI and the release workflow; works the
+    same on a dev PC.
 #>
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
+
+# Fails the build when the download grows past this: it was 35 MB after leaving out the Windows App
+# SDK's AI packages and trimming (ADR-0007), against 93 MB before.
+$maxMB = 45
 
 $version = ([regex]::Match((Get-Content -Raw Queueify\Queueify.csproj), '<Version>([^<]+)</Version>')).Groups[1].Value
 $out = 'dist\Queueify'
@@ -13,26 +18,15 @@ if (Test-Path dist) { Remove-Item dist -Recurse -Force }
 dotnet publish Queueify -c Release -o $out
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
 
-# A fresh download must start empty: no queue, keys or sync connection from the build machine.
-if (Test-Path "$out\Data") { Remove-Item "$out\Data" -Recurse -Force }
-foreach ($required in 'Queueify.exe', 'Queueify.pri', 'MainWindow.xbf') {
-    if (-not (Test-Path "$out\$required")) { throw "The build is missing $required" }
-}
+# One file and nothing else: no Data (a fresh download has no queue, keys or sync connection from the
+# build machine) and nothing the exe needs beside it.
+$extra = Get-ChildItem $out -Recurse | Where-Object Name -ne 'Queueify.exe'
+if ($extra) { throw "The build should be Queueify.exe alone, but has: $($extra.Name -join ', ')" }
 
-$zip = "dist\Queueify-$version-win-x64.zip"
-# Entry names with '/' as the zip format wants; Windows PowerShell's Compress-Archive and ZipFile write '\'.
-Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$root = (Resolve-Path $out).Path
-$stream = [IO.File]::Open((Join-Path (Resolve-Path dist).Path (Split-Path $zip -Leaf)), 'CreateNew')
-$archive = New-Object IO.Compression.ZipArchive($stream, [IO.Compression.ZipArchiveMode]::Create)
-try {
-    foreach ($file in Get-ChildItem $root -Recurse -File) {
-        $name = 'Queueify/' + $file.FullName.Substring($root.Length + 1).Replace('\', '/')
-        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $name, 'Optimal') | Out-Null
-    }
-}
-finally {
-    $archive.Dispose()
-    $stream.Dispose()
-}
-"Built $zip ($([math]::Round((Get-Item $zip).Length / 1MB)) MB)"
+$exe = Get-Item "$out\Queueify.exe"
+$mb = [math]::Round($exe.Length / 1MB, 1)
+if ($mb -gt $maxMB) { throw "Queueify.exe is $mb MB, over the $maxMB MB budget. See ADR-0007." }
+
+$download = "dist\Queueify-$version-win-x64.exe"
+Copy-Item $exe.FullName $download
+"Built $download ($mb MB)"

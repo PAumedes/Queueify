@@ -1,4 +1,4 @@
-# Publishes a GitHub release for a tag created by tools/release.ps1, with the portable zip and the
+# Publishes a GitHub release for a tag created by tools/release.ps1, with the portable exe and the
 # notes from CHANGELOG.md. Tags with a pre-release suffix (v1.2.0-rc.1) become pre-releases.
 name: Release
 
@@ -59,7 +59,7 @@ jobs:
         with:
           name: release
           path: |
-            dist/*.zip
+            dist/*.exe
             notes/release-notes.md
           if-no-files-found: error
 
@@ -81,7 +81,7 @@ jobs:
         run: |
           prerelease=()
           [[ $GITHUB_REF_NAME == *-* ]] && prerelease=(--prerelease)
-          gh release create "$GITHUB_REF_NAME" release/dist/*.zip \
+          gh release create "$GITHUB_REF_NAME" release/dist/*.exe \
             --repo "$GITHUB_REPOSITORY" \
             --title "Queueify $GITHUB_REF_NAME" \
             --notes-file release/notes/release-notes.md \

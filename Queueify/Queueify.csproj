@@ -11,11 +11,21 @@
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
+    <!-- Builds resources.pri with the compiled XAML in it, which unpackaged publish needs (and single-file requires). -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Queueify.ico</ApplicationIcon>
     <Version>1.1.0</Version>
+  </PropertyGroup>
+
+  <!-- The download: one Queueify.exe, trimmed to the code the app uses. See ADR-0007. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,16 +34,11 @@
     </Content>
   </ItemGroup>
 
-  <!-- Unpackaged publish leaves out the app's own compiled XAML; without it the window fails to load. -->
-  <Target Name="CopyXamlResourcesToPublish" AfterTargets="Publish">
-    <ItemGroup>
-      <_QueueifyXaml Include="$(OutDir)*.xbf;$(OutDir)$(AssemblyName).pri" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_QueueifyXaml)" DestinationFolder="$(PublishDir)" />
-  </Target>
-
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+    <!-- Only WinUI and what it needs; the Microsoft.WindowsAppSDK metapackage adds ~60 MB of AI, ML,
+         search and widgets the app doesn't use. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
   </ItemGroup>
 
   <ItemGroup>
