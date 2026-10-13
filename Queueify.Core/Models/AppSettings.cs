@@ -13,7 +13,7 @@ public sealed class AppSettings
     /// <summary>ISO 3166-1 alpha-2 country used for catalog availability.</summary>
     public string CountryCode { get; set; } = "AR";
 
-    /// <summary>Last value typed in "Reading", reused for the next album from the same magazine.</summary>
+    /// <summary>Last value typed in "Magazine", reused for the next album from the same magazine.</summary>
     public string LastSource { get; set; } = "";
 
     /// <summary>When the shared settings above (keys, preferred app, country) last changed, for syncing.</summary>
