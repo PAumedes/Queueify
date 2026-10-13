@@ -167,17 +167,27 @@ public sealed partial class MainWindow : Window
         ApplyPaneLayout();
     }
 
-    /// <summary>The Add albums panel follows the user's choice, except on Help, which uses the full width.</summary>
+    /// <summary>
+    /// The Add albums panel follows the user's choice; hidden, it leaves a slim rail in its place.
+    /// Help uses the full width.
+    /// </summary>
     private void ApplyPaneLayout()
     {
-        bool visible = _ui.PaneVisible && _page != Page.Help;
-        PaneColumn.Width = visible ? new GridLength(Math.Clamp(_ui.PaneWidth, 320, 760)) : new GridLength(0);
-        SplitterColumn.Width = new GridLength(visible ? 12 : 0);
-        AddPane.Visibility = Splitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        ShowPaneButton.Visibility = !_ui.PaneVisible && _page != Page.Help ? Visibility.Visible : Visibility.Collapsed;
+        bool fullWidth = _page == Page.Help;
+        bool open = _ui.PaneVisible && !fullWidth;
+        bool rail = !_ui.PaneVisible && !fullWidth;
+        PaneColumn.Width = new GridLength(open ? Math.Clamp(_ui.PaneWidth, 320, 760) : rail ? 48 : 0);
+        SplitterColumn.Width = new GridLength(open || rail ? 12 : 0);
+        AddPane.Visibility = Splitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        PaneRail.Visibility = rail ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void OnHidePane(object sender, RoutedEventArgs e) => SetPaneVisible(false);
+    private void OnHidePane(object sender, RoutedEventArgs e)
+    {
+        SetPaneVisible(false);
+        // The hide button just disappeared; keep keyboard focus where the panel was.
+        PaneRail.Focus(FocusState.Programmatic);
+    }
 
     private void OnShowPane(object sender, RoutedEventArgs e)
     {
@@ -191,6 +201,7 @@ public sealed partial class MainWindow : Window
         bool show = !_ui.PaneVisible || _page == Page.Help;
         SetPaneVisible(show);
         if (show) SearchBox.Focus(FocusState.Programmatic);
+        else PaneRail.Focus(FocusState.Programmatic);
     }
 
     private void OnFocusSearch(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

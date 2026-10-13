@@ -325,12 +325,18 @@
                             </InfoBar.ActionButton>
                         </InfoBar>
 
-                        <TextBox x:Name="SourceBox" Grid.Row="2" Header="Reading" MaxLength="200"
-                                 PlaceholderText="Magazine and issue (optional), e.g. Rolling Stone #45" />
+                        <TextBox x:Name="SourceBox" Grid.Row="2" Header="Magazine" MaxLength="200"
+                                 PlaceholderText="e.g. Rolling Stone #45">
+                            <TextBox.Description>
+                                <TextBlock Text="Optional. Saved with every album you add, so you remember where it came from."
+                                           TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </TextBox.Description>
+                        </TextBox>
 
                         <TextBox x:Name="SearchBox" Grid.Row="3" Header="Find an album" MaxLength="300"
                                  PlaceholderText="Artist and album, e.g. Charly García Clics Modernos"
-                                 FontSize="16" TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
+                                 TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
 
                         <StackPanel Grid.Row="4" Spacing="4">
                             <ProgressBar x:Name="SearchProgress" IsIndeterminate="True" Visibility="Collapsed" />
@@ -387,6 +393,31 @@
                     </Grid>
                 </Border>
 
+                <!-- The hidden panel leaves this rail in its place: one click (or Ctrl+B) brings it back. -->
+                <Button x:Name="PaneRail" Visibility="Collapsed" Click="OnShowPane"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Top"
+                        Padding="0,14" CornerRadius="8"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        AutomationProperties.Name="Show the Add albums panel"
+                        ToolTipService.ToolTip="Show the Add albums panel (Ctrl+B)">
+                    <StackPanel Spacing="16">
+                        <FontIcon Glyph="&#xE76C;" FontSize="14" />
+                        <FontIcon Glyph="&#xE710;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        <!-- Canvas: the rotated label must not be clipped by the narrow column. Left-aligned
+                             text starts at the top after rotating; the box leaves room for large text sizes. -->
+                        <Canvas Width="20" Height="240">
+                            <TextBlock Text="Add albums" Width="240" TextAlignment="Left" FontWeight="SemiBold"
+                                       Canvas.Left="-110" Canvas.Top="110" RenderTransformOrigin="0.5,0.5">
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform Angle="90" />
+                                </TextBlock.RenderTransform>
+                            </TextBlock>
+                        </Canvas>
+                    </StackPanel>
+                </Button>
+
                 <controls:PaneSplitter x:Name="Splitter" Grid.Column="1" />
 
                 <!-- ═════════ Pages ═════════ -->
@@ -413,14 +444,6 @@
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                        <Button x:Name="ShowPaneButton" Grid.Column="2" Visibility="Collapsed" Click="OnShowPane"
-                                Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center"
-                                AutomationProperties.Name="Show the Add albums panel" ToolTipService.ToolTip="Show the Add albums panel (Ctrl+B)">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE710;" FontSize="13" />
-                                <TextBlock Text="Add albums" />
-                            </StackPanel>
-                        </Button>
                     </Grid>
 
                     <!-- Toolbar for the queue pages: labeled commands, like UniGetUI -->
@@ -533,7 +556,7 @@
                                 <StackPanel Spacing="14">
                                     <TextBlock Text="Quick guide" Style="{StaticResource SubtitleTextBlockStyle}" />
                                     <TextBlock TextWrapping="Wrap" Text="1.  Type the artist and album from the magazine in “Find an album” and press Enter. Queueify searches Spotify and Tidal together and highlights the best match; Enter again adds it. The year can be off by one." />
-                                    <TextBlock TextWrapping="Wrap" Text="2.  Write the magazine and issue in “Reading” once; every album you add remembers where it came from." />
+                                    <TextBlock TextWrapping="Wrap" Text="2.  Write the magazine and issue in “Magazine” once; every album you add remembers where it came from." />
                                     <TextBlock TextWrapping="Wrap" Text="3.  When you want to listen, press Play (or double-click the album) and it opens in Tidal or Spotify. Choose which one in Settings." />
                                     <TextBlock TextWrapping="Wrap" Text="4.  Tick the circle when you've heard it. It moves to Listened, where you can give it stars. Changed your mind? Every action has Undo." />
                                     <TextBlock TextWrapping="Wrap" Text="5.  Lazy mode: photograph a page, drop the photo into the window, then click the artist and the album on it instead of typing." />

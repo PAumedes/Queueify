@@ -117,6 +117,14 @@ Check ($null -ne $sync) "navigation item: Sync ($($sync.Current.Name))"
 Check ($null -ne (FindId 'PageTitle') -and (FindId 'PageTitle').Current.Name -eq 'To listen') 'page title shows "To listen"'
 Check ((FindId 'PageSummary').Current.Name -like 'Nothing waiting*') "page summary: $((FindId 'PageSummary').Current.Name)"
 
+# ── Add albums panel: both fields titled alike, the magazine field explains itself ──
+$magazineTitle = Find 'Magazine' 'Text'
+$searchTitle = Find 'Find an album' 'Text'
+Check ($null -ne $magazineTitle -and $null -ne $searchTitle -and
+       $magazineTitle.Current.BoundingRectangle.Height -eq $searchTitle.Current.BoundingRectangle.Height) `
+    "field titles have the same size ($($magazineTitle.Current.BoundingRectangle.Height) vs $($searchTitle.Current.BoundingRectangle.Height))"
+Check ($null -ne (Find 'Optional. Saved with every album*' 'Text')) 'the magazine field says what it is for'
+
 # ── Every button says what it does ──
 $unnamed = All | Where-Object {
     $_.Current.ControlType.ProgrammaticName -in 'ControlType.Button', 'ControlType.SplitButton' -and
@@ -148,10 +156,12 @@ $covers.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).To
 Start-Sleep 1
 Check ($null -ne (Find 'Clics Modernos' 'Text')) 'cover view shows the album'
 Invoke (Find 'Hide this panel*' 'Button')
-Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Reading' 'Edit') -and $null -ne (Find 'Show the Add albums panel*' 'Button')) `
-    'add panel hides and a button offers it back'
-Invoke (Find 'Show the Add albums panel*' 'Button')
-Check ($null -ne (Find 'Find an album' 'Edit')) 'add panel comes back'
+$rail = Find 'Show the Add albums panel*' 'Button'
+Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Magazine' 'Edit') -and $null -ne $rail) `
+    'add panel hides and a rail offers it back'
+# The way back sits where the panel was (left of the page), not somewhere else on the screen.
+Check ($null -ne $rail -and $rail.Current.BoundingRectangle.Right -lt (FindId 'PageTitle').Current.BoundingRectangle.Left) `
+    'the rail is on the left, where the panel was'
 
 # ── Photo page ──
 Select-Item (Find 'Magazine photo*' 'ListItem')
@@ -161,6 +171,7 @@ Check ($null -ne (Find 'Open photo*' 'Button')) 'photo page offers Open photo'
 # ── Help (F1) ──
 Keys '{F1}'
 Check ((FindId 'PageTitle').Current.Name -eq 'Help') 'F1 opens Help'
+Check ($null -eq (Find 'Show the Add albums panel*' 'Button')) 'Help uses the full width: no rail'
 foreach ($section in 'Quick guide', 'Keyboard shortcuts', 'Troubleshooting', 'About Queueify') {
     Check ($null -ne (Find $section 'Text')) "help section: $section"
 }
@@ -175,6 +186,15 @@ Check ($null -eq (Find '*1 of 4*')) 'quick tour does not repeat on the next star
 Check ($null -ne (Find 'Clics Modernos' 'Text')) 'queue persisted'
 $coverState = (Find 'Cover view*').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState
 Check ($coverState -eq 'On') "cover view remembered ($coverState)"
+Check ($null -eq (Find 'Find an album' 'Edit') -and $null -ne (Find 'Show the Add albums panel*' 'Button')) `
+    'a hidden panel stays hidden after a restart, with the rail to bring it back'
+Invoke (Find 'Show the Add albums panel*' 'Button')
+Check ($null -ne (Find 'Find an album' 'Edit') -and $null -eq (Find 'Show the Add albums panel*' 'Button')) 'the rail brings the panel back'
+Keys '^b'
+$rail = Find 'Show the Add albums panel*' 'Button'
+Check ($null -ne $rail -and $rail.Current.HasKeyboardFocus) 'Ctrl+B hides the panel and leaves keyboard focus on the rail'
+Keys '^b'
+Check ($null -ne (Find 'Find an album' 'Edit') -and (Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'Ctrl+B again brings it back, ready to type'
 Stop-App
 
 $crash = Join-Path $data 'crash.log'
