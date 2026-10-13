@@ -55,19 +55,25 @@ public sealed class AppDataTests : IDisposable
               "SpotifyClientSecret": "ssecret",
               "TidalClientId": "",
               "TidalClientSecret": "",
-              "PreferredService": "Tidal",
-              "CountryCode": "AR",
-              "LastSource": "",
+              "PreferredService": "Spotify",
+              "CountryCode": "ES",
+              "LastSource": "Rolling Stone #312",
               "SharedSettingsUpdatedAt": "2026-10-11T22:04:51.1234567Z",
-              "CloudProjectId": "",
+              "CloudProjectId": "my-project",
               "CloudQueueKey": "",
-              "CloudLastServerTime": null
+              "CloudLastServerTime": null,
+              "SpotifyConfigured": true,
+              "TidalConfigured": false,
+              "CloudConfigured": false
             }
             """);
 
         var loaded = AppData.LoadSettings(path);
 
-        Assert.Equal(("sid", "ssecret", "AR"), (loaded.SpotifyClientId, loaded.SpotifyClientSecret, loaded.CountryCode));
+        Assert.Equal(
+            ("sid", "ssecret", "Spotify", "ES", "Rolling Stone #312", "my-project", (DateTime?)new DateTime(2026, 10, 11, 22, 4, 51, DateTimeKind.Utc).AddTicks(1234567)),
+            (loaded.SpotifyClientId, loaded.SpotifyClientSecret, loaded.PreferredService, loaded.CountryCode, loaded.LastSource, loaded.CloudProjectId, loaded.SharedSettingsUpdatedAt?.ToUniversalTime()));
+        Assert.Null(loaded.CloudLastServerTime);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Queueify.Services;
 
 namespace Queueify;
 
@@ -9,6 +10,5 @@ namespace Queueify;
 /// </summary>
 public static class Covers
 {
-    public static ImageSource? From(string? url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp) ? new BitmapImage(uri) : null;
+    public static ImageSource? From(string? url) => CoverUrls.Loadable(url) is { } uri ? new BitmapImage(uri) : null;
 }
