@@ -2,7 +2,11 @@ using System.Globalization;
 
 namespace Queueify.Services;
 
-public sealed record CountryOption(string Code, string Name);
+public sealed record CountryOption(string Code, string Name)
+{
+    /// <summary>What screen readers say for the item in the Settings list.</summary>
+    public override string ToString() => Name;
+}
 
 /// <summary>
 /// The countries offered in Settings: where Tidal is available, all of which are Spotify markets

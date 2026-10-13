@@ -2,7 +2,11 @@ using System.Globalization;
 
 namespace Queueify.Services;
 
-public sealed record OcrLanguageOption(string Tag, string Name);
+public sealed record OcrLanguageOption(string Tag, string Name)
+{
+    /// <summary>What screen readers say for the item in the Settings lists.</summary>
+    public override string ToString() => Name;
+}
 
 /// <summary>
 /// The text recognition languages Queueify offers to install (Windows "Features on Demand"), and
