@@ -27,7 +27,7 @@ public sealed class UiState
     /// <summary>"system" (follow Windows), "light" or "dark".</summary>
     public string Theme { get; set; } = "system";
 
-    /// <summary>Back to the original layout (panel, list view, window size); the tour isn't repeated.</summary>
+    /// <summary>Back to the original layout (panel, list view, order, window size); the tour isn't repeated.</summary>
     public void ResetLayout()
     {
         var fresh = new UiState();

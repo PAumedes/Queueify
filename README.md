@@ -29,7 +29,10 @@ The portable app is in `publish\`. Run `publish\Queueify.exe`. Your queue and se
 The test runs a real search, so a green "Connected" means the keys work. Settings also has the app that
 Play opens, the country for catalog availability (only countries where both services work), the theme
 (Windows setting, light or dark) and **Reset layout**, which brings back the Add albums panel, the list
-view and the original window size.
+view, the original order and the original window size.
+
+The keys, the app Play opens and the country sync between your PCs as one set: when two PCs change
+them, the most recent change wins. Theme and layout stay per PC.
 
 **Spanish OCR** (optional, for magazine photos): open *Magazine photo* and click *Install Spanish OCR*.
 It needs an admin prompt and internet, once per PC. Without it, OCR still works and matching ignores

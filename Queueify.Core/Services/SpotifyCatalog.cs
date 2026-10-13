@@ -13,7 +13,8 @@ namespace Queueify.Services;
 public sealed class SpotifyCatalog(HttpClient http, Func<AppSettings> settings)
 {
     private string? _token;
-    private string? _tokenClientId;
+    /// <summary>The keys the cached token was issued for: a changed ID or secret needs a new token.</summary>
+    private string? _tokenKeys;
     private DateTime _tokenExpires;
 
     public async Task<List<AlbumMatch>> SearchAsync(string q, CancellationToken ct)
@@ -47,9 +48,11 @@ public sealed class SpotifyCatalog(HttpClient http, Func<AppSettings> settings)
         return matches;
     }
 
+    private static string KeysOf(AppSettings s) => $"{s.SpotifyClientId.Trim()}:{s.SpotifyClientSecret.Trim()}";
+
     private async Task<string> GetTokenAsync(AppSettings s, CancellationToken ct)
     {
-        if (_token != null && _tokenClientId == s.SpotifyClientId && DateTime.UtcNow < _tokenExpires)
+        if (_token != null && _tokenKeys == KeysOf(s) && DateTime.UtcNow < _tokenExpires)
             return _token;
 
         using var req = new HttpRequestMessage(HttpMethod.Post, "https://accounts.spotify.com/api/token")
@@ -66,7 +69,7 @@ public sealed class SpotifyCatalog(HttpClient http, Func<AppSettings> settings)
 
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
         _token = doc.RootElement.GetProperty("access_token").GetString();
-        _tokenClientId = s.SpotifyClientId;
+        _tokenKeys = KeysOf(s);
         _tokenExpires = DateTime.UtcNow.AddSeconds(doc.RootElement.GetProperty("expires_in").GetInt32() - 60);
         return _token!;
     }

@@ -1030,7 +1030,14 @@ public sealed partial class MainWindow : Window
                 // Take downloaded keys/preferences unless the user saved Settings while this sync ran.
                 bool sharedChanged = _settings.SharedSettingsUpdatedAt == sharedStampBefore
                                      && work.SharedSettingsUpdatedAt != sharedStampBefore;
-                if (sharedChanged) _settings.CopySharedFrom(work);
+                if (sharedChanged)
+                {
+                    var keysBefore = (KeysOf(MusicService.Tidal), KeysOf(MusicService.Spotify));
+                    _settings.CopySharedFrom(work);
+                    _settings.Normalize();
+                    if (KeysOf(MusicService.Tidal) != keysBefore.Item1) ForgetTestResult(MusicService.Tidal);
+                    if (KeysOf(MusicService.Spotify) != keysBefore.Item2) ForgetTestResult(MusicService.Spotify);
+                }
                 AppData.SaveSettings(_settings);
 
                 if (result.SettingsChanged && sharedChanged)
@@ -1421,8 +1428,24 @@ public sealed partial class MainWindow : Window
     /// <summary>Set while the page fills its controls, so their change events don't save anything.</summary>
     private bool _fillingSettings;
 
-    /// <summary>The last connection test per service failed with this message (null: fine or not tested).</summary>
-    private readonly Dictionary<MusicService, string?> _serviceProblem = [];
+    /// <summary>
+    /// The last connection test per service failed with this message; KeysRejected tells a wrong key
+    /// apart from a network problem. Cleared when the keys change (here or from another PC).
+    /// </summary>
+    private readonly Dictionary<MusicService, (string Message, bool KeysRejected)> _serviceProblem = [];
+
+    /// <summary>Services whose keys are being tested right now.</summary>
+    private readonly HashSet<MusicService> _testing = [];
+
+    /// <summary>Services whose current keys passed a test search in this session.</summary>
+    private readonly HashSet<MusicService> _verified = [];
+
+    /// <summary>The keys changed (saved, removed, or synced from another PC): earlier test results no longer apply.</summary>
+    private void ForgetTestResult(MusicService service)
+    {
+        _serviceProblem.Remove(service);
+        _verified.Remove(service);
+    }
 
     /// <summary>
     /// Fills the page from the current settings. After a sync, keys the user is typing (boxes that
@@ -1433,7 +1456,10 @@ public sealed partial class MainWindow : Window
         _fillingSettings = true;
         try
         {
+            // Shown in standard form ("ar" as Argentina), and compared in that form, so picking
+            // nothing never counts as a change.
             var shown = _settings.Clone();
+            shown.Normalize();
             if (keepTypedKeys && (TidalCard.ClientId != _settingsShown.TidalClientId || TidalCard.ClientSecret != _settingsShown.TidalClientSecret))
             {
                 shown.TidalClientId = _settingsShown.TidalClientId;
@@ -1462,10 +1488,10 @@ public sealed partial class MainWindow : Window
                 SpotifyCard.IsExpanded = !_settings.SpotifyConfigured;
             }
 
-            PreferredBox.SelectedItem = BacklogItem.Preferred.ToString();
-            var countries = Countries.Options(_settings.CountryCode, CultureInfo.CurrentCulture);
+            PreferredBox.SelectedItem = shown.PreferredService;
+            var countries = Countries.Options(shown.CountryCode, CultureInfo.CurrentCulture);
             CountryBox.ItemsSource = countries;
-            CountryBox.SelectedItem = countries.FirstOrDefault(c => c.Code == _settings.CountryCode.Trim().ToUpperInvariant());
+            CountryBox.SelectedItem = countries.FirstOrDefault(c => c.Code == shown.CountryCode);
             ThemeBox.SelectedItem = ThemeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Theme)
                                     ?? ThemeBox.Items[0];
             SettingsDataPath.Text = AppData.Folder;
@@ -1484,13 +1510,16 @@ public sealed partial class MainWindow : Window
 
         void Show(ServiceCard card, MusicService service, bool configured)
         {
-            var problem = _serviceProblem.GetValueOrDefault(service);
             if (!configured)
-                card.ShowState(false, "Not connected", $"Not connected. Add your free developer keys to search {service}.");
-            else if (problem != null)
-                card.ShowState(false, "Check keys", problem);
+                card.ShowState(false, false, "Not connected", $"Not connected. Add your free developer keys to search {service}.");
+            else if (_testing.Contains(service))
+                card.ShowState(false, true, "Testing", "Testing the keys with a search…");
+            else if (_serviceProblem.TryGetValue(service, out var problem))
+                card.ShowState(false, true, problem.KeysRejected ? "Check keys" : "Not reachable", problem.Message);
+            else if (_verified.Contains(service))
+                card.ShowState(true, true, "Connected", $"Searches include {service}. The keys passed the test.");
             else
-                card.ShowState(true, "Connected", $"Searches include {service}.");
+                card.ShowState(true, true, "Keys saved", $"Searches include {service}. “Save and test” checks the keys.");
         }
     }
 
@@ -1530,17 +1559,28 @@ public sealed partial class MainWindow : Window
             (edited.TidalClientId, edited.TidalClientSecret) = (card.ClientId, card.ClientSecret);
         else
             (edited.SpotifyClientId, edited.SpotifyClientSecret) = (card.ClientId, card.ClientSecret);
-        _serviceProblem.Remove(service);
+        ForgetTestResult(service);
+        _testing.Add(service);
         CommitSettingsEdit(edited);
         await TestServiceAsync(card, service);
     }
 
-    /// <summary>A real search with the saved keys: the quickest proof that they work.</summary>
+    private string KeysOf(MusicService service) => service == MusicService.Tidal
+        ? $"{_settings.TidalClientId}:{_settings.TidalClientSecret}"
+        : $"{_settings.SpotifyClientId}:{_settings.SpotifyClientSecret}";
+
+    /// <summary>
+    /// A real search with the saved keys: the quickest proof that they work. The result only counts
+    /// if the keys are still the ones tested (they may be removed or synced meanwhile).
+    /// </summary>
     private async Task TestServiceAsync(ServiceCard card, MusicService service)
     {
+        var tested = KeysOf(service);
+        _testing.Add(service);
         card.IsBusy = true;
         card.HideResult();
-        string? problem = null;
+        UpdateServiceCards();
+        (string Message, bool KeysRejected)? problem = null;
         int found = 0;
         try
         {
@@ -1550,19 +1590,26 @@ public sealed partial class MainWindow : Window
                 : _spotify.SearchAsync("Charly Garcia Clics Modernos", cts.Token);
             found = (await search).Count;
         }
-        catch (CatalogException ex) { problem = ex.Message; }
-        catch (OperationCanceledException) { problem = $"{service} didn't answer in time. Try again in a moment."; }
-        catch (HttpRequestException ex) { problem = $"Couldn't reach {service} ({ex.Message}). Check the internet connection."; }
-        catch (Exception ex) { problem = $"Unexpected answer from {service} ({ex.Message})."; }
+        catch (CatalogException ex) { problem = (ex.Message, true); }
+        catch (OperationCanceledException) { problem = ($"{service} didn't answer in time. Try again in a moment.", false); }
+        catch (HttpRequestException ex) { problem = ($"Couldn't reach {service} ({ex.Message}). Check the internet connection.", false); }
+        catch (Exception ex) { problem = ($"Unexpected answer from {service} ({ex.Message}).", false); }
         finally
         {
+            _testing.Remove(service);
             card.IsBusy = false;
         }
 
-        _serviceProblem[service] = problem;
+        if (KeysOf(service) != tested)
+        {
+            UpdateServiceCards();
+            return;
+        }
+        if (problem is { } p) _serviceProblem[service] = p;
+        else _verified.Add(service);
         UpdateServiceCards();
-        if (problem != null)
-            card.ShowResult(InfoBarSeverity.Error, problem);
+        if (problem is { } shown)
+            card.ShowResult(InfoBarSeverity.Error, shown.Message);
         else
             card.ShowResult(InfoBarSeverity.Success, $"Connected. A test search found {QueueText.Albums(found)}.");
     }
@@ -1576,15 +1623,23 @@ public sealed partial class MainWindow : Window
             : (_settings.SpotifyClientId, _settings.SpotifyClientSecret);
 
         SetKeys(service, "", "");
-        ShowToast($"Removed the {service} keys.", undo: () => SetKeys(service, oldId, oldSecret),
-            severity: InfoBarSeverity.Informational);
+        ShowToast($"Removed the {service} keys.", undo: () =>
+        {
+            // Keys saved here or synced from another PC since then are newer: undo must not replace them.
+            if (KeysOf(service) != ":")
+            {
+                ShowToast($"Not undone: other {service} keys were saved since.", severity: InfoBarSeverity.Warning);
+                return;
+            }
+            SetKeys(service, oldId, oldSecret);
+        }, severity: InfoBarSeverity.Informational);
 
         void SetKeys(MusicService s, string id, string secret)
         {
             var edited = _settingsShown.Clone();
             if (s == MusicService.Tidal) (edited.TidalClientId, edited.TidalClientSecret) = (id, secret);
             else (edited.SpotifyClientId, edited.SpotifyClientSecret) = (id, secret);
-            _serviceProblem.Remove(s);
+            ForgetTestResult(s);
             var target = s == MusicService.Tidal ? TidalCard : SpotifyCard;
             target.ClientId = id;
             target.ClientSecret = secret;
@@ -1650,7 +1705,7 @@ public sealed partial class MainWindow : Window
         if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized } presenter) presenter.Restore();
         SizeToScreen(1440, 920);
         GoTo(Page.Queue);
-        ShowToast("Layout reset: the panel, the list view and the window are back as they started.",
+        ShowToast("Layout reset: the panel, the list view, the order and the window are back as they started.",
             severity: InfoBarSeverity.Informational);
     }
 

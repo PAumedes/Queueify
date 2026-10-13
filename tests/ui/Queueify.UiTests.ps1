@@ -215,8 +215,15 @@ SetText (FindId 'TidalClientId') 'test-client-id'
 (FindId 'TidalClientSecret').SetFocus()
 [System.Windows.Forms.SendKeys]::SendWait('test-secret')
 Invoke (FindId 'TidalSave')
-Start-Sleep 3
-Check ((FindId 'TidalStatus').Current.Name -notlike 'Not connected*') "Tidal status after saving keys: $((FindId 'TidalStatus').Current.Name)"
+for ($i = 0; $i -lt 30 -and (FindId 'TidalStatus').Current.Name -like 'Testing*'; $i++) { Start-Sleep 1 }
+# Fake keys: Tidal refuses them (or, offline, can't be reached). Either way never "connected".
+$status = (FindId 'TidalStatus').Current.Name
+Check ($status -notlike 'Testing*' -and $status -notlike 'Searches include*' -and $status -notlike 'Not connected*') "fake keys are not shown as working: $status"
+Check ($null -ne (FindId 'TidalRemove')) 'keys that failed the test can still be removed'
+Invoke (FindId 'TidalRemove')
+Check ((FindId 'TidalStatus').Current.Name -like 'Not connected*') "removed: $((FindId 'TidalStatus').Current.Name)"
+Invoke (Find 'Undo' 'Button')
+Check ((FindId 'TidalStatus').Current.Name -notlike 'Not connected*') "undo puts the keys back: $((FindId 'TidalStatus').Current.Name)"
 
 $country = FindId 'CountryBox'
 Check ($null -ne $country -and $country.Current.ControlType.ProgrammaticName -eq 'ControlType.ComboBox') 'country is a dropdown'

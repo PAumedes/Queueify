@@ -66,6 +66,31 @@ public class CloudSyncCodeTests
         Assert.Equal(("new-from-other-pc", "ES"), (live.SpotifyClientId, live.CountryCode));
     }
 
+    [Theory]
+    [InlineData(" ar ", "spotify", "AR", "Spotify")]
+    [InlineData("", "", "AR", "Tidal")]
+    [InlineData("ARG", "Deezer", "AR", "Tidal")]
+    [InlineData("es", "TIDAL", "ES", "Tidal")]
+    public void Normalize_GivesCountryAndPreferredAppTheirStandardForm(string country, string preferred, string expectedCountry, string expectedPreferred)
+    {
+        var s = new AppSettings { CountryCode = country, PreferredService = preferred };
+
+        s.Normalize();
+
+        Assert.Equal((expectedCountry, expectedPreferred), (s.CountryCode, s.PreferredService));
+    }
+
+    [Fact]
+    public void Normalize_ThenApplyEdits_SeesNoChangeWhenTheUserChangedNothing()
+    {
+        // The Settings page shows "ar" as Argentina; picking nothing must not upload anything.
+        var live = new AppSettings { CountryCode = "ar" };
+        var shown = live.Clone();
+        shown.Normalize();
+
+        Assert.False(live.ApplyEdits(shown, shown.Clone()));
+    }
+
     [Fact]
     public void ApplyEdits_ReportsNoChangeWhenNothingWasEdited()
     {

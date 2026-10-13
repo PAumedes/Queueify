@@ -15,7 +15,8 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
     private const string Api = "https://openapi.tidal.com/v2";
 
     private string? _token;
-    private string? _tokenClientId;
+    /// <summary>The keys the cached token was issued for: a changed ID or secret needs a new token.</summary>
+    private string? _tokenKeys;
     private DateTime _tokenExpires;
 
     public async Task<List<AlbumMatch>> SearchAsync(string q, CancellationToken ct)
@@ -129,9 +130,11 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
         return JsonDocument.Parse(body);
     }
 
+    private static string KeysOf(AppSettings s) => $"{s.TidalClientId.Trim()}:{s.TidalClientSecret.Trim()}";
+
     private async Task<string> GetTokenAsync(AppSettings s, CancellationToken ct)
     {
-        if (_token != null && _tokenClientId == s.TidalClientId && DateTime.UtcNow < _tokenExpires)
+        if (_token != null && _tokenKeys == KeysOf(s) && DateTime.UtcNow < _tokenExpires)
             return _token;
 
         using var req = new HttpRequestMessage(HttpMethod.Post, "https://auth.tidal.com/v1/oauth2/token")
@@ -147,7 +150,7 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
 
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
         _token = doc.RootElement.GetProperty("access_token").GetString();
-        _tokenClientId = s.TidalClientId;
+        _tokenKeys = KeysOf(s);
         _tokenExpires = DateTime.UtcNow.AddSeconds(doc.RootElement.GetProperty("expires_in").GetInt32() - 60);
         return _token!;
     }

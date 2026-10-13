@@ -68,6 +68,19 @@ public sealed class AppSettings
         return changed;
     }
 
+    /// <summary>
+    /// Gives hand-edited or older values their standard form: a two-letter upper-case country
+    /// (Argentina when unusable) and "Tidal" or "Spotify".
+    /// </summary>
+    public void Normalize()
+    {
+        var country = CountryCode.Trim().ToUpperInvariant();
+        CountryCode = country.Length == 2 && country.All(char.IsAsciiLetterUpper) ? country : "AR";
+        PreferredService = PreferredService.Trim().Equals(nameof(MusicService.Spotify), StringComparison.OrdinalIgnoreCase)
+            ? nameof(MusicService.Spotify)
+            : nameof(MusicService.Tidal);
+    }
+
     public bool SpotifyConfigured =>
         !string.IsNullOrWhiteSpace(SpotifyClientId) && !string.IsNullOrWhiteSpace(SpotifyClientSecret);
 

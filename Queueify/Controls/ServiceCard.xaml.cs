@@ -35,6 +35,8 @@ public sealed partial class ServiceCard : UserControl
             AutomationProperties.SetAutomationId(ClientIdBox, $"{value}ClientId");
             AutomationProperties.SetAutomationId(ClientSecretBox, $"{value}ClientSecret");
             AutomationProperties.SetAutomationId(SaveButton, $"{value}Save");
+            AutomationProperties.SetAutomationId(RemoveButton, $"{value}Remove");
+            AutomationProperties.SetAutomationId(Result, $"{value}Result");
         }
     }
 
@@ -66,15 +68,18 @@ public sealed partial class ServiceCard : UserControl
         set => ClientSecretBox.Password = value;
     }
 
-    /// <summary>Header state: connected (accent pill) or not, with a one-line explanation.</summary>
-    public void ShowState(bool connected, string pill, string status)
+    /// <summary>
+    /// Header state: connected (accent pill) or not, with a one-line explanation. Saved keys can
+    /// always be removed, working or not.
+    /// </summary>
+    public void ShowState(bool connected, bool hasKeys, string pill, string status)
     {
         OnPill.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
         OffPill.Visibility = connected ? Visibility.Collapsed : Visibility.Visible;
         OnPillText.Text = OffPillText.Text = pill;
         StatusText.Text = status;
         AutomationProperties.SetName(Card, $"{Service}: {status}");
-        RemoveButton.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
+        RemoveButton.Visibility = hasKeys ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void ShowResult(InfoBarSeverity severity, string message)

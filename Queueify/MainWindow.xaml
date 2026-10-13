@@ -726,7 +726,7 @@
                                     <FontIcon Glyph="&#xE737;" FontSize="20" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="Layout" />
-                                        <TextBlock Text="Brings back the Add albums panel at its first width, the list view and the window size"
+                                        <TextBlock Text="Brings back the Add albums panel at its first width, the list view, the original order (oldest first) and the window size"
                                                    Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>

@@ -19,8 +19,11 @@ public static class AppData
     {
         try
         {
-            if (File.Exists(SettingsPath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) ?? new AppSettings();
+            if (File.Exists(SettingsPath) && JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) is { } settings)
+            {
+                settings.Normalize();
+                return settings;
+            }
         }
         catch (Exception ex) when (ex is JsonException or IOException)
         {
