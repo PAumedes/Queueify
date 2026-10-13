@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Queueify.Models;
 
 namespace Queueify.Services;
@@ -9,17 +9,23 @@ namespace Queueify.Services;
 /// </summary>
 public static class AppData
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
-    public static string Folder { get; } = Path.Combine(AppContext.BaseDirectory, "Data");
+    public static string Folder { get; } = FolderFor(Environment.ProcessPath);
     public static string DatabasePath => Path.Combine(Folder, "queueify.db");
     private static string SettingsPath => Path.Combine(Folder, "settings.json");
 
-    public static AppSettings LoadSettings()
+    /// <summary>
+    /// The folder next to the exe the user started. Not <see cref="AppContext.BaseDirectory"/>: the
+    /// single-file app runs from a copy unpacked into a temporary folder.
+    /// </summary>
+    public static string FolderFor(string? exePath) =>
+        Path.Combine(Path.GetDirectoryName(exePath) is { Length: > 0 } dir ? dir : AppContext.BaseDirectory, "Data");
+
+    public static AppSettings LoadSettings(string? path = null)
     {
+        path ??= SettingsPath;
         try
         {
-            if (File.Exists(SettingsPath) && JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) is { } settings)
+            if (File.Exists(path) && JsonSerializer.Deserialize(File.ReadAllText(path), StorageJson.Default.AppSettings) is { } settings)
             {
                 settings.Normalize();
                 return settings;
@@ -32,9 +38,10 @@ public static class AppData
         return new AppSettings();
     }
 
-    public static void SaveSettings(AppSettings settings)
+    public static void SaveSettings(AppSettings settings, string? path = null)
     {
-        Directory.CreateDirectory(Folder);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
+        path ??= SettingsPath;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(settings, StorageJson.Default.AppSettings));
     }
 }

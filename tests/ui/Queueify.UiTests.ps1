@@ -96,6 +96,8 @@ Set-FirstRun
 Start-App
 Check ($null -ne (Find '*1 of 4*')) 'quick tour starts on a first run'
 Stop-App
+# The single-file app runs from a copy unpacked elsewhere; its data must still land next to the exe.
+Check ((Get-Content -Raw (Join-Path $data 'ui.json')) -match '"TourSeen":\s*true') 'layout is saved in the Data folder next to Queueify.exe'
 Start-App
 Check ($null -eq (Find '*of 4*')) 'quick tour does not come back after closing the app mid-tour'
 Stop-App

@@ -8,8 +8,6 @@ namespace Queueify.Services;
 /// </summary>
 public sealed class UiState
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
     public static string DefaultPath => Path.Combine(AppData.Folder, "ui.json");
 
     public double PaneWidth { get; set; } = 420;
@@ -54,7 +52,7 @@ public sealed class UiState
         try
         {
             if (File.Exists(path))
-                return JsonSerializer.Deserialize<UiState>(File.ReadAllText(path)) ?? new UiState();
+                return JsonSerializer.Deserialize(File.ReadAllText(path), StorageJson.Default.UiState) ?? new UiState();
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -73,7 +71,7 @@ public sealed class UiState
             // Written aside and swapped in, so a copy starting meanwhile never reads half a file.
             // A name of its own, so two copies saving at once (during a restart) don't share one.
             temp = $"{path}.{Guid.NewGuid():N}.tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, StorageJson.Default.UiState));
             File.Move(temp, path, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
