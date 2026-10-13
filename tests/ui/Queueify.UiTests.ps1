@@ -195,7 +195,50 @@ $rail = Find 'Show the Add albums panel*' 'Button'
 Check ($null -ne $rail -and $rail.Current.HasKeyboardFocus) 'Ctrl+B hides the panel and leaves keyboard focus on the rail'
 Keys '^b'
 Check ($null -ne (Find 'Find an album' 'Edit') -and (Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'Ctrl+B again brings it back, ready to type'
+
+# ── Settings page ──
+Select-Item (Find 'Settings*' 'ListItem')
+Check ((FindId 'PageTitle').Current.Name -eq 'Settings') 'Settings opens as a page'
+Check ($null -eq (Find 'Find an album' 'Edit') -and $null -eq (Find 'Show the Add albums panel*' 'Button')) 'Settings uses the full width'
+foreach ($section in 'Music services', 'Appearance', 'Sync between your PCs') {
+    Check ($null -ne (Find $section 'Text')) "settings section: $section"
+}
+foreach ($service in 'Tidal', 'Spotify') {
+    $card = FindId "${service}Card"
+    Check ($null -ne $card -and $null -ne (Find "$service logo" 'Image')) "$service has its own card with its logo"
+}
+Check ((FindId 'TidalStatus').Current.Name -like 'Not connected*') "Tidal status before keys: $((FindId 'TidalStatus').Current.Name)"
+$tidalCard = FindId 'TidalCard'
+$tidalCard.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+Start-Sleep 1
+SetText (FindId 'TidalClientId') 'test-client-id'
+(FindId 'TidalClientSecret').SetFocus()
+[System.Windows.Forms.SendKeys]::SendWait('test-secret')
+Invoke (FindId 'TidalSave')
+Start-Sleep 3
+Check ((FindId 'TidalStatus').Current.Name -notlike 'Not connected*') "Tidal status after saving keys: $((FindId 'TidalStatus').Current.Name)"
+
+$country = FindId 'CountryBox'
+Check ($null -ne $country -and $country.Current.ControlType.ProgrammaticName -eq 'ControlType.ComboBox') 'country is a dropdown'
+$countryValue = $country.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() | ForEach-Object { $_.Current.Name }
+Check ($countryValue -eq 'Argentina') "country shows its name: $countryValue"
+
+$theme = FindId 'ThemeBox'
+$theme.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+Start-Sleep 1
+Select-Item (Find 'Light' 'ListItem')
+Check ($null -ne $theme) 'theme can be chosen'
+
+Invoke (Find 'Reset layout' 'Button')
+Check ((FindId 'PageTitle').Current.Name -eq 'To listen' -and $null -ne (Find 'Find an album' 'Edit')) 'Reset layout shows the original view'
+$coverState = (Find 'Cover view*').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState
+Check ($coverState -eq 'Off') "reset layout goes back to the list view ($coverState)"
 Stop-App
+
+$uiFile = Get-Content (Join-Path $data 'ui.json') -Raw | ConvertFrom-Json
+Check ($uiFile.Theme -eq 'light' -and $uiFile.TourSeen -eq $true) "theme saved, tour still seen (theme: $($uiFile.Theme))"
+$settingsFile = Get-Content (Join-Path $data 'settings.json') -Raw | ConvertFrom-Json
+Check ($settingsFile.TidalClientId -eq 'test-client-id' -and $settingsFile.TidalClientSecret -eq 'test-secret') 'Tidal keys saved'
 
 $crash = Join-Path $data 'crash.log'
 Check (-not (Test-Path $crash)) 'no crash log (includes unobserved background task errors)'

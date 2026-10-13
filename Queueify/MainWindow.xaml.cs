@@ -1,10 +1,12 @@
-﻿using Microsoft.UI.Dispatching;
+using System.Globalization;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Queueify.Controls;
 using Queueify.Models;
 using Queueify.Services;
 using Windows.ApplicationModel.DataTransfer;
@@ -56,6 +58,8 @@ public sealed partial class MainWindow : Window
 
         _ui = UiState.Load();
         RestoreWindow();
+        ApplyTheme();
+        Root.ActualThemeChanged += (_, _) => UpdateCaptionButtons();
 
         _settings = AppData.LoadSettings();
         _store = new BacklogStore(AppData.DatabasePath);
@@ -163,17 +167,19 @@ public sealed partial class MainWindow : Window
     {
         _ui.PaneVisible = visible;
         if (save) _ui.Save();
-        if (visible && _page == Page.Help) GoTo(Page.Queue);
+        if (visible && IsFullWidthPage) GoTo(Page.Queue);
         ApplyPaneLayout();
     }
 
+    /// <summary>Help and Settings use the whole window; the Add albums panel and its rail step aside.</summary>
+    private bool IsFullWidthPage => _page is Page.Help or Page.Settings;
+
     /// <summary>
     /// The Add albums panel follows the user's choice; hidden, it leaves a slim rail in its place.
-    /// Help uses the full width.
     /// </summary>
     private void ApplyPaneLayout()
     {
-        bool fullWidth = _page == Page.Help;
+        bool fullWidth = IsFullWidthPage;
         bool open = _ui.PaneVisible && !fullWidth;
         bool rail = !_ui.PaneVisible && !fullWidth;
         PaneColumn.Width = new GridLength(open ? Math.Clamp(_ui.PaneWidth, 320, 760) : rail ? 48 : 0);
@@ -198,7 +204,7 @@ public sealed partial class MainWindow : Window
     private void OnTogglePaneShortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        bool show = !_ui.PaneVisible || _page == Page.Help;
+        bool show = !_ui.PaneVisible || IsFullWidthPage;
         SetPaneVisible(show);
         if (show) SearchBox.Focus(FocusState.Programmatic);
         else PaneRail.Focus(FocusState.Programmatic);
@@ -494,12 +500,14 @@ public sealed partial class MainWindow : Window
             Page.Listened => ("", "Listened", QueueText.ListenedSummary(heard)),
             Page.Photo => ("", "Magazine photo", "Drop a photo of a page, then click the artist and the album on it."),
             Page.Help => ("", "Help", $"{AppInfo.Name} {AppInfo.Version}  ·  how everything works"),
+            Page.Settings => ("\uE713", "Settings", "Music services, country, theme and layout. Changes are saved right away."),
             _ => ("", "To listen", QueueText.PendingSummary(pending, DateTime.Now)),
         };
 
         QueuePanel.Visibility = QueueCommands.Visibility = queuePage ? Visibility.Visible : Visibility.Collapsed;
         PhotoPanel.Visibility = PhotoCommands.Visibility = _page == Page.Photo ? Visibility.Visible : Visibility.Collapsed;
         HelpPanel.Visibility = _page == Page.Help ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPanel.Visibility = _page == Page.Settings ? Visibility.Visible : Visibility.Collapsed;
         ApplyPaneLayout();
 
         EmptyState.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -516,7 +524,7 @@ public sealed partial class MainWindow : Window
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? $"{label}, {count} {what}" : label);
     }
 
-    private enum Page { Queue, Listened, Photo, Help }
+    private enum Page { Queue, Listened, Photo, Help, Settings }
 
     private Page _page = Page.Queue;
 
@@ -527,43 +535,39 @@ public sealed partial class MainWindow : Window
             Page.Listened => ListenedNav,
             Page.Photo => PhotoNav,
             Page.Help => HelpNav,
+            Page.Settings => SettingsNav,
             _ => QueueNav,
         };
 
     private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        // Sync and Settings open dialogs (OnNavItemInvoked); they never become the current page,
-        // even when selected with the keyboard or accessibility tools.
-        if (args.SelectedItemContainer?.Tag is "sync" or "settings")
+        // Sync opens a dialog (OnNavItemInvoked); it never becomes the current page, even when
+        // selected with the keyboard or accessibility tools.
+        if (args.SelectedItemContainer?.Tag is "sync")
         {
             GoTo(_page);
             return;
         }
 
+        var previous = _page;
         _page = (args.SelectedItemContainer?.Tag as string) switch
         {
             "listened" => Page.Listened,
             "photo" => Page.Photo,
             "help" => Page.Help,
+            "settings" => Page.Settings,
             _ => Page.Queue,
         };
+        if (_page == Page.Settings && previous != Page.Settings) FillSettingsPage();
         RefreshQueue();
         if (_page == Page.Photo && !OcrInfo.IsOpen && !OcrService.SpanishAvailable)
             ShowSpanishOcrWarning(null);
     }
 
-    /// <summary>Sync and Settings open dialogs instead of pages.</summary>
+    /// <summary>Sync opens a dialog instead of a page.</summary>
     private void OnNavItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        switch (args.InvokedItemContainer?.Tag as string)
-        {
-            case "sync":
-                OnSync(sender, new RoutedEventArgs());
-                break;
-            case "settings":
-                OnSettings(sender, new RoutedEventArgs());
-                break;
-        }
+        if (args.InvokedItemContainer?.Tag is "sync") OnSync(sender, new RoutedEventArgs());
     }
 
     private void OnHelpShortcut(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -1034,6 +1038,7 @@ public sealed partial class MainWindow : Window
                     ApplyPreferredService();
                     UpdateSetupInfo();
                     _resultsQuery = null;
+                    if (_page == Page.Settings) FillSettingsPage(keepTypedKeys: true);
                 }
                 if (result.Downloaded > 0 || result.SettingsChanged)
                 {
@@ -1075,7 +1080,8 @@ public sealed partial class MainWindow : Window
                 _lastSynced is DateTime t ? $"Synced with Firebase at {t:t}" : "Synced with Firebase");
 
         SyncNav.Content = label;
-        SyncIcon.Glyph = glyph;
+        SyncIcon.Glyph = SettingsSyncIcon.Glyph = glyph;
+        SettingsSyncStatus.Text = tip;
         ToolTipService.SetToolTip(SyncNav, tip);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SyncNav, tip);
     }
@@ -1304,6 +1310,8 @@ public sealed partial class MainWindow : Window
     {
         if (_dialogOpen) return ContentDialogResult.None;
         _dialogOpen = true;
+        // Dialogs live outside the window's element tree, so they don't inherit the chosen theme.
+        dialog.RequestedTheme = Root.ActualTheme;
         try
         {
             return await dialog.ShowAsync();
@@ -1401,82 +1409,250 @@ public sealed partial class MainWindow : Window
     private void ApplyPreferredService() =>
         BacklogItem.Preferred = Enum.TryParse<MusicService>(_settings.PreferredService, out var s) ? s : MusicService.Tidal;
 
-    private async void OnSettings(object sender, RoutedEventArgs e)
+    /// <summary>"Open settings" in the Add albums panel.</summary>
+    private void OnSettings(object sender, RoutedEventArgs e) => GoTo(Page.Settings);
+
+    /// <summary>
+    /// The values the Settings page shows. Edits are compared against it (AppSettings.ApplyEdits),
+    /// so a value a sync brought in while the page was open isn't overwritten by an untouched box.
+    /// </summary>
+    private AppSettings _settingsShown = new();
+
+    /// <summary>Set while the page fills its controls, so their change events don't save anything.</summary>
+    private bool _fillingSettings;
+
+    /// <summary>The last connection test per service failed with this message (null: fine or not tested).</summary>
+    private readonly Dictionary<MusicService, string?> _serviceProblem = [];
+
+    /// <summary>
+    /// Fills the page from the current settings. After a sync, keys the user is typing (boxes that
+    /// differ from what was shown) are kept, and so is what they were compared against.
+    /// </summary>
+    private void FillSettingsPage(bool keepTypedKeys = false)
     {
-        // What the dialog shows; a sync may change _settings while it's open.
-        var opened = _settings.Clone();
-        var spotifyId = new TextBox { Header = "Spotify Client ID", Text = _settings.SpotifyClientId };
-        var spotifySecret = new PasswordBox { Header = "Spotify Client secret", Password = _settings.SpotifyClientSecret };
-        var tidalId = new TextBox { Header = "Tidal Client ID", Text = _settings.TidalClientId };
-        var tidalSecret = new PasswordBox { Header = "Tidal Client secret", Password = _settings.TidalClientSecret };
-        var preferred = new ComboBox
+        _fillingSettings = true;
+        try
         {
-            Header = "Play opens albums in",
-            ItemsSource = new[] { "Tidal", "Spotify" },
-            SelectedItem = BacklogItem.Preferred.ToString(),
-            MinWidth = 200,
-        };
-        var country = new TextBox
+            var shown = _settings.Clone();
+            if (keepTypedKeys && (TidalCard.ClientId != _settingsShown.TidalClientId || TidalCard.ClientSecret != _settingsShown.TidalClientSecret))
+            {
+                shown.TidalClientId = _settingsShown.TidalClientId;
+                shown.TidalClientSecret = _settingsShown.TidalClientSecret;
+            }
+            else
+            {
+                TidalCard.ClientId = shown.TidalClientId;
+                TidalCard.ClientSecret = shown.TidalClientSecret;
+            }
+            if (keepTypedKeys && (SpotifyCard.ClientId != _settingsShown.SpotifyClientId || SpotifyCard.ClientSecret != _settingsShown.SpotifyClientSecret))
+            {
+                shown.SpotifyClientId = _settingsShown.SpotifyClientId;
+                shown.SpotifyClientSecret = _settingsShown.SpotifyClientSecret;
+            }
+            else
+            {
+                SpotifyCard.ClientId = shown.SpotifyClientId;
+                SpotifyCard.ClientSecret = shown.SpotifyClientSecret;
+            }
+            _settingsShown = shown;
+
+            if (!keepTypedKeys)
+            {
+                TidalCard.IsExpanded = !_settings.TidalConfigured;
+                SpotifyCard.IsExpanded = !_settings.SpotifyConfigured;
+            }
+
+            PreferredBox.SelectedItem = BacklogItem.Preferred.ToString();
+            var countries = Countries.Options(_settings.CountryCode, CultureInfo.CurrentCulture);
+            CountryBox.ItemsSource = countries;
+            CountryBox.SelectedItem = countries.FirstOrDefault(c => c.Code == _settings.CountryCode.Trim().ToUpperInvariant());
+            ThemeBox.SelectedItem = ThemeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Theme)
+                                    ?? ThemeBox.Items[0];
+            SettingsDataPath.Text = AppData.Folder;
+            UpdateServiceCards();
+        }
+        finally
         {
-            Header = "Country (for catalog availability)",
-            Text = _settings.CountryCode,
-            MaxLength = 2,
-            Width = 200,
-            HorizontalAlignment = HorizontalAlignment.Left,
-        };
+            _fillingSettings = false;
+        }
+    }
 
-        var panel = new StackPanel { Spacing = 12, Width = 460 };
-        panel.Children.Add(preferred);
-        panel.Children.Add(Heading("Spotify"));
-        panel.Children.Add(Paragraph(
-            "1. Open the Spotify developer dashboard and log in with your Premium account.\n" +
-            "2. Create an app: any name and description, Redirect URI http://127.0.0.1:8888/callback (required, but unused), tick \"Web API\".\n" +
-            "3. Open the app's settings and copy the Client ID and Client secret here."));
-        panel.Children.Add(new HyperlinkButton { Content = "developer.spotify.com/dashboard", NavigateUri = new Uri("https://developer.spotify.com/dashboard") });
-        panel.Children.Add(spotifyId);
-        panel.Children.Add(spotifySecret);
-        panel.Children.Add(Heading("Tidal"));
-        panel.Children.Add(Paragraph(
-            "1. Open the Tidal developer dashboard and log in.\n" +
-            "2. Create an app (any name).\n" +
-            "3. Copy its Client ID and Client secret here."));
-        panel.Children.Add(new HyperlinkButton { Content = "developer.tidal.com/dashboard", NavigateUri = new Uri("https://developer.tidal.com/dashboard") });
-        panel.Children.Add(tidalId);
-        panel.Children.Add(tidalSecret);
-        panel.Children.Add(country);
-        panel.Children.Add(Paragraph($"Saved in {AppData.Folder}"));
+    private void UpdateServiceCards()
+    {
+        Show(TidalCard, MusicService.Tidal, _settings.TidalConfigured);
+        Show(SpotifyCard, MusicService.Spotify, _settings.SpotifyConfigured);
 
-        var dialog = new ContentDialog
+        void Show(ServiceCard card, MusicService service, bool configured)
         {
-            Title = "Settings",
-            Content = new ScrollViewer { Content = panel, MaxHeight = 560 },
-            PrimaryButtonText = "Save",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = Root.XamlRoot,
-        };
-        if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary) return;
+            var problem = _serviceProblem.GetValueOrDefault(service);
+            if (!configured)
+                card.ShowState(false, "Not connected", $"Not connected. Add your free developer keys to search {service}.");
+            else if (problem != null)
+                card.ShowState(false, "Check keys", problem);
+            else
+                card.ShowState(true, "Connected", $"Searches include {service}.");
+        }
+    }
 
-        var edited = opened.Clone();
-        edited.SpotifyClientId = spotifyId.Text.Trim();
-        edited.SpotifyClientSecret = spotifySecret.Password.Trim();
-        edited.TidalClientId = tidalId.Text.Trim();
-        edited.TidalClientSecret = tidalSecret.Password.Trim();
-        edited.PreferredService = preferred.SelectedItem as string ?? nameof(MusicService.Tidal);
-        edited.CountryCode = country.Text.Trim().Length == 2 ? country.Text.Trim().ToUpperInvariant() : "AR";
-        // Only fields the user actually changed are applied, and only then do these settings claim to be
-        // the newest; otherwise pressing Save could push older keys to every other PC.
-        if (_settings.ApplyEdits(opened, edited)) _settings.SharedSettingsUpdatedAt = BacklogStore.Now();
+    /// <summary>
+    /// Applies what changed between <see cref="_settingsShown"/> and <paramref name="edited"/>, saves,
+    /// and lets the rest of the app catch up. Only real changes are stamped as the newest shared
+    /// settings, so saving unchanged values never pushes older keys to the other PCs.
+    /// </summary>
+    private void CommitSettingsEdit(AppSettings edited)
+    {
+        if (_settings.ApplyEdits(_settingsShown, edited))
+        {
+            _settings.SharedSettingsUpdatedAt = BacklogStore.Now();
+            ScheduleSync();
+        }
+        _settingsShown = edited;
         AppData.SaveSettings(_settings);
         ApplyPreferredService();
         UpdateSetupInfo();
-        RefreshQueue();
-        ScheduleSync();
+        UpdateServiceCards();
         _resultsQuery = null;
+        RefreshQueue();
     }
 
-    private static TextBlock Heading(string text) =>
-        new() { Text = text, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], Margin = new Thickness(0, 8, 0, 0) };
+    private async void OnSaveServiceKeys(object? sender, EventArgs e)
+    {
+        if (sender is not ServiceCard card) return;
+        var service = card == TidalCard ? MusicService.Tidal : MusicService.Spotify;
+        if (card.ClientId.Length == 0 || card.ClientSecret.Length == 0)
+        {
+            card.ShowResult(InfoBarSeverity.Warning, "Paste both the Client ID and the Client secret.");
+            return;
+        }
+
+        var edited = _settingsShown.Clone();
+        if (service == MusicService.Tidal)
+            (edited.TidalClientId, edited.TidalClientSecret) = (card.ClientId, card.ClientSecret);
+        else
+            (edited.SpotifyClientId, edited.SpotifyClientSecret) = (card.ClientId, card.ClientSecret);
+        _serviceProblem.Remove(service);
+        CommitSettingsEdit(edited);
+        await TestServiceAsync(card, service);
+    }
+
+    /// <summary>A real search with the saved keys: the quickest proof that they work.</summary>
+    private async Task TestServiceAsync(ServiceCard card, MusicService service)
+    {
+        card.IsBusy = true;
+        card.HideResult();
+        string? problem = null;
+        int found = 0;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            var search = service == MusicService.Tidal
+                ? _tidal.SearchAsync("Charly Garcia Clics Modernos", cts.Token)
+                : _spotify.SearchAsync("Charly Garcia Clics Modernos", cts.Token);
+            found = (await search).Count;
+        }
+        catch (CatalogException ex) { problem = ex.Message; }
+        catch (OperationCanceledException) { problem = $"{service} didn't answer in time. Try again in a moment."; }
+        catch (HttpRequestException ex) { problem = $"Couldn't reach {service} ({ex.Message}). Check the internet connection."; }
+        catch (Exception ex) { problem = $"Unexpected answer from {service} ({ex.Message})."; }
+        finally
+        {
+            card.IsBusy = false;
+        }
+
+        _serviceProblem[service] = problem;
+        UpdateServiceCards();
+        if (problem != null)
+            card.ShowResult(InfoBarSeverity.Error, problem);
+        else
+            card.ShowResult(InfoBarSeverity.Success, $"Connected. A test search found {QueueText.Albums(found)}.");
+    }
+
+    private void OnRemoveServiceKeys(object? sender, EventArgs e)
+    {
+        if (sender is not ServiceCard card) return;
+        var service = card == TidalCard ? MusicService.Tidal : MusicService.Spotify;
+        var (oldId, oldSecret) = service == MusicService.Tidal
+            ? (_settings.TidalClientId, _settings.TidalClientSecret)
+            : (_settings.SpotifyClientId, _settings.SpotifyClientSecret);
+
+        SetKeys(service, "", "");
+        ShowToast($"Removed the {service} keys.", undo: () => SetKeys(service, oldId, oldSecret),
+            severity: InfoBarSeverity.Informational);
+
+        void SetKeys(MusicService s, string id, string secret)
+        {
+            var edited = _settingsShown.Clone();
+            if (s == MusicService.Tidal) (edited.TidalClientId, edited.TidalClientSecret) = (id, secret);
+            else (edited.SpotifyClientId, edited.SpotifyClientSecret) = (id, secret);
+            _serviceProblem.Remove(s);
+            var target = s == MusicService.Tidal ? TidalCard : SpotifyCard;
+            target.ClientId = id;
+            target.ClientSecret = secret;
+            target.HideResult();
+            CommitSettingsEdit(edited);
+        }
+    }
+
+    private void OnPreferredChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_fillingSettings || PreferredBox.SelectedItem is not string service) return;
+        var edited = _settingsShown.Clone();
+        edited.PreferredService = service;
+        CommitSettingsEdit(edited);
+    }
+
+    private void OnCountryChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_fillingSettings || CountryBox.SelectedItem is not CountryOption country) return;
+        var edited = _settingsShown.Clone();
+        edited.CountryCode = country.Code;
+        CommitSettingsEdit(edited);
+    }
+
+    private void OnThemeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_fillingSettings || ThemeBox.SelectedItem is not ComboBoxItem { Tag: string theme }) return;
+        _ui.Theme = theme;
+        _ui.Save();
+        ApplyTheme();
+    }
+
+    private void ApplyTheme()
+    {
+        Root.RequestedTheme = _ui.Theme switch
+        {
+            "light" => ElementTheme.Light,
+            "dark" => ElementTheme.Dark,
+            _ => ElementTheme.Default,
+        };
+        UpdateCaptionButtons();
+    }
+
+    /// <summary>The window's own minimize/maximize/close buttons don't follow the app theme by themselves.</summary>
+    private void UpdateCaptionButtons()
+    {
+        bool dark = Root.ActualTheme == ElementTheme.Dark;
+        var bar = AppWindow.TitleBar;
+        var text = dark ? Color.FromArgb(255, 255, 255, 255) : Color.FromArgb(255, 0, 0, 0);
+        bar.ButtonBackgroundColor = bar.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0);
+        bar.ButtonForegroundColor = bar.ButtonHoverForegroundColor = bar.ButtonPressedForegroundColor = text;
+        bar.ButtonInactiveForegroundColor = Color.FromArgb(255, 128, 128, 128);
+        bar.ButtonHoverBackgroundColor = dark ? Color.FromArgb(24, 255, 255, 255) : Color.FromArgb(20, 0, 0, 0);
+        bar.ButtonPressedBackgroundColor = dark ? Color.FromArgb(40, 255, 255, 255) : Color.FromArgb(36, 0, 0, 0);
+    }
+
+    private void OnResetLayout(object sender, RoutedEventArgs e)
+    {
+        _ui.ResetLayout();
+        _ui.Save();
+        CoverViewToggle.IsChecked = _ui.CoverView;
+        CheckSortItem();
+        if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized } presenter) presenter.Restore();
+        SizeToScreen(1440, 920);
+        GoTo(Page.Queue);
+        ShowToast("Layout reset: the panel, the list view and the window are back as they started.",
+            severity: InfoBarSeverity.Informational);
+    }
 
     private static TextBlock Paragraph(string text) =>
         new() { Text = text, TextWrapping = TextWrapping.Wrap, Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"] };

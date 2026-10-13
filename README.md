@@ -19,11 +19,17 @@ The portable app is in `publish\`. Run `publish\Queueify.exe`. Your queue and se
 **Spotify** (the account that owns the app needs Premium):
 1. Go to https://developer.spotify.com/dashboard and choose *Create app*.
 2. Use any name. Set Redirect URI to `http://127.0.0.1:8888/callback` (required but unused) and tick *Web API*.
-3. Copy the Client ID and Client secret into Queueify → Settings (gear at the bottom of the left bar).
+3. Open Queueify → Settings (gear at the bottom of the left bar), expand the Spotify card, paste the
+   Client ID and Client secret and click *Save and test*.
 
 **Tidal**:
 1. Go to https://developer.tidal.com/dashboard and create an app.
-2. Copy the Client ID and Client secret into Queueify → Settings.
+2. Paste the Client ID and Client secret in the Tidal card in Settings and click *Save and test*.
+
+The test runs a real search, so a green "Connected" means the keys work. Settings also has the app that
+Play opens, the country for catalog availability (only countries where both services work), the theme
+(Windows setting, light or dark) and **Reset layout**, which brings back the Add albums panel, the list
+view and the original window size.
 
 **Spanish OCR** (optional, for magazine photos): open *Magazine photo* and click *Install Spanish OCR*.
 It needs an admin prompt and internet, once per PC. Without it, OCR still works and matching ignores

@@ -111,4 +111,45 @@ public sealed class UiStateTests : IDisposable
 
         Assert.True(UiState.Load(path).TourSeen);
     }
+
+    [Fact]
+    public void ResetLayout_RestoresPanelViewAndWindow_ButKeepsPreferences()
+    {
+        var state = new UiState
+        {
+            PaneWidth = 700,
+            PaneVisible = false,
+            CoverView = true,
+            Sort = "artist",
+            WindowBounds = [10, 10, 800, 600],
+            Maximized = true,
+            TourSeen = true,
+            Theme = "dark",
+        };
+
+        state.ResetLayout();
+
+        var fresh = new UiState();
+        Assert.Equal(fresh.PaneWidth, state.PaneWidth);
+        Assert.True(state.PaneVisible);
+        Assert.False(state.CoverView);
+        Assert.Equal(fresh.Sort, state.Sort);
+        Assert.Null(state.WindowBounds);
+        Assert.False(state.Maximized);
+        Assert.True(state.TourSeen);
+        Assert.Equal("dark", state.Theme);
+    }
+
+    [Fact]
+    public void Theme_FollowsWindowsUntilChosen_AndIsRemembered()
+    {
+        var path = Path.Combine(_dir, "ui.json");
+        Assert.Equal("system", UiState.Load(path).Theme);
+
+        var state = UiState.Load(path);
+        state.Theme = "light";
+        state.Save(path);
+
+        Assert.Equal("light", UiState.Load(path).Theme);
+    }
 }

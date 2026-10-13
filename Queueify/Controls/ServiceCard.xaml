@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Queueify.Controls.ServiceCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Queueify.Controls">
+
+    <!-- One music service: logo, name and state in the header; the steps and keys inside. -->
+    <Expander x:Name="Card" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+        <Expander.Header>
+            <Grid ColumnSpacing="14" Padding="0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <controls:ServiceLogo x:Name="Logo" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock x:Name="NameText" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock x:Name="StatusText" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <Border x:Name="OnPill" Grid.Column="2" VerticalAlignment="Center" CornerRadius="10" Padding="10,2,10,3"
+                        Background="{ThemeResource AccentFillColorDefaultBrush}">
+                    <TextBlock x:Name="OnPillText" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                </Border>
+                <Border x:Name="OffPill" Grid.Column="2" VerticalAlignment="Center" CornerRadius="10" Padding="10,2,10,3"
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                    <TextBlock x:Name="OffPillText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Border>
+            </Grid>
+        </Expander.Header>
+
+        <StackPanel Spacing="12" Padding="4,4,4,8" MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock x:Name="StepsText" TextWrapping="Wrap" />
+            <HyperlinkButton x:Name="DashboardLink" Padding="0" />
+            <TextBox x:Name="ClientIdBox" Header="Client ID" />
+            <PasswordBox x:Name="ClientSecretBox" Header="Client secret" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="SaveButton" Style="{StaticResource AccentButtonStyle}" Content="Save and test" Click="OnSave" />
+                <Button x:Name="RemoveButton" Content="Remove keys" Click="OnRemove" />
+                <ProgressRing x:Name="Testing" IsActive="False" Width="20" Height="20" />
+            </StackPanel>
+            <InfoBar x:Name="Result" IsClosable="True" />
+        </StackPanel>
+    </Expander>
+</UserControl>

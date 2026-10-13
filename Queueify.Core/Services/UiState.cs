@@ -24,6 +24,21 @@ public sealed class UiState
     /// <summary>The quick tour runs once on the first start; Help can replay it.</summary>
     public bool TourSeen { get; set; }
 
+    /// <summary>"system" (follow Windows), "light" or "dark".</summary>
+    public string Theme { get; set; } = "system";
+
+    /// <summary>Back to the original layout (panel, list view, window size); the tour isn't repeated.</summary>
+    public void ResetLayout()
+    {
+        var fresh = new UiState();
+        PaneWidth = fresh.PaneWidth;
+        PaneVisible = fresh.PaneVisible;
+        CoverView = fresh.CoverView;
+        Sort = fresh.Sort;
+        WindowBounds = fresh.WindowBounds;
+        Maximized = fresh.Maximized;
+    }
+
     public static UiState Load(string? path = null)
     {
         path ??= DefaultPath;

@@ -58,6 +58,15 @@
                 <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             </Style>
 
+            <!-- Settings: one row per option, and the bold title above each group -->
+            <Style x:Key="SettingRow" TargetType="Border" BasedOn="{StaticResource Card}">
+                <Setter Property="Padding" Value="16,14" />
+                <Setter Property="MinHeight" Value="68" />
+            </Style>
+            <Style x:Key="SettingsSection" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+                <Setter Property="Margin" Value="0,18,0,4" />
+            </Style>
+
             <!-- Round number used in the quick guide steps -->
             <Style x:Key="StepNumber" TargetType="Border">
                 <Setter Property="Width" Value="28" />
@@ -279,8 +288,8 @@
                         <FontIcon x:Name="SyncIcon" Glyph="&#xE895;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="SettingsNav" Content="Settings" Tag="settings" SelectsOnInvoked="False"
-                                    ToolTipService.ToolTip="Settings: Spotify and Tidal keys, preferred app">
+                <NavigationViewItem x:Name="SettingsNav" Content="Settings" Tag="settings"
+                                    ToolTipService.ToolTip="Settings: Tidal and Spotify, country, theme, layout">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>
@@ -620,6 +629,136 @@
                                 </Grid>
                             </Border>
                         </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Settings: sections of cards, like Windows Settings -->
+                    <ScrollViewer x:Name="SettingsPanel" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed" Padding="4,8,16,8">
+                        <!-- A star column with a maximum keeps the cards left-aligned under the page title. -->
+                        <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="1000" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Music services" Style="{StaticResource SettingsSection}" Margin="0,0,0,4" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"
+                                       Text="Queueify searches Tidal and Spotify with free developer keys of your own. One service is enough; both is best." />
+                            <controls:ServiceCard x:Name="TidalCard" Service="Tidal" DashboardUrl="https://developer.tidal.com/dashboard"
+                                                  Steps="1. Open the Tidal developer dashboard and log in.&#x0a;2. Create an app (any name).&#x0a;3. Copy its Client ID and Client secret here."
+                                                  SaveRequested="OnSaveServiceKeys" RemoveRequested="OnRemoveServiceKeys" />
+                            <controls:ServiceCard x:Name="SpotifyCard" Service="Spotify" DashboardUrl="https://developer.spotify.com/dashboard"
+                                                  Steps="1. Open the Spotify developer dashboard and log in with your Premium account.&#x0a;2. Create an app: any name and description, Redirect URI http://127.0.0.1:8888/callback (required, but unused), tick &quot;Web API&quot;.&#x0a;3. Open the app's settings and copy the Client ID and Client secret here."
+                                                  SaveRequested="OnSaveServiceKeys" RemoveRequested="OnRemoveServiceKeys" />
+
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE768;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Play opens albums in" />
+                                        <TextBlock Text="When an album is on both services" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="PreferredBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                              AutomationProperties.AutomationId="PreferredBox" AutomationProperties.Name="Play opens albums in"
+                                              SelectionChanged="OnPreferredChanged">
+                                        <x:String>Tidal</x:String>
+                                        <x:String>Spotify</x:String>
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE909;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Country" />
+                                        <TextBlock Text="Searches show what's available in this country. Only countries where Tidal and Spotify both work are listed."
+                                                   Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="CountryBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                              DisplayMemberPath="Name" MaxDropDownHeight="420"
+                                              AutomationProperties.AutomationId="CountryBox" AutomationProperties.Name="Country"
+                                              SelectionChanged="OnCountryChanged" />
+                                </Grid>
+                            </Border>
+
+                            <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE790;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Theme" />
+                                        <TextBlock Text="Light or dark; by default the same as Windows" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="ThemeBox" Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                              AutomationProperties.AutomationId="ThemeBox" AutomationProperties.Name="Theme"
+                                              SelectionChanged="OnThemeChanged">
+                                        <ComboBoxItem Content="Use Windows setting" Tag="system" />
+                                        <ComboBoxItem Content="Light" Tag="light" />
+                                        <ComboBoxItem Content="Dark" Tag="dark" />
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE737;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Layout" />
+                                        <TextBlock Text="Brings back the Add albums panel at its first width, the list view and the window size"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="Reset layout" Click="OnResetLayout" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <TextBlock Text="Sync between your PCs" Style="{StaticResource SettingsSection}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon x:Name="SettingsSyncIcon" Glyph="&#xE895;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Google Firebase" />
+                                        <TextBlock x:Name="SettingsSyncStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="Open sync" Click="OnSync" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                                <TextBlock x:Name="SettingsDataPath" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center"
+                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" IsTextSelectionEnabled="True" />
+                                <HyperlinkButton Content="Open data folder" Click="OnOpenDataFolder" FontSize="12" />
+                            </StackPanel>
+                        </StackPanel>
+                        </Grid>
                     </ScrollViewer>
 
                     <!-- Toast with Undo -->
