@@ -1,145 +1,89 @@
 # Queueify
 
-A "listen later" queue for albums recommended in magazines. Type what the magazine says (or click it
-on a photo of the page), press Enter, press Enter again. Queueify finds the album on Spotify and Tidal,
-saves it to your queue and opens it in the official app when you want to listen. Tick it when you've
-heard it, rate it, move on.
+[![CI](https://github.com/PAumedes/Queueify/actions/workflows/ci.yml/badge.svg)](https://github.com/PAumedes/Queueify/actions/workflows/ci.yml)
 
-The app has its own help: press **F1** (or click **?** in the left bar) for the quick guide, keyboard
-shortcuts, troubleshooting and About. A short quick tour runs on the first start and can be replayed
-from Help.
+A "listen later" queue for the albums your magazines recommend. Type what the magazine says (or click
+it on a photo of the page), press Enter, press Enter again. Queueify finds the album on Tidal and
+Spotify, saves it to your queue and opens it in the official app when you want to listen. Tick it when
+you've heard it, rate it, move on.
 
-## Run
+![The queue, with the Add albums panel on the left](docs/images/queue.png)
 
-The portable app is in `publish\`. Run `publish\Queueify.exe`. Your queue and settings are stored in
-`publish\Data\` (`queueify.db`, `settings.json`, `ui.json`), so copying the folder copies everything.
+## Features
 
-## One-time setup
+- One search box for **Tidal and Spotify** at once; the best match is highlighted, Enter adds it
+- **Magazine photos**: drop a photo of the page and click the artist and the album instead of typing
+  (Windows' built-in text recognition, offline and free)
+- A queue and a Listened list with ratings, filters, order, cover view and "Surprise me"
+- The **same queue on all your PCs**, through your own free Google Firebase project
+- **English and Spanish**, light and dark, keyboard shortcuts everywhere, a quick tour and full Help (F1)
+- **Portable**: no installer; everything lives next to the exe
 
-**Spotify** (the account that owns the app needs Premium):
-1. Go to https://developer.spotify.com/dashboard and choose *Create app*.
-2. Use any name. Set Redirect URI to `http://127.0.0.1:8888/callback` (required but unused) and tick *Web API*.
-3. Open Queueify → Settings (gear at the bottom of the left bar), expand the Spotify card, paste the
-   Client ID and Client secret and click *Save and test*.
+## Download
 
-**Tidal**:
-1. Go to https://developer.tidal.com/dashboard and create an app.
-2. Paste the Client ID and Client secret in the Tidal card in Settings and click *Save and test*.
+1. Download `Queueify-<version>-win-x64.zip` from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
+2. Extract it anywhere (Documents, a USB stick…) and run `Queueify\Queueify.exe`.
 
-The test runs a real search, so a green "Connected" means the keys work. Settings also has the app that
-Play opens, the country for catalog availability (only countries where both services work), the theme
-(Windows setting, light or dark), the language (English or Spanish; by default the same as Windows,
-applied with a restart) and **Reset layout**, which brings back the Add albums panel, the list
-view, the original order and the original window size.
+Windows 10 (version 1809 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
+warn the first time because the app isn't signed: *More info → Run anyway*.
 
-The keys, the app Play opens and the country sync between your PCs as one set: when two PCs change
-them, the most recent change wins. Theme, language and layout stay per PC.
+Your queue, keys and layout live in the `Data` folder next to `Queueify.exe`. To move to a new version,
+extract it and copy your old `Data` folder into it.
 
-**Spanish text recognition** (optional, for magazine photos): click *Install Spanish* on the *Magazine
-photo* page, or use Settings → *Text recognition*, which lists the languages installed in Windows, lets
-you choose which one reads photos, and installs others (Spanish, English, Portuguese, French, Italian,
-German). Installing needs an administrator's permission and internet, once per PC. Without Spanish, OCR
-still works and matching ignores accents; only albums with no Spotify/Tidal match keep misread accents.
+## First steps
 
-If the install doesn't work, Queueify says why: the permission prompt was declined (nothing changes; try
-again any time), the progress window was closed early, Windows Update failed (no internet; on PCs whose updates are
-managed by an organization, its administrator has to allow optional features from Windows Update), the PC
-doesn't allow asking for administrator permission at all (then use Windows language settings), or Queueify
-or Windows needs a restart. After declining or a failure, the offer to install stays. *Don't show this again* hides the offer on the photo page.
+Queueify searches with free developer keys of your own (one service is enough; both is best). Open
+**Settings** (gear at the bottom of the left bar):
 
-## Same queue on several PCs (Google Firebase, free)
+- **Tidal**: create an app at <https://developer.tidal.com/dashboard>, paste its Client ID and Client
+  secret into the Tidal card and click *Save and test*.
+- **Spotify** (the account that owns the app needs Premium): create an app at
+  <https://developer.spotify.com/dashboard> with Redirect URI `http://127.0.0.1:8888/callback` (required
+  but unused) and *Web API* ticked, then paste its keys into the Spotify card.
 
-The queue syncs through your own Google Firebase project on the free Spark plan (no credit card).
-A queue of a few thousand albums uses well under 1% of the free daily quota.
+*Save and test* runs a real search, so "Connected" means the keys work. Settings also has the app Play
+opens, the country (only countries where both services work), text recognition languages, theme,
+language and **Reset layout**.
 
-**First PC:** click **Sync** in the left bar → *This is my first PC*. The dialog lists the steps:
-1. In https://console.firebase.google.com create a project (Analytics not needed).
-2. *Build → Firestore Database → Create database*: Standard edition, database ID `(default)`,
-   a nearby location (e.g. `southamerica-east1`), production mode.
-3. *Rules* tab: paste the rules from **Copy security rules** and click *Publish*.
-4. Paste the project ID into Queueify and click **Connect**. Queueify shows a **sync code**.
+![Settings](docs/images/settings.png)
 
-**Other PCs:** copy the whole Queueify folder (it's already connected), or open **Sync** →
-*I already set it up on another PC* and paste the sync code. Albums and the Spotify/Tidal keys come
-down automatically.
+## Same queue on several PCs
 
-Changes upload a moment after you make them and download when you switch back to the window. When two
-PCs change the same album, the most recent change wins; deletions sync too. The Sync icon shows the
-state (point at it for details). Keep the sync code private: anyone who has it can see and change
-your queue.
+Click **Sync** in the left bar. On the first PC you connect a free Google Firebase project (Spark plan, no
+credit card; the dialog lists every step), then copy the whole Queueify folder to your other PCs, or
+paste the sync code there. Changes go up a moment after you make them and come down when you switch back
+to the window; when two PCs change the same album, the newest change wins.
 
-**Rules update (October 2026):** the security rules became stricter (only albums and settings, with
-limited field names and sizes). If you published the earlier rules, paste the new ones from
-**Copy security rules** and publish again.
+Keep the sync code private: anyone who has it can see and change your queue. If you published security
+rules from an earlier version, copy them again from the Sync dialog and publish them in Firebase.
 
-**Known limit:** the rules can't stop someone who knows your project ID from creating junk queues
-under other keys and using up the free daily quota. They can't read or change *your* queue without
-your sync code.
+## Magazine photos
 
-## Using magazine photos
+Take the photo with your phone, get it onto the PC (Phone Link, WhatsApp Web, OneDrive…) and drop it into
+the window, paste it with Ctrl+V or use *Open photo*. Click the artist line, then the album line.
 
-Take the photo with your phone and get it onto the PC (Phone Link, WhatsApp Web, OneDrive…).
-Drop it anywhere in the window, paste it with Ctrl+V, or use *Open photo*.
-Click the artist line, then the album line: they go into the search box and results appear on the
-left. Press Enter to add. The next click after adding starts a new search.
+For accents and ñ, install Spanish text recognition once per PC: *Install Spanish* on the photo page, or
+Settings → *Text recognition*, which also installs English, Portuguese, French, Italian and German.
+Windows asks for an administrator's permission. If anything goes wrong (permission declined, no
+internet, updates managed by an organization), Queueify says what happened and how to go on.
 
-## Keyboard
+## Privacy
 
-| Keys | Does |
-|---|---|
-| Enter (in the search box) | Search; press again to add the highlighted album |
-| ↑ / ↓ | Choose another result |
-| Esc | Clear the search |
-| Ctrl+K or Ctrl+N | Jump to the search box |
-| Ctrl+F | Filter the queue |
-| Ctrl+B | Hide / show the Add albums panel |
-| Ctrl+V | Load a photo from the clipboard |
-| F1 | Help |
+Queueify has no servers and no telemetry. It talks to Tidal and Spotify (searches, with your keys), to
+your own Firebase project (only if you turn on sync) and to Windows Update (only when you install a text
+recognition language). Your keys are stored unencrypted in `Data\settings.json`, like the rest of your
+data, so treat the Queueify folder as private. See [SECURITY.md](SECURITY.md).
 
-Double-click an album to play it; right-click for more. Drag the edge of the Add albums panel to resize it.
+## Contributing
 
-## Project layout
+Start with [CONTRIBUTING.md](CONTRIBUTING.md): building, the test suites and the workflow (test-first,
+Conventional Commits, pull requests with adversarial review). Design documents live in [`docs/`](docs/):
 
-| Folder | What |
-|---|---|
-| `Queueify\` | WinUI 3 app: window, navigation, dialogs, quick tour, assets |
-| `Queueify.Core\` | Everything that isn't UI: models, matching, OCR, SQLite store, Spotify/Tidal search, Firebase sync, help texts |
-| `Queueify.Tests\` | xUnit tests for `Queueify.Core` |
-| `tests\ui\` | UI tests driven through Windows UI Automation |
-| `tools\` | `firestore.rules` (embedded in the app, tested against the emulator), `make-icon.ps1` |
+- [Architecture](docs/ARCHITECTURE.md) · [Engineering principles](docs/ENGINEERING.md) ·
+  [Testing](docs/TESTING.md) · [Releasing](docs/RELEASING.md)
+- [Decision records](docs/adr/README.md) · [Agent workflow](docs/AGENT_WORKFLOW.md)
 
-The logo's master is the vector `Queueify\Assets\Queueify.svg` (used in the app). `tools\make-icon.ps1`
-draws the same shapes to produce `Queueify.ico` and the PNGs.
+## License
 
-## Build
-
-Requires the .NET 10 SDK.
-
-```powershell
-cd Queueify
-dotnet publish -c Release -o ..\publish
-```
-
-## Running the tests
-
-Changes are made test-first: a failing test, then the code, then all suites green.
-
-```powershell
-dotnet test --project Queueify.Tests
-```
-
-Firebase sync tests run against the local Firestore emulator and are skipped otherwise. The emulator
-needs Java 21+ and the emulator jar (`cloud-firestore-emulator-v1.22.0.jar` from firebase-tools):
-
-```powershell
-java -jar cloud-firestore-emulator-v1.22.0.jar --host 127.0.0.1 --port 8080 --rules tools\firestore.rules --project_id demo-queueify
-$env:QUEUEIFY_FIRESTORE_EMULATOR = "127.0.0.1:8080"
-dotnet test --project Queueify.Tests
-```
-
-UI tests (build the app first; they back up and restore the `Data` folder next to the exe):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe Queueify\bin\Debug\net10.0-windows10.0.26100.0\win-x64\Queueify.exe
-powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.SyncUiTests.ps1 -Exe Queueify\bin\Debug\net10.0-windows10.0.26100.0\win-x64\Queueify.exe
-```
+[GPL-3.0-or-later](LICENSE). Spotify and Tidal are trademarks of their owners; Queueify isn't affiliated
+with either. Their logos in the app come from [Simple Icons](https://simpleicons.org) (CC0).
