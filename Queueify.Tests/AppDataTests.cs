@@ -14,19 +14,60 @@ public sealed class AppDataTests : IDisposable
         if (Directory.Exists(_dir)) Directory.Delete(_dir, recursive: true);
     }
 
+    private const string Local = @"C:\Users\ana\AppData\Local";
+
+    // What's in the folder called Data next to the exe; null when there's no such folder.
+    private static Func<string, string[]?> DataFolderHolds(string expectedPath, params string[] entries) =>
+        path => path == expectedPath ? entries : null;
+
     [Fact]
     public void Data_lives_in_the_users_local_app_data()
     {
         Assert.Equal(@"C:\Users\ana\AppData\Local\Queueify",
-            AppData.FolderFor(@"C:\Users\ana\Downloads\Queueify-1.2.0-win-x64.exe", @"C:\Users\ana\AppData\Local", _ => false));
+            AppData.FolderFor(@"C:\Users\ana\Documents\Queueify\Queueify.exe", Local, _ => null));
+    }
+
+    [Theory]
+    [InlineData("queueify.db")]   // how 1.1.0 and earlier kept everything
+    [InlineData("settings.json")]
+    [InlineData("ui.json")]
+    [InlineData("QUEUEIFY.DB")]
+    public void A_Data_folder_with_Queueify_files_next_to_the_exe_keeps_the_app_portable(string file)
+    {
+        Assert.Equal(@"E:\Queueify\Data",
+            AppData.FolderFor(@"E:\Queueify\Queueify.exe", Local, DataFolderHolds(@"E:\Queueify\Data", file, "crash.log")));
     }
 
     [Fact]
-    public void A_Data_folder_next_to_the_exe_keeps_the_app_portable()
+    public void An_empty_Data_folder_next_to_the_exe_starts_a_portable_copy()
     {
-        // How 1.1.0 and earlier kept everything, and how a copy on a USB stick carries its queue along.
-        Assert.Equal(@"E:\Queueify\Data",
-            AppData.FolderFor(@"E:\Queueify\Queueify.exe", @"C:\Users\ana\AppData\Local", dir => dir == @"E:\Queueify\Data"));
+        Assert.Equal(@"E:\Queueify\Data", AppData.FolderFor(@"E:\Queueify\Queueify.exe", Local, DataFolderHolds(@"E:\Queueify\Data")));
+    }
+
+    [Fact]
+    public void Someone_elses_Data_folder_is_left_alone()
+    {
+        // Documents\Data or Downloads\Data with the user's own files isn't Queueify's.
+        Assert.Equal(@"C:\Users\ana\AppData\Local\Queueify",
+            AppData.FolderFor(@"C:\Users\ana\Documents\Queueify.exe", Local, DataFolderHolds(@"C:\Users\ana\Documents\Data", "taxes.txt")));
+    }
+
+    [Fact]
+    public void Without_a_known_exe_path_the_data_is_in_local_app_data()
+    {
+        Assert.Equal(@"C:\Users\ana\AppData\Local\Queueify", AppData.FolderFor(null, Local, _ => []));
+    }
+
+    [Theory]
+    [InlineData(@"D:\Scratch\local", @"D:\Scratch\local")]
+    [InlineData(null, Local)]
+    [InlineData("", Local)]
+    [InlineData("rel", Local)]                 // relative: would depend on the folder the app starts in
+    [InlineData(@"""C:\Users\ana""", Local)]   // quoted
+    [InlineData(@"\Users\ana", Local)]         // rooted but no drive
+    public void Local_app_data_comes_from_the_environment_only_when_it_is_a_full_path(string? variable, string expected)
+    {
+        Assert.Equal(expected, AppData.LocalAppDataRoot(variable, Local));
     }
 
     [Fact]

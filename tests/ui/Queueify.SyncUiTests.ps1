@@ -3,7 +3,8 @@
 #   1. Start the emulator with tools\firestore.rules on 127.0.0.1:8080 (see README, "Running the tests").
 #   2. powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.SyncUiTests.ps1 -Exe <path to Queueify.exe>
 #
-# Data files next to the exe are backed up and restored, like in Queueify.UiTests.ps1.
+# Runs the app in portable mode (a Data folder next to the exe); any Data files already there are backed
+# up and restored, and a Data folder the test created is removed, like in Queueify.UiTests.ps1.
 param([Parameter(Mandatory)] [string]$Exe, [string]$Emulator = '127.0.0.1:8080')
 $Exe = (Resolve-Path $Exe).Path
 
@@ -31,6 +32,8 @@ function Invoke($el) {
 function SetText($el, [string]$text) { $el.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($text) }
 
 $data = Join-Path (Split-Path $Exe) 'Data'
+# A Data folder left behind would switch that copy to portable mode, away from its real queue.
+$hadData = Test-Path $data
 $files = 'queueify.db', 'settings.json', 'ui.json', 'crash.log'
 $backup = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-backup-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $backup | Out-Null
@@ -117,6 +120,7 @@ finally {
         }
     }
     if ($allBack) { Remove-Item $backup -Recurse -ErrorAction SilentlyContinue }
+    if (-not $hadData -and (Test-Path $data) -and -not (Get-ChildItem $data -Force)) { Remove-Item $data }
 }
 "`n$script:failures failure(s)"
 exit $script:failures

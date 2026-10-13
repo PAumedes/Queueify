@@ -294,7 +294,7 @@ public static partial class Loc
         ["help.trouble.4"] = "• Sincronizar muestra una advertencia: pasá el mouse por el ícono para ver el motivo. Casi siempre es falta de internet, o que no se publicaron las reglas de seguridad en Firebase.",
         ["help.about"] = "Acerca de Queueify",
         ["help.data"] = "Abrir la carpeta de datos",
-        ["help.data.tip"] = "Acá viven tu lista, la configuración y el diseño",
+        ["help.data.tip"] = "Acá viven tu lista, la configuración y el diseño. Para llevarlos en un pendrive, ponelos en una carpeta Data al lado de Queueify.exe.",
         ["about.version"] = "Versión {0}",
         ["about.tagline"] = "Una lista para escuchar después los álbumes que recomiendan tus revistas.",
         ["about.credit.search"] = "Búsqueda de álbumes: Spotify Web API y Tidal API. Queueify no está afiliado a Spotify ni a Tidal.",

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Queueify.Models;
 
 namespace Queueify.Services;
@@ -9,21 +9,47 @@ namespace Queueify.Services;
 /// </summary>
 public static class AppData
 {
+    // Before Folder: static fields initialize in order, and Folder's check reads this.
+    private static readonly string[] QueueifyFiles = ["queueify.db", "settings.json", "ui.json"];
+
     public static string Folder { get; } = FolderFor(
         Environment.ProcessPath,
-        // The variable first, so the UI tests can point a test run somewhere else.
-        Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } local ? local
-            : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        Directory.Exists);
+        LocalAppDataRoot(Environment.GetEnvironmentVariable("LOCALAPPDATA"), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)),
+        EntriesOf);
+
+    private static string[]? EntriesOf(string dir)
+    {
+        try
+        {
+            return Directory.Exists(dir) ? Directory.EnumerateFileSystemEntries(dir).Select(e => Path.GetFileName(e)).ToArray() : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;   // unreadable: not a portable copy we can use
+        }
+    }
+
+    /// <summary>
+    /// The LOCALAPPDATA variable when it's a full path (package.ps1's smoke test points it at a scratch
+    /// folder), otherwise Windows' known folder: a relative or quoted value would scatter the data.
+    /// </summary>
+    public static string LocalAppDataRoot(string? variable, string knownFolder) =>
+        variable is { Length: > 0 } v && v.IndexOfAny(Path.GetInvalidPathChars()) < 0 && Path.IsPathFullyQualified(v) ? v : knownFolder;
+
     public static string DatabasePath => Path.Combine(Folder, "queueify.db");
     private static string SettingsPath => Path.Combine(Folder, "settings.json");
 
     /// <summary>
-    /// Next to the exe the user started, not <see cref="AppContext.BaseDirectory"/>: the single-file app
-    /// runs from a copy unpacked into a temporary folder.
+    /// A "Data" folder next to the exe the user started is used when it's Queueify's (it holds Queueify's
+    /// files, or is empty to start a portable copy); someone's own Documents\Data is left alone. Next to
+    /// the exe, not <see cref="AppContext.BaseDirectory"/>: the single-file app runs from a copy unpacked
+    /// into a temporary folder. <paramref name="dataFolderEntries"/> lists a folder's entries, or null
+    /// when it isn't a folder.
     /// </summary>
-    public static string FolderFor(string? exePath, string localAppData, Func<string, bool> directoryExists) =>
-        Path.GetDirectoryName(exePath) is { Length: > 0 } dir && directoryExists(Path.Combine(dir, "Data"))
+    public static string FolderFor(string? exePath, string localAppData, Func<string, string[]?> dataFolderEntries) =>
+        Path.GetDirectoryName(exePath) is { Length: > 0 } dir
+        && dataFolderEntries(Path.Combine(dir, "Data")) is { } entries
+        && (entries.Length == 0 || entries.Any(e => QueueifyFiles.Contains(e, StringComparer.OrdinalIgnoreCase)))
             ? Path.Combine(dir, "Data")
             : Path.Combine(localAppData, "Queueify");
 

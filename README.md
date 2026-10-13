@@ -22,7 +22,8 @@ you've heard it, rate it, move on.
 ## Download
 
 1. Download `Queueify-<version>-win-x64.exe` (about 35 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
-2. Put it anywhere you like (say `Documents`) and run it.
+2. Put it in a folder of its own (say `Documents\Queueify`) and run it from there, not from Downloads: a
+   .NET single-file app loads some files from its own folder, so keep it where others can't drop files.
 
 Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
 warn the first time because the app isn't signed: *More info → Run anyway*. The first start of each
@@ -32,8 +33,10 @@ can delete when Queueify isn't running).
 Your queue, keys and layout live in `%LOCALAPPDATA%\Queueify` (Help → *Open data folder*). To move to a new
 version, replace the exe.
 
-**Portable mode**: if there's a folder called `Data` next to the exe, Queueify keeps everything there
-instead, so a copy on a USB stick carries its queue along.
+**Portable mode**: if there's a `Data` folder next to the exe that is empty or has Queueify's files in it,
+Queueify keeps everything there instead, so a copy on a USB stick carries its queue along. To switch an
+existing queue to portable mode, close Queueify and move the files from `%LOCALAPPDATA%\Queueify` into
+that `Data` folder. (A `Data` folder with other files in it, like your own, is left alone.)
 
 **Coming from 1.1.0 (a zip with many files)?** Don't put the new exe in the old folder: it won't start
 there. Either make a new folder with the new exe and your old `Data` folder next to it (portable), or move
