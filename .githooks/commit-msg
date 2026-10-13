@@ -2,14 +2,15 @@
 # Enforce Conventional Commits (see CONTRIBUTING.md). Enable with: git config core.hooksPath .githooks
 set -euo pipefail
 
+export LC_ALL=C.UTF-8   # count characters, not bytes (ñ, …)
 subject=$(head -n1 "$1")
-pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?!?: [^ ].{0,70}$'
+pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?!?: [^ ]'
 
 if [[ $subject =~ ^(Merge|Revert|fixup!|squash!) ]]; then
     exit 0
 fi
 
-if [[ ! $subject =~ $pattern ]]; then
+if [[ ! $subject =~ $pattern ]] || (( ${#subject} > 72 )); then
     echo "Commit subject must follow Conventional Commits, max 72 characters:" >&2
     echo "  type(scope): summary   e.g. fix(ocr): keep the offer to install after declining" >&2
     echo "Got: $subject" >&2

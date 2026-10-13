@@ -30,6 +30,17 @@ jobs:
           $version = ([xml](Get-Content Queueify/Queueify.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
           if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME doesn't match the project version $version" }
 
+      # Before the long steps: a tag without a CHANGELOG section fails here, in seconds.
+      - name: Release notes
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force notes | Out-Null
+          tools/release.ps1 -Notes $env:GITHUB_REF_NAME | Set-Content -Encoding utf8NoBOM notes/release-notes.md
+
+      - name: Release tool tests
+        shell: powershell
+        run: tests/tools/Release.Tests.ps1
+
       - name: Start the Firestore emulator
         shell: pwsh
         run: tools/firestore-emulator.ps1 -Background
@@ -44,16 +55,12 @@ jobs:
         shell: pwsh
         run: tools/package.ps1
 
-      - name: Release notes
-        shell: pwsh
-        run: tools/release.ps1 -Notes $env:GITHUB_REF_NAME | Set-Content -Encoding utf8NoBOM dist/release-notes.md
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
           path: |
             dist/*.zip
-            dist/release-notes.md
+            notes/release-notes.md
           if-no-files-found: error
 
   publish:
@@ -74,8 +81,8 @@ jobs:
         run: |
           prerelease=()
           [[ $GITHUB_REF_NAME == *-* ]] && prerelease=(--prerelease)
-          gh release create "$GITHUB_REF_NAME" release/*.zip \
+          gh release create "$GITHUB_REF_NAME" release/dist/*.zip \
             --repo "$GITHUB_REPOSITORY" \
             --title "Queueify $GITHUB_REF_NAME" \
-            --notes-file release/release-notes.md \
+            --notes-file release/notes/release-notes.md \
             --verify-tag "${prerelease[@]}"

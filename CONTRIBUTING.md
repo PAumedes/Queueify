@@ -5,7 +5,7 @@ Thanks for helping. Queueify aims for a small, correct and boring codebase. Read
 
 ## Setup
 
-- Windows 10 1809+ or Windows 11, x64
+- Windows 10 2004+ or Windows 11, x64
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (`global.json` pins the feature band)
 - Git, with the repository's hooks: `git config core.hooksPath .githooks`
 - Optional, for the sync tests: Java 21+ (the Firestore emulator jar is downloaded on first use)
@@ -35,7 +35,8 @@ so they never touch your real queue. Details: [docs/TESTING.md](docs/TESTING.md)
 5. Fill in the pull request template. CI must be green.
 6. Refactor in separate `refactor:` commits, with no behaviour change.
 
-`main` is protected: changes land through pull requests.
+`main` is protected on GitHub: changes land through pull requests. The one exception is the release commit,
+which the maintainer pushes together with its tag ([docs/RELEASING.md](docs/RELEASING.md)).
 
 ## Commits
 

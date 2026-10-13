@@ -48,5 +48,52 @@ Check ($updated.IndexOf('## [1.2.0]') -lt $updated.IndexOf('## [1.1.0]') -and $u
 $csproj = "<Project>`n  <PropertyGroup>`n    <Version>1.0.0</Version>`n  </PropertyGroup>`n</Project>"
 Check ((Set-ProjectVersion -Project $csproj -Version '1.1.0') -match '<Version>1\.1\.0</Version>') 'the project version is replaced'
 
+# ── Pre-releases ──
+Check ((Get-NextVersion '1.2.0-rc.1' @('fix: a')) -eq '1.2.0') 'after a pre-release, the next version is the final one'
+Check ((Get-NextVersion '1.2.0-rc.1' @('feat: a')) -eq '1.2.0') 'even with features: rc.1 of 1.2.0 leads to 1.2.0'
+Check ((Select-LastTag @('v1.0.0', 'v3.0.0-rc.1', 'v3.0.0', 'v2.5.1')) -eq 'v3.0.0') 'the final tag beats its own pre-release'
+Check ((Select-LastTag @('v1.0.0', 'v1.1.0-rc.2', 'v1.1.0-rc.10')) -eq 'v1.1.0-rc.10') 'pre-releases compare by number'
+Check ($null -eq (Select-LastTag @())) 'no tags yet'
+
+# ── Breaking-change footers, exactly as the spec writes them ──
+Check ((Get-NextVersion '1.0.0' @('fix: a') 'BREAKING-CHANGE: y') -eq '2.0.0') 'BREAKING-CHANGE: (with a hyphen) bumps the major'
+Check ((Get-NextVersion '1.0.0' @('fix: a') 'Breaking change: none') -eq '1.0.1') 'lowercase "Breaking change:" in prose does not'
+
+# ── Commits that aren't features or fixes still show up ──
+$others = @(
+    [pscustomobject]@{ Hash = 'aaaaaaa'; Subject = 'chore: tidy the project files'; Body = '' }
+    [pscustomobject]@{ Hash = 'bbbbbbb'; Subject = 'Revert "feat: something"'; Body = '' }
+)
+$otherSection = Get-ChangelogSection -Version '1.0.1' -Date '2026-10-13' -Commits $others
+Check ($otherSection -match '### Other[\s\S]*tidy the project files \(aaaaaaa\)' -and $otherSection -match 'Revert "feat: something" \(bbbbbbb\)') 'chores and reverts are listed under Other'
+
+# ── Versions given by hand ──
+Check (Test-ReleaseVersion '1.2.0') 'a plain version is accepted'
+Check (Test-ReleaseVersion '1.2.0-rc.1') 'a pre-release is accepted'
+Check (-not (Test-ReleaseVersion 'v1.2.0')) 'a leading v is refused (the tag adds it)'
+Check (-not (Test-ReleaseVersion '1.2')) 'two numbers are refused'
+
+# ── Reading commits from git, with accents, from a console in an old code page ──
+$repo = Join-Path ([IO.Path]::GetTempPath()) ("queueify-release-test-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory $repo | Out-Null
+$before = [Console]::OutputEncoding
+Push-Location $repo
+try {
+    git init -q -b main; git config user.email t@example.com; git config user.name Test
+    git commit -q --allow-empty -m 'chore: start'; git tag v1.0.0
+    git commit -q --allow-empty -m "fix(i18n): show año … right" -m 'Body line one'
+    git commit -q --allow-empty -m 'feat: two'
+    [Console]::OutputEncoding = [Text.Encoding]::GetEncoding(850)
+    $read = @(Get-CommitsSinceLastTag)
+    Check ($read.Count -eq 2) "reads only the commits since the last tag ($($read.Count))"
+    Check (($read.Subject -contains 'fix(i18n): show año … right')) "accents survive an OEM console: $($read.Subject -join ' | ')"
+    Check (($read | Where-Object Subject -like 'fix*').Body -match 'Body line one') 'bodies are read too'
+}
+finally {
+    [Console]::OutputEncoding = $before
+    Pop-Location
+    Remove-Item $repo -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 "`n$script:failures failure(s)"
 exit $script:failures

@@ -24,7 +24,7 @@ you've heard it, rate it, move on.
 1. Download `Queueify-<version>-win-x64.zip` from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
 2. Extract it anywhere (Documents, a USB stick…) and run `Queueify\Queueify.exe`.
 
-Windows 10 (version 1809 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
+Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
 warn the first time because the app isn't signed: *More info → Run anyway*.
 
 Your queue, keys and layout live in the `Data` folder next to `Queueify.exe`. To move to a new version,
@@ -54,7 +54,8 @@ credit card; the dialog lists every step), then copy the whole Queueify folder t
 paste the sync code there. Changes go up a moment after you make them and come down when you switch back
 to the window; when two PCs change the same album, the newest change wins.
 
-Keep the sync code private: anyone who has it can see and change your queue. If you published security
+Keep the sync code private: anyone who has it can see and change your queue. Someone who only knows your
+Firebase project ID can't read your queue, but could use up its free daily quota; see [SECURITY.md](SECURITY.md). If you published security
 rules from an earlier version, copy them again from the Sync dialog and publish them in Firebase.
 
 ## Magazine photos

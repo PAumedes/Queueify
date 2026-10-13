@@ -10,7 +10,7 @@ A tag `vX.Y.Z` on `main`. Pushing it runs `.github/workflows/release.yml`, which
 
 ## Versions
 
-SemVer on what users notice:
+SemVer on what users notice (after a pre-release such as `1.2.0-rc.1`, the next release is `1.2.0`):
 
 - **major**: something users rely on changes or goes away (a data format other PCs can't read, a removed
   setting)
@@ -27,7 +27,8 @@ the About section shows it.
    releasing.
 3. `tools\release.ps1` (or `-Version 1.2.0-rc.1`). It writes the new `CHANGELOG.md` section and the
    version, commits `chore(release): vX.Y.Z` and creates the tag, locally. It never pushes.
-4. Check with `git show vX.Y.Z`, then `git push origin main vX.Y.Z`.
+4. Check with `git show vX.Y.Z`, then `git push origin main vX.Y.Z`. Only the maintainer can push to `main`
+   directly (the branch rule lets admins bypass it), so the release commit and its tag arrive together.
 5. The release workflow publishes the zip. Download it once and run it on a clean folder.
 
 If the security rules (`tools/firestore.rules`) changed, say in the release notes that users must copy

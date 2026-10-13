@@ -1,4 +1,4 @@
-# Renders the Queueify icon (a record sliding out of a magazine page) at every icon size
+﻿# Renders the Queueify icon (a record sliding out of a magazine page) at every icon size
 # and packs them into Assets\Queueify.ico, plus PNGs. The master vector is Assets\Queueify.svg;
 # the shapes below use the same coordinates, so keep both in step when changing the design.
 # Run with Windows PowerShell: powershell -File tools\make-icon.ps1

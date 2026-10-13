@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Builds the portable app into dist\Queueify and zips it as dist\Queueify-<version>-win-x64.zip.
     Used by CI and the release workflow; works the same on a dev PC.
@@ -20,5 +20,19 @@ foreach ($required in 'Queueify.exe', 'Queueify.pri', 'MainWindow.xbf') {
 }
 
 $zip = "dist\Queueify-$version-win-x64.zip"
-Compress-Archive -Path $out -DestinationPath $zip
+# Entry names with '/' as the zip format wants; Windows PowerShell's Compress-Archive and ZipFile write '\'.
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$root = (Resolve-Path $out).Path
+$stream = [IO.File]::Open((Join-Path (Resolve-Path dist).Path (Split-Path $zip -Leaf)), 'CreateNew')
+$archive = New-Object IO.Compression.ZipArchive($stream, [IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($file in Get-ChildItem $root -Recurse -File) {
+        $name = 'Queueify/' + $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $name, 'Optimal') | Out-Null
+    }
+}
+finally {
+    $archive.Dispose()
+    $stream.Dispose()
+}
 "Built $zip ($([math]::Round((Get-Item $zip).Length / 1MB)) MB)"
