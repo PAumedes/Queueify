@@ -20,6 +20,9 @@ public class OcrTests
     [Fact]
     public async Task RecognizeAsync_ReadsTheLinesOfAMagazinePage()
     {
+        // Build servers (GitHub's Windows Server runners) may have no text recognition language at all.
+        Assert.SkipWhen(OcrService.InstalledTags.Count == 0, "No text recognition language is installed in Windows.");
+
         var path = Path.Combine(AppContext.BaseDirectory, "TestData", "magazine-page.png");
         var file = await StorageFile.GetFileFromPathAsync(path);
         using var stream = await file.OpenAsync(FileAccessMode.Read);

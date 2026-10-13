@@ -1,0 +1,55 @@
+# Unit tests (with the Firestore emulator), the release-tool tests and the portable build, on every
+# push to main and every pull request. The zip is attached to the run as an artifact.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      # Java runs the Firestore emulator, so the sync tests run here too instead of being skipped.
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Start the Firestore emulator
+        shell: pwsh
+        run: tools/firestore-emulator.ps1 -Background
+
+      - name: Unit tests
+        shell: pwsh
+        env:
+          QUEUEIFY_FIRESTORE_EMULATOR: 127.0.0.1:8080
+        run: dotnet test --project Queueify.Tests
+
+      - name: Release tool tests
+        shell: powershell
+        run: tests/tools/Release.Tests.ps1
+
+      - name: Build the portable app
+        shell: pwsh
+        run: tools/package.ps1
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Queueify-portable
+          path: dist/*.zip
+          if-no-files-found: error
