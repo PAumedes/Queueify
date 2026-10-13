@@ -6,6 +6,33 @@ Each release section is written by `tools\release.ps1` from the
 [Conventional Commits](https://www.conventionalcommits.org/) since the previous tag. Don't edit released
 sections by hand; to change what the next release says, write better commit messages.
 
+## [1.2.0] - 2026-10-13
+
+### Features
+
+- keep the queue in local app data, or next to the exe when portable (b46697f)
+- download Queueify as one 35 MB exe instead of a 93 MB zip (3a8fe6f)
+
+### Fixes
+
+- ignore a LOCALAPPDATA with characters no folder can have (0e659e9)
+- use only Queueify's own Data folder, and show search results first (cddca0f)
+- **ui:** put the optional Magazine field under the search (7918083)
+- **ui:** load album covers only from web addresses (bc66d7a)
+- **build:** start the downloaded exe under any file name (2a50824)
+
+### Documentation
+
+- moving from 1.1.0, the unpacked copy and where to keep the exe (8443bd6)
+
+### Tests
+
+- require a window from the download, and run UI tests on any name (d3f5387)
+
+### Refactoring
+
+- keep settings, covers and Data working when trimmed (1ac4034)
+
 ## [1.1.0] - 2026-10-13
 
 ### Features
