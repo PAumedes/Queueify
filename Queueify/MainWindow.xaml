@@ -405,10 +405,11 @@
                     <StackPanel Spacing="16">
                         <FontIcon Glyph="&#xE76C;" FontSize="14" />
                         <FontIcon Glyph="&#xE710;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                        <!-- Canvas: the rotated label must not be clipped by the narrow column. -->
-                        <Canvas Width="20" Height="120">
-                            <TextBlock Text="Add albums" Width="120" TextAlignment="Center" FontWeight="SemiBold"
-                                       Canvas.Left="-50" Canvas.Top="50" RenderTransformOrigin="0.5,0.5">
+                        <!-- Canvas: the rotated label must not be clipped by the narrow column. Left-aligned
+                             text starts at the top after rotating; the box leaves room for large text sizes. -->
+                        <Canvas Width="20" Height="240">
+                            <TextBlock Text="Add albums" Width="240" TextAlignment="Left" FontWeight="SemiBold"
+                                       Canvas.Left="-110" Canvas.Top="110" RenderTransformOrigin="0.5,0.5">
                                 <TextBlock.RenderTransform>
                                     <RotateTransform Angle="90" />
                                 </TextBlock.RenderTransform>

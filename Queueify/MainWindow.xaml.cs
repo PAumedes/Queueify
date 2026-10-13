@@ -201,6 +201,7 @@ public sealed partial class MainWindow : Window
         bool show = !_ui.PaneVisible || _page == Page.Help;
         SetPaneVisible(show);
         if (show) SearchBox.Focus(FocusState.Programmatic);
+        else PaneRail.Focus(FocusState.Programmatic);
     }
 
     private void OnFocusSearch(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

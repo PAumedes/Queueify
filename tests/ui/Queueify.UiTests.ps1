@@ -171,6 +171,7 @@ Check ($null -ne (Find 'Open photo*' 'Button')) 'photo page offers Open photo'
 # ── Help (F1) ──
 Keys '{F1}'
 Check ((FindId 'PageTitle').Current.Name -eq 'Help') 'F1 opens Help'
+Check ($null -eq (Find 'Show the Add albums panel*' 'Button')) 'Help uses the full width: no rail'
 foreach ($section in 'Quick guide', 'Keyboard shortcuts', 'Troubleshooting', 'About Queueify') {
     Check ($null -ne (Find $section 'Text')) "help section: $section"
 }
@@ -189,6 +190,11 @@ Check ($null -eq (Find 'Find an album' 'Edit') -and $null -ne (Find 'Show the Ad
     'a hidden panel stays hidden after a restart, with the rail to bring it back'
 Invoke (Find 'Show the Add albums panel*' 'Button')
 Check ($null -ne (Find 'Find an album' 'Edit') -and $null -eq (Find 'Show the Add albums panel*' 'Button')) 'the rail brings the panel back'
+Keys '^b'
+$rail = Find 'Show the Add albums panel*' 'Button'
+Check ($null -ne $rail -and $rail.Current.HasKeyboardFocus) 'Ctrl+B hides the panel and leaves keyboard focus on the rail'
+Keys '^b'
+Check ($null -ne (Find 'Find an album' 'Edit') -and (Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'Ctrl+B again brings it back, ready to type'
 Stop-App
 
 $crash = Join-Path $data 'crash.log'
