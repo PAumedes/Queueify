@@ -1526,6 +1526,7 @@ public sealed partial class MainWindow : Window
     {
         _serviceProblem.Remove(service);
         _verified.Remove(service);
+        (service == MusicService.Tidal ? TidalCard : SpotifyCard).HideResult();
     }
 
     /// <summary>
@@ -1539,8 +1540,7 @@ public sealed partial class MainWindow : Window
         {
             // Shown in standard form ("ar" as Argentina), and compared in that form, so picking
             // nothing never counts as a change.
-            var shown = _settings.Clone();
-            shown.Normalize();
+            var shown = _settings.ForSettingsPage();
             if (keepTypedKeys && (TidalCard.ClientId != _settingsShown.TidalClientId || TidalCard.ClientSecret != _settingsShown.TidalClientSecret))
             {
                 shown.TidalClientId = _settingsShown.TidalClientId;
@@ -1672,7 +1672,7 @@ public sealed partial class MainWindow : Window
                 : _spotify.SearchAsync("Charly Garcia Clics Modernos", cts.Token);
             found = (await search).Count;
         }
-        catch (CatalogException ex) { problem = (ex.Message, true); }
+        catch (CatalogException ex) { problem = (ex.Message, ex.KeysRejected); }
         catch (OperationCanceledException) { problem = ($"{service} didn't answer in time. Try again in a moment.", false); }
         catch (HttpRequestException ex) { problem = ($"Couldn't reach {service} ({ex.Message}). Check the internet connection.", false); }
         catch (Exception ex) { problem = ($"Unexpected answer from {service} ({ex.Message}).", false); }

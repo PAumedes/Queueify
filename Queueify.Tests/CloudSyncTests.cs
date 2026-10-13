@@ -81,14 +81,16 @@ public class CloudSyncCodeTests
     }
 
     [Fact]
-    public void Normalize_ThenApplyEdits_SeesNoChangeWhenTheUserChangedNothing()
+    public void ForSettingsPage_PickingTheShownCountryAgain_IsNoChange()
     {
-        // The Settings page shows "ar" as Argentina; picking nothing must not upload anything.
-        var live = new AppSettings { CountryCode = "ar" };
-        var shown = live.Clone();
-        shown.Normalize();
+        // Saved "ar" shows as Argentina; the dropdown hands back "AR". That isn't an edit to upload.
+        var live = new AppSettings { CountryCode = "ar", PreferredService = "spotify" };
+        var shown = live.ForSettingsPage();
+        var edited = shown.Clone();
+        edited.CountryCode = "AR";
+        edited.PreferredService = "Spotify";
 
-        Assert.False(live.ApplyEdits(shown, shown.Clone()));
+        Assert.False(live.ApplyEdits(shown, edited));
     }
 
     [Fact]

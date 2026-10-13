@@ -119,13 +119,13 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
         if (!res.IsSuccessStatusCode)
         {
             if (res.StatusCode == HttpStatusCode.Unauthorized) _token = null;
+            bool refused = res.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
             throw new CatalogException(res.StatusCode switch
             {
                 HttpStatusCode.TooManyRequests => "Tidal is rate limiting requests. Wait a few seconds and retry.",
-                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden =>
-                    "Tidal refused the request. Check the Client ID / Client Secret in Settings.",
+                _ when refused => "Tidal refused the request. Check the Client ID / Client Secret in Settings.",
                 _ => $"Tidal error {(int)res.StatusCode}: {SpotifyCatalog.Truncate(body)}",
-            });
+            }, keysRejected: refused);
         }
         return JsonDocument.Parse(body);
     }
@@ -145,8 +145,12 @@ public sealed class TidalCatalog(HttpClient http, Func<AppSettings> settings)
         req.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
 
         using var res = await http.SendAsync(req, ct);
+        if (res.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+            throw new CatalogException("Tidal rejected the Client ID / Client Secret. Check them in Settings.", keysRejected: true);
         if (!res.IsSuccessStatusCode)
-            throw new CatalogException("Tidal rejected the Client ID / Client Secret. Check them in Settings.");
+            throw new CatalogException(res.StatusCode == HttpStatusCode.TooManyRequests
+                ? "Tidal is rate limiting requests. Wait a few seconds and retry."
+                : $"Tidal's sign-in service answered with error {(int)res.StatusCode}. Try again later.");
 
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
         _token = doc.RootElement.GetProperty("access_token").GetString();

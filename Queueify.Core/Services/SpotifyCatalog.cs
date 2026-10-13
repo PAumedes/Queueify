@@ -64,7 +64,7 @@ public sealed class SpotifyCatalog(HttpClient http, Func<AppSettings> settings)
 
         using var res = await http.SendAsync(req, ct);
         if (res.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
-            throw new CatalogException("Spotify rejected the Client ID / Client Secret. Check them in Settings.");
+            throw new CatalogException("Spotify rejected the Client ID / Client Secret. Check them in Settings.", keysRejected: true);
         await ThrowIfFailedAsync(res, ct);
 
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));

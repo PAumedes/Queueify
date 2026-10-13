@@ -81,6 +81,17 @@ public sealed class AppSettings
             : nameof(MusicService.Tidal);
     }
 
+    /// <summary>
+    /// What the Settings page shows and compares edits against: a normalized copy, so picking the
+    /// value already shown ("ar" shown as Argentina, handed back as "AR") is no change.
+    /// </summary>
+    public AppSettings ForSettingsPage()
+    {
+        var shown = Clone();
+        shown.Normalize();
+        return shown;
+    }
+
     public bool SpotifyConfigured =>
         !string.IsNullOrWhiteSpace(SpotifyClientId) && !string.IsNullOrWhiteSpace(SpotifyClientSecret);
 
