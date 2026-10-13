@@ -66,17 +66,20 @@ public sealed class UiState
     public void Save(string? path = null)
     {
         path ??= DefaultPath;
+        string? temp = null;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             // Written aside and swapped in, so a copy starting meanwhile never reads half a file.
-            var temp = path + ".tmp";
+            // A name of its own, so two copies saving at once (during a restart) don't share one.
+            temp = $"{path}.{Guid.NewGuid():N}.tmp";
             File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
             File.Move(temp, path, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Same as above: losing a layout preference is harmless.
+            // Same as above: losing a layout preference is harmless. Don't leave the copy behind.
+            try { if (temp != null) File.Delete(temp); } catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
         }
     }
 }

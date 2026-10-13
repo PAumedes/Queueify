@@ -958,7 +958,7 @@ public sealed partial class MainWindow : Window
         if (OcrService.PendingRestartTags.FirstOrDefault(t => t.StartsWith("es", StringComparison.OrdinalIgnoreCase)) is string pending)
         {
             ShowPhotoOcrOffer(InfoBarSeverity.Informational,
-                Loc.F("ocr.installed_restart_app", OcrLanguages.NameOf(pending)), OcrOffer.Restart);
+                Loc.F("ocr.installed_restart_app", OcrLanguages.NameOf(pending)), OcrOffer.Restart | OcrOffer.Dismiss);
             return;
         }
         ShowPhotoOcrOffer(InfoBarSeverity.Warning,

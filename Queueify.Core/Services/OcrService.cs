@@ -64,8 +64,6 @@ public static partial class OcrService
     /// <summary>The language being installed right now, or null.</summary>
     public static string? InstallingTag { get; private set; }
 
-    internal static void MarkPendingRestart(string tag) => PendingRestart.Add(tag);
-
     /// <summary>Installed during this run but not usable until Queueify restarts.</summary>
     public static IReadOnlyCollection<string> PendingRestartTags => PendingRestart;
 
@@ -86,9 +84,8 @@ public static partial class OcrService
     public static Task<OcrInstallOutcome> InstallAsync(string tag)
     {
         OcrLanguages.CapabilityName(tag); // throws for anything not offered
-        if (IsInstalled(tag)) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Installed));
-        if (PendingRestart.Contains(tag)) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.RestartApp));
-        if (_install is { IsCompleted: false }) return Task.FromResult(new OcrInstallOutcome(OcrInstallResult.Busy));
+        if (Precheck(tag, InstalledTags, PendingRestart, _install is { IsCompleted: false }) is { } early)
+            return Task.FromResult(new OcrInstallOutcome(early));
         InstallingTag = tag;
         return _install = RunInstallAsync(tag);
     }
@@ -110,7 +107,7 @@ public static partial class OcrService
             if (process == null) return new OcrInstallOutcome(OcrInstallResult.Failed);
             await process.WaitForExitAsync();
             var result = ResultOf(process.ExitCode, IsInstalled(tag));
-            if (result == OcrInstallResult.RestartApp) MarkPendingRestart(tag);
+            if (result == OcrInstallResult.RestartApp) PendingRestart.Add(tag);
             return new OcrInstallOutcome(result, result == OcrInstallResult.Failed ? ReadLog(log) : null);
         }
         catch (System.ComponentModel.Win32Exception ex)
@@ -135,6 +132,17 @@ public static partial class OcrService
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The answer when no install is needed or possible right now: already installed, installed this run
+    /// (restart Queueify), or another install running. Null means go ahead and install.
+    /// </summary>
+    public static OcrInstallResult? Precheck(string tag, IEnumerable<string> installed, IEnumerable<string> pendingRestart, bool busy)
+    {
+        if (installed.Contains(tag, StringComparer.OrdinalIgnoreCase)) return OcrInstallResult.Installed;
+        if (pendingRestart.Contains(tag, StringComparer.OrdinalIgnoreCase)) return OcrInstallResult.RestartApp;
+        return busy ? OcrInstallResult.Busy : null;
     }
 
     /// <summary>Starting the elevated installer failed: declined at the prompt, or not allowed at all.</summary>

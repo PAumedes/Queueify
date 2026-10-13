@@ -156,20 +156,18 @@ public class OcrLanguagesTests
         process.WaitForExit();
 
         Assert.Equal(log, output);
+        Assert.Contains("Set-Content -LiteralPath $log ", OcrService.InstallScript("es-ES", log));
     }
 
-    [Fact]
-    public async Task InstallAsync_ALanguageWaitingForARestart_IsNotInstalledAgain()
+    [Theory]
+    [InlineData("pt-PT", new[] { "pt-PT" }, new string[0], false, OcrInstallResult.Installed)]
+    [InlineData("pt-PT", new string[0], new[] { "pt-PT" }, false, OcrInstallResult.RestartApp)] // installed this run: no second prompt
+    [InlineData("pt-PT", new string[0], new string[0], true, OcrInstallResult.Busy)]
+    [InlineData("pt-PT", new string[0], new string[0], false, null)]                           // go ahead and install
+    public void Precheck_DecidesWithoutStartingAnything(string tag, string[] installed, string[] pending, bool busy, OcrInstallResult? expected)
     {
-        // Installed earlier in this run: no second permission prompt, just "restart Queueify".
-        OcrService.MarkPendingRestart("pt-PT");
-
-        var outcome = await OcrService.InstallAsync("pt-PT");
-
-        Assert.Equal(OcrInstallResult.RestartApp, outcome.Result);
-        Assert.Contains("pt-PT", OcrService.PendingRestartTags);
+        Assert.Equal(expected, OcrService.Precheck(tag, installed, pending, busy));
     }
-
     [Fact]
     public void PendingRestart_CountsAsInstalledWhenOffering()
     {
