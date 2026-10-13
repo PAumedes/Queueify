@@ -13,14 +13,14 @@ public static class QueueText
         if (pending.Count == 0) return Loc.T("queue.summary.empty");
         int thisWeek = pending.Count(i => now - i.AddedAt <= TimeSpan.FromDays(7));
         var text = Loc.F("queue.summary.waiting", Albums(pending.Count));
-        return thisWeek > 0 ? Loc.F("queue.summary.this_week", text, thisWeek) : text;
+        return thisWeek > 0 ? Loc.F(thisWeek == 1 ? "queue.summary.this_week.one" : "queue.summary.this_week", text, thisWeek) : text;
     }
 
     public static string ListenedSummary(IReadOnlyCollection<BacklogItem> listened)
     {
         if (listened.Count == 0) return Loc.T("listened.summary.empty");
         var rated = listened.Where(i => i.Rating > 0).ToList();
-        var text = Loc.F("listened.summary", Albums(listened.Count));
+        var text = Loc.F(listened.Count == 1 ? "listened.summary.one" : "listened.summary", Albums(listened.Count));
         if (rated.Count == 0) return text;
         var average = rated.Average(i => i.Rating).ToString("0.#", Loc.Culture);
         return Loc.F("listened.summary.rated", text, rated.Count, average);

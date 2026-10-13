@@ -480,7 +480,7 @@
                                     <RadioMenuFlyoutItem x:Name="SortNewest" Text="{l:Tr Key=sort.newest}" GroupName="sort" Tag="newest" Click="OnSortChosen" />
                                     <RadioMenuFlyoutItem x:Name="SortArtist" Text="{l:Tr Key=sort.artist}" GroupName="sort" Tag="artist" Click="OnSortChosen" />
                                     <RadioMenuFlyoutItem x:Name="SortYear" Text="{l:Tr Key=sort.year}" GroupName="sort" Tag="year" Click="OnSortChosen" />
-                                    <RadioMenuFlyoutItem x:Name="SortSource" Text="{l:Tr Key=pane.magazine}" GroupName="sort" Tag="source" Click="OnSortChosen" />
+                                    <RadioMenuFlyoutItem x:Name="SortSource" Text="{l:Tr Key=sort.magazine}" GroupName="sort" Tag="source" Click="OnSortChosen" />
                                 </MenuFlyout>
                             </AppBarButton.Flyout>
                         </AppBarButton>

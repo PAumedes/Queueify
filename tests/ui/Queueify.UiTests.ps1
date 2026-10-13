@@ -285,6 +285,8 @@ if ($next) {
     $script:root = $A::FromHandle($script:proc.MainWindowHandle)
     Check ((FindId 'PageTitle').Current.Name -eq 'Para escuchar') "in Spanish after the restart: $((FindId 'PageTitle').Current.Name)"
     Check ($null -ne (Find 'Configuración*' 'ListItem') -and $null -ne (Find 'Buscar un álbum' 'Edit')) 'navigation and fields are in Spanish'
+    $toggle = All | Where-Object { $_.Current.AutomationId -eq 'TogglePaneButton' } | Select-Object -First 1
+    Check ($toggle.Current.Name -notlike '*Navigation*') "WinUI's own texts follow the app language too: $($toggle.Current.Name)"
     Stop-App
 }
 

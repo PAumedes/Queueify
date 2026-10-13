@@ -62,14 +62,71 @@ public partial class LocTests
     }
 
     [Theory]
-    [InlineData("es", "es-AR", "es-AR")]    // Windows already speaks it: keep its regional formats
-    [InlineData("es", "en-US", "es-AR")]
-    [InlineData("en", "en-GB", "en-GB")]
+    [InlineData("es", "es-AR", "es-AR")]   // Argentina: formats from the region, whatever language Windows shows
+    [InlineData("es", "en-US", "es-AR")]   // the region speaks another language: Argentine formats
+    [InlineData("en", "en-AU", "en-AU")]
     [InlineData("en", "es-AR", "en-US")]
-    public void CultureFor_FormatsDatesAndNumbersToMatch(string language, string windows, string expected)
+    public void CultureFor_KeepsTheRegionalFormatWhenItSpeaksTheAppLanguage(string language, string region, string expected)
     {
-        Assert.Equal(expected, Loc.CultureFor(language, CultureInfo.GetCultureInfo(windows)).Name);
+        Assert.Equal(expected, Loc.CultureFor(language, CultureInfo.GetCultureInfo(region)).Name);
     }
+
+    [Fact]
+    public void SpanishNumbers_UseADecimalComma()
+    {
+        using (Loc.Override("es"))
+        {
+            var items = new[] { Rated(5), Rated(4) };
+            Assert.Contains("promedio 4,5 ★", QueueText.ListenedSummary(items));
+        }
+    }
+
+    [Fact]
+    public void SpanishSummaries_AgreeInTheSingular()
+    {
+        using (Loc.Override("es"))
+        {
+            Assert.Equal("1 álbum escuchado", QueueText.ListenedSummary([Rated(-1)]));
+            var now = DateTime.Now;
+            var pending = new[] { new Queueify.Models.BacklogItem { Album = "x", AddedAt = now } };
+            Assert.Equal("1 álbum esperando  ·  1 agregado esta semana", QueueText.PendingSummary(pending, now));
+        }
+    }
+
+    [Fact]
+    public void KeysPickedThroughConditions_ExistToo()
+    {
+        // Keys chosen with ?: or passed along (Loc.T(listened ? "a" : "b"), SetBadge(..., "badge.x")) don't
+        // follow Loc.T("…"); every quoted string shaped like a key of a known group must exist.
+        var groups = Loc.English.Keys.Select(k => k.Split('.')[0]).ToHashSet();
+        var unknown = new List<string>();
+        foreach (var file in SourceFiles(".cs"))
+            foreach (Match m in KeyLike().Matches(File.ReadAllText(file)))
+                if (groups.Contains(m.Groups[1].Value.Split('.')[0]) && !Loc.English.ContainsKey(m.Groups[1].Value) && !FileName().IsMatch(m.Groups[1].Value))
+                    unknown.Add($"{Path.GetFileName(file)}: {m.Groups[1].Value}");
+        Assert.Empty(unknown);
+    }
+
+    [Fact]
+    public void NoKeyIsDefinedTwice()
+    {
+        // The tables use index initializers, where a second ["key"] silently replaces the first.
+        foreach (var table in new[] { "Strings.En.cs", "Strings.Es.cs" })
+        {
+            var text = File.ReadAllText(Path.Combine(RepoRoot(), "Queueify.Core", "Services", table));
+            var keys = TableKey().Matches(text).Select(m => m.Groups[1].Value).ToList();
+            Assert.Empty(keys.GroupBy(k => k).Where(g => g.Count() > 1).Select(g => $"{table}: {g.Key}"));
+        }
+    }
+
+    private static Queueify.Models.BacklogItem Rated(double rating) =>
+        new() { Album = "x", AddedAt = DateTime.Now.AddDays(-30), ListenedAt = DateTime.Now, Rating = rating };
+
+    private static IEnumerable<string> SourceFiles(string extension) =>
+        Directory.EnumerateFiles(RepoRoot(), "*" + extension, SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                        && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                        && !f.Contains("Queueify.Tests") && !f.EndsWith("Strings.En.cs") && !f.EndsWith("Strings.Es.cs"));
 
     [Fact]
     public void T_UsesTheCurrentLanguage_AndFallsBackToTheKey()
@@ -93,13 +150,14 @@ public partial class LocTests
         }
     }
 
+    // Only the numbers: a date format may differ between languages ("3 Oct 2026", "3 de oct. de 2026").
     private static HashSet<string> Placeholders(string text) =>
-        Placeholder().Matches(text).Select(m => m.Value).ToHashSet();
+        Placeholder().Matches(text).Select(m => m.Groups[1].Value).ToHashSet();
 
     private static string RepoRoot([CallerFilePath] string here = "") =>
         Path.GetDirectoryName(Path.GetDirectoryName(here))!;
 
-    [GeneratedRegex(@"\{\d+(:[^}]*)?\}")]
+    [GeneratedRegex(@"\{(\d+)(:[^}]*)?\}")]
     private static partial Regex Placeholder();
 
     [GeneratedRegex(@"Loc\.[TF]\(""([a-z0-9_.]+)""")]
@@ -107,4 +165,13 @@ public partial class LocTests
 
     [GeneratedRegex(@"\{l:Tr Key=([a-z0-9_.]+)\}")]
     private static partial Regex XamlKey();
+
+    [GeneratedRegex(@"""([a-z]+\.[a-z0-9_.]+)""")]
+    private static partial Regex KeyLike();
+
+    [GeneratedRegex(@"\[""([a-z0-9_.]+)""\] =")]
+    private static partial Regex TableKey();
+
+    [GeneratedRegex(@"\.(json|db|rules|log|tmp|exe|ico|svg|png|pri|xbf)$")]
+    private static partial Regex FileName();
 }

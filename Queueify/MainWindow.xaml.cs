@@ -521,7 +521,7 @@ public sealed partial class MainWindow : Window
     {
         badge.Value = count;
         badge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? Loc.F(nameKey, label, count) : label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? Loc.F(count == 1 ? nameKey + ".one" : nameKey, label, count) : label);
     }
 
     private enum Page { Queue, Listened, Photo, Help, Settings }

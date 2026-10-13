@@ -26,6 +26,8 @@ public partial class App : Application
         {
             // Before any window exists: XAML reads its texts while it loads.
             Loc.Use(UiState.Load().Language);
+            // WinUI's own control texts ("Open Navigation", context menus) come from Windows' resources.
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = Loc.Culture.Name;
             _window = new MainWindow();
             _window.Activate();
         }

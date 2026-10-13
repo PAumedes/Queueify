@@ -228,7 +228,7 @@ public static partial class OcrService
             lines.Add(new OcrLine(line.Text, new Rect(left, top, right - left, bottom - top)));
         }
 
-        return new OcrPage(bitmap, lines, engine.RecognizerLanguage.DisplayName, isSpanish);
+        return new OcrPage(bitmap, lines, OcrLanguages.NameOf(engine.RecognizerLanguage.LanguageTag), isSpanish);
     }
 
     private static (OcrEngine Engine, bool IsSpanish) CreateEngine(string preference)

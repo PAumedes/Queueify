@@ -51,7 +51,8 @@ public class QueueTextTests
     public void ListenedSummary_ShowsRatedCountAndAverage()
     {
         var items = new[] { Listened(5), Listened(4), Listened() };
-        Assert.Equal("3 albums listened  ·  2 rated, average 4.5 ★", QueueText.ListenedSummary(items));
+        using (Loc.Override("en"))   // pins the decimal point, whatever this PC's regional format is
+            Assert.Equal("3 albums listened  ·  2 rated, average 4.5 ★", QueueText.ListenedSummary(items));
     }
 
     [Fact]

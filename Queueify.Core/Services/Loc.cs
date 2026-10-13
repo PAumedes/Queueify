@@ -28,23 +28,25 @@ public static partial class Loc
     };
 
     /// <summary>
-    /// Formats for dates and numbers: Windows' own regional formats when they're in the app's
-    /// language, otherwise Argentina for Spanish and the US for English.
+    /// Formats for dates and numbers: the user's regional format when it's in the app's language,
+    /// otherwise Argentina for Spanish and the US for English.
     /// </summary>
-    public static CultureInfo CultureFor(string language, CultureInfo windows) =>
-        windows.TwoLetterISOLanguageName == language
-            ? windows
+    public static CultureInfo CultureFor(string language, CultureInfo region) =>
+        region.TwoLetterISOLanguageName == language
+            ? region
             : CultureInfo.GetCultureInfo(language == "es" ? "es-AR" : "en-US");
 
     /// <summary>Windows' own display language, read before <see cref="Use"/> replaces the thread's culture.</summary>
     public static CultureInfo WindowsLanguage { get; } = CultureInfo.CurrentUICulture;
 
+    /// <summary>The user's regional format (dates, decimal comma…), which can differ from the display language.</summary>
+    public static CultureInfo WindowsRegion { get; } = CultureInfo.CurrentCulture;
+
     /// <summary>Sets the app language for this run, and the formats that go with it.</summary>
     public static void Use(string preference)
     {
-        var windows = WindowsLanguage;
-        _language = Resolve(preference, windows);
-        var culture = CultureFor(_language, windows);
+        _language = Resolve(preference, WindowsLanguage);
+        var culture = CultureFor(_language, WindowsRegion);
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = culture;
         CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = culture;
     }
@@ -59,7 +61,9 @@ public static partial class Loc
     public static string F(string key, params object?[] args) => string.Format(Culture, T(key), args);
 
     /// <summary>Formats for numbers and dates in the app language (see <see cref="CultureFor"/>).</summary>
-    public static CultureInfo Culture => CultureFor(Language, CultureInfo.CurrentCulture);
+    public static CultureInfo Culture => Scoped.Value is { } scoped
+        ? CultureFor(scoped, CultureInfo.InvariantCulture)   // tests: the language's standard formats
+        : CultureFor(_language, WindowsRegion);
 
     /// <summary>For tests: a language for the current async flow only, undone on dispose.</summary>
     public static IDisposable Override(string language)

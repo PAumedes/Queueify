@@ -45,7 +45,7 @@ public sealed partial class ServiceLogo : Grid
                 Stretch = Stretch.Uniform,
                 Fill = new SolidColorBrush(spotify ? Color.FromArgb(255, 30, 215, 96) : Microsoft.UI.Colors.White),
             });
-            AutomationProperties.SetName(this, $"{value} logo");
+            AutomationProperties.SetName(this, Services.Loc.F("service.logo", value));
         }
     }
 
