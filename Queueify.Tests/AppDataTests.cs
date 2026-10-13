@@ -65,6 +65,11 @@ public sealed class AppDataTests : IDisposable
     [InlineData("rel", Local)]                 // relative: would depend on the folder the app starts in
     [InlineData(@"""C:\Users\ana""", Local)]   // quoted
     [InlineData(@"\Users\ana", Local)]         // rooted but no drive
+    [InlineData(@"C:\Users\ana""", Local)]     // trailing quote
+    [InlineData(@"C:\x<y", Local)]
+    [InlineData(@"C:\a*b", Local)]
+    [InlineData(@"C:\a?b", Local)]
+    [InlineData(@"C:\a|b", Local)]
     public void Local_app_data_comes_from_the_environment_only_when_it_is_a_full_path(string? variable, string expected)
     {
         Assert.Equal(expected, AppData.LocalAppDataRoot(variable, Local));

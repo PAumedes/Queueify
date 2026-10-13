@@ -9,9 +9,6 @@ namespace Queueify.Services;
 /// </summary>
 public static class AppData
 {
-    // Before Folder: static fields initialize in order, and Folder's check reads this.
-    private static readonly string[] QueueifyFiles = ["queueify.db", "settings.json", "ui.json"];
-
     public static string Folder { get; } = FolderFor(
         Environment.ProcessPath,
         LocalAppDataRoot(Environment.GetEnvironmentVariable("LOCALAPPDATA"), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)),
@@ -34,7 +31,12 @@ public static class AppData
     /// folder), otherwise Windows' known folder: a relative or quoted value would scatter the data.
     /// </summary>
     public static string LocalAppDataRoot(string? variable, string knownFolder) =>
-        variable is { Length: > 0 } v && v.IndexOfAny(Path.GetInvalidPathChars()) < 0 && Path.IsPathFullyQualified(v) ? v : knownFolder;
+        variable is { Length: > 0 } v && v.IndexOfAny(NeverInAPath) < 0 && Path.IsPathFullyQualified(v) ? v : knownFolder;
+
+    // Path.GetInvalidPathChars() leaves out " < > * ?, which Windows refuses in any folder name.
+    private static ReadOnlySpan<char> NeverInAPath => "\"<>*?|\0\t\r\n";
+
+    private static bool IsQueueifyFile(string name) => name.ToLowerInvariant() is "queueify.db" or "settings.json" or "ui.json";
 
     public static string DatabasePath => Path.Combine(Folder, "queueify.db");
     private static string SettingsPath => Path.Combine(Folder, "settings.json");
@@ -49,7 +51,7 @@ public static class AppData
     public static string FolderFor(string? exePath, string localAppData, Func<string, string[]?> dataFolderEntries) =>
         Path.GetDirectoryName(exePath) is { Length: > 0 } dir
         && dataFolderEntries(Path.Combine(dir, "Data")) is { } entries
-        && (entries.Length == 0 || entries.Any(e => QueueifyFiles.Contains(e, StringComparer.OrdinalIgnoreCase)))
+        && (entries.Length == 0 || entries.Any(IsQueueifyFile))
             ? Path.Combine(dir, "Data")
             : Path.Combine(localAppData, "Queueify");
 

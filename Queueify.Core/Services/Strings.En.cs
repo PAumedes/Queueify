@@ -293,7 +293,7 @@ public static partial class Loc
         ["help.trouble.4"] = "• Sync shows a warning: point at the Sync icon for the reason. Usually it's no internet, or the security rules weren't published in Firebase.",
         ["help.about"] = "About Queueify",
         ["help.data"] = "Open data folder",
-        ["help.data.tip"] = "Your queue, settings and layout live here. To carry them on a USB stick, put them in a Data folder next to Queueify.exe.",
+        ["help.data.tip"] = "Your queue, settings and layout live here. To carry them on a USB stick, put them in a Data folder next to the Queueify exe.",
         ["about.version"] = "Version {0}",
         ["about.tagline"] = "A listen-later queue for the albums your magazines recommend.",
         ["about.credit.search"] = "Album search: Spotify Web API and Tidal API. Queueify isn't affiliated with Spotify or Tidal.",
