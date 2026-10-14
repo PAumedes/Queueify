@@ -21,6 +21,9 @@ public sealed record UpdateSource(Uri Latest, string DownloadPrefix)
     /// <summary>The releases page, for when the app can't update itself.</summary>
     public static Uri Releases { get; } = new("https://github.com/PAumedes/Queueify/releases/latest");
 
+    /// <summary>Every version, for when the latest one doesn't work here.</summary>
+    public static Uri AllReleases { get; } = new("https://github.com/PAumedes/Queueify/releases");
+
     /// <summary>
     /// GitHub, unless QUEUEIFY_UPDATE_SERVER names a server on this PC: the UI tests serve a release from
     /// one. Anything else is ignored, so the variable can't point updates elsewhere.
@@ -94,6 +97,9 @@ public sealed class Updater(HttpClient http, UpdateSource source, TimeSpan? stal
 
     public static bool IsNewer(string candidate, string current) =>
         System.Version.TryParse(candidate, out var c) && System.Version.TryParse(current, out var v) && c > v;
+
+    /// <summary>Whether to offer a release: one the user skipped only when they asked (Check for updates).</summary>
+    public static bool IsWanted(AppRelease release, string? skipped, bool asked) => asked || release.Version != skipped;
 
     /// <summary>The latest release when it's newer than this version; null when this is the latest.</summary>
     public async Task<AppRelease?> CheckAsync(string currentVersion, CancellationToken ct)

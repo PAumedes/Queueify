@@ -186,7 +186,47 @@ Check ($null -eq (Find '*new version is out*')) 'with checks turned off, nothing
 Select-Item (Find 'Help*' 'ListItem')
 Invoke (FindId 'CheckUpdatesButton')
 Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'checking by hand still finds it'
+Stop-App
+# Back on for the rest.
+'{ "Language": "en", "TourSeen": true }' | Set-Content -Encoding UTF8 (Join-Path $env:LOCALAPPDATA 'Queueify\ui.json')
+
+# ── Skip this version: not offered at the next start, still found by Check for updates ──
+Offer '99.0.0' $sha256
+Start-App
+Invoke (FindId 'SkipUpdateButton')
+Check ($null -eq (Find '*new version is out*')) 'Skip this version closes the offer'
+Stop-App
+Start-App
+Start-Sleep 3
+Check ($null -eq (Find '*new version is out*')) 'a skipped version is not offered at the next start'
+Select-Item (Find 'Help*' 'ListItem')
+Invoke (FindId 'CheckUpdatesButton')
+Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'Check for updates still offers a skipped version'
+Stop-App
+
+# ── A new exe that matches its release but doesn't start: this window stays and says so ──
+# (One byte changed in the marker at its very end: the starter finds no app appended and says it's damaged,
+# whatever is already unpacked.)
+'{ "Language": "en", "TourSeen": true }' | Set-Content -Encoding UTF8 (Join-Path $env:LOCALAPPDATA 'Queueify\ui.json')
+$broken = [byte[]]$newExe.Clone()
+$broken[$broken.Length - 1] = $broken[$broken.Length - 1] -bxor 0x40
+$newExe = $broken
+Offer '99.0.0' ([System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($broken)).Replace('-', '').ToLowerInvariant())
+Start-App
+$before = @(Get-AppProcess | ForEach-Object Id)
+Invoke (FindId 'InstallUpdateButton')
+# The starter's own message box: read it and press OK.
+$box = $null
+for ($i = 0; $i -lt 60 -and -not $box; $i++) {
+    Start-Sleep -Milliseconds 500
+    $box = $A::RootElement.FindAll($Tree::Children, $Cond::TrueCondition) | Where-Object { $_.Current.ClassName -eq '#32770' -and $_.Current.Name -eq 'Queueify' } | Select-Object -First 1
 }
+Check ($null -ne $box) 'the new exe says it is damaged'
+if ($box) { Invoke ($box.FindAll($Tree::Descendants, $Cond::TrueCondition) | Where-Object { $_.Current.ControlType.ProgrammaticName -eq 'ControlType.Button' } | Select-Object -First 1) }
+Check ($null -ne (Wait-Find "*is in place but didn't start, so your Queueify exe won't open*")) 'this window stays and says the new version did not start'
+Check ($null -ne (Find 'Releases page' 'Button')) 'the releases page comes first'
+Check ($null -ne (FindId 'InstallUpdateButton') -and (FindId 'InstallUpdateButton').Current.Name -eq 'Try again') 'and offers to download it again'
+Check (@(Get-AppProcess | Where-Object { $_.Id -notin $before }).Count -eq 0) 'no second Queueify started'}
 finally {
     Stop-App
     $listener.Stop()

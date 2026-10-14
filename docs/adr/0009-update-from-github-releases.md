@@ -26,7 +26,9 @@ and while the app runs nothing has that exe open: the starter unpacks the app, s
   exe is as it was. There's no backup copy: the old version is always on the releases page. A read-only exe
   is updated too.
 - The app then restarts through the new exe, and its window stays (saying so) until the new version's
-  window is open: the first start of a version unpacks for a few seconds.
+  window is open: the first start of a version unpacks for a few seconds. It waits for the starter however
+  long that takes, so there are never two windows; if the new exe doesn't start (its starter says why),
+  the bar says so and offers to download it again.
 - A failed update says why in plain words and offers **Try again** and the release page.
 - When the folder can't be written to, or the app wasn't started from a download (a build folder), the bar
   offers the release page instead.
@@ -38,7 +40,8 @@ and while the app runs nothing has that exe open: the starter unpacks the app, s
 - One request to GitHub per start: GitHub sees the address and that Queueify is starting, nothing else;
   the setting turns it off. GitHub allows 60 unauthenticated requests an hour per address, plenty for a few
   starts a day.
-- A closed offer comes back at the next start; there's no "skip this version", only the setting.
+- A closed offer comes back at the next start; **Skip this version** keeps that version from being offered at
+  start (Check for updates still finds it, and a newer one is offered again).
 - The release's asset name and its digest are now a contract: renaming the asset, or publishing it somewhere
   else, breaks updating for everyone on older versions ([RELEASING.md](../RELEASING.md)).
 - The trust is GitHub's: the digest comes from the same API as the download link, over HTTPS. It catches a

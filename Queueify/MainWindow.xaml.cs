@@ -105,6 +105,9 @@ public sealed partial class MainWindow : Window
         RefreshQueue();
         ShowResults([]);
         FillHelp();
+        // The bar keeps its height from state to state while open; a new window size starts it over.
+        UpdateBar.Closed += (_, _) => UpdateBar.MinHeight = 0;
+        SizeChanged += (_, _) => UpdateBar.MinHeight = 0;
 
         // Pick up other PCs' changes when coming back to the window (at most every 20 s).
         Activated += (_, args) =>
@@ -1087,15 +1090,17 @@ public sealed partial class MainWindow : Window
         return restart;
     }
 
+    private enum Restart { Closed, NotStarted, StarterFailed }
+
     /// <summary>
-    /// Starts a fresh copy and closes this one (which saves the window and layout as usual); false when it
-    /// couldn't. Through the download's starter, this window stays until the starter has unpacked the new
-    /// copy and started it, so there's never a moment without Queueify on screen.
+    /// Starts a fresh copy and closes this one (which saves the window and layout as usual). Through the
+    /// download's starter, this window stays until the starter has unpacked the new copy and its window is
+    /// open, so there's never a moment without Queueify on screen, nor two of them.
     /// </summary>
-    private async Task<bool> RestartAppAsync()
+    private async Task<Restart> RestartAppAsync()
     {
         // A second click while the new copy starts would start another one.
-        if (_restarting) return true;
+        if (_restarting) return Restart.Closed;
         _restarting = true;
         // Saved first, so the new copy opens where this one was.
         SaveWindow();
@@ -1110,38 +1115,29 @@ public sealed partial class MainWindow : Window
         {
             ShowToast(Loc.F("app.restart_failed", ex.Message), severity: InfoBarSeverity.Warning);
             _restarting = false;
-            return false;
+            return Restart.NotStarted;
         }
         using (started)
         {
             if (started != null && AppData.StarterExe != null)
             {
-                try
+                // However long the first unpack takes, or the starter's message waits to be read: until
+                // it's done, nothing else is running.
+                await started.WaitForExitAsync();
+                if (started.ExitCode != 0)
                 {
-                    using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-                    await started.WaitForExitAsync(limit.Token);
                     // The starter showed its own message about what went wrong.
-                    if (started.ExitCode != 0)
-                    {
-                        _restarting = false;
-                        return false;
-                    }
-                    // The starter is done once the new copy runs; its window takes a moment more.
-                    while (!NewQueueifyWindow(running))
-                        await Task.Delay(200, limit.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Two minutes without a new window (the starter may be showing an error): this one stays.
                     _restarting = false;
-                    return false;
+                    return Restart.StarterFailed;
                 }
+                // The new copy runs; its window takes a moment more. A minute at most, then this one goes anyway.
+                for (int i = 0; i < 300 && !NewQueueifyWindow(running); i++)
+                    await Task.Delay(200);
             }
         }
         Close();
-        return true;
+        return Restart.Closed;
     }
-
     private bool _restarting;
 
     // ───────────────────────── Sync between PCs ─────────────────────────
@@ -1532,7 +1528,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var release = await _updater.CheckAsync(AppInfo.Version, CancellationToken.None);
-            if (release != null && !_updating) OfferUpdate(release);
+            if (release != null && !_updating && Updater.IsWanted(release, _ui.SkippedVersion, asked: _reportCheck)) OfferUpdate(release);
             if (_reportCheck) ShowUpdateStatus(release != null ? Loc.F("update.available", release.Version) : Loc.T("update.latest"));
         }
         catch (Exception ex)
@@ -1557,9 +1553,19 @@ public sealed partial class MainWindow : Window
 
     private void OfferUpdate(AppRelease release)
     {
-        var whatsNew = new HyperlinkButton { Content = Loc.T("update.whats_new"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
+        var whatsNew = new HyperlinkButton { Content = Loc.T("update.whats_new"), Padding = new Thickness(0, 2, 0, 2) };
         whatsNew.Click += (_, _) => OpenInBrowser(release.Page);
-        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.available", release.Version), InstallButton(release, "update.install"), whatsNew, closable: true);
+        // Not now, and not at the next starts either; Check for updates in About still finds it.
+        var skip = new HyperlinkButton { Content = Loc.T("update.skip"), Padding = new Thickness(0, 2, 0, 2) };
+        AutomationProperties.SetAutomationId(skip, "SkipUpdateButton");
+        skip.Click += (_, _) =>
+        {
+            _ui.SkippedVersion = release.Version;
+            _ui.Save();
+            UpdateBar.IsOpen = false;
+        };
+        var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20, Margin = new Thickness(0, 0, 0, 8), Children = { whatsNew, skip } };
+        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.available", release.Version), InstallButton(release, "update.install"), links, closable: true);
     }
 
     private Button InstallButton(AppRelease release, string text)
@@ -1612,13 +1618,39 @@ public sealed partial class MainWindow : Window
             _download.Dispose();
             _download = null;
         }
-        // The new version unpacks before its window opens: this one says so and stays until then.
-        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.restarting", release.Version), null,
-            new ProgressBar { IsIndeterminate = true, Margin = new Thickness(0, 0, 0, 12) }, closable: false);
-        // The new exe is in place either way; if it can't be started now, the next start uses it. _updating
-        // stays set, so it isn't downloaded again.
-        if (!await RestartAppAsync())
-            ShowUpdateBar(InfoBarSeverity.Warning, Loc.F("update.restart_failed", release.Version), null, null, closable: true);
+        // The new version unpacks before its window opens: this one says so and stays until then. The
+        // keyboard waits on the progress indicator (named, so it's read out) instead of falling into the page.
+        var starting = Loc.F("update.restarting", release.Version);
+        var wait = new ProgressBar { IsIndeterminate = true, IsTabStop = true, Margin = new Thickness(0, 0, 0, 12) };
+        AutomationProperties.SetName(wait, starting);
+        ShowUpdateBar(InfoBarSeverity.Informational, starting, null, wait, closable: false);
+        switch (await RestartAppAsync())
+        {
+            case Restart.StarterFailed:
+            {
+                // The new exe itself didn't start (its starter said why), and it's the user's only Queueify
+                // exe now. What helps first is a version that works, maybe an older one if this release is
+                // broken: all of them are on the releases page. The same download again only helps when the
+                // cause was on this PC (disk space, an antivirus).
+                _updating = false;
+                var releases = new Button { Content = Loc.T("update.releases"), Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
+                releases.Click += (_, _) => OpenInBrowser(UpdateSource.AllReleases);
+                var retry = new HyperlinkButton { Content = Loc.T("update.retry"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
+                AutomationProperties.SetAutomationId(retry, "InstallUpdateButton");
+                retry.Click += (_, _) => _ = InstallUpdateAsync(release);
+                ShowUpdateBar(InfoBarSeverity.Error, Loc.F("update.start_failed", release.Version), releases, retry, closable: false);
+                break;
+            }
+            case Restart.NotStarted:
+            {
+                // The new exe is in place; the next start uses it. _updating stays set, so it isn't
+                // downloaded again. OK closes the bar, and gives the keyboard somewhere to be meanwhile.
+                var ok = new Button { Content = Loc.T("update.ok") };
+                ok.Click += (_, _) => UpdateBar.IsOpen = false;
+                ShowUpdateBar(InfoBarSeverity.Warning, Loc.F("update.restart_failed", release.Version), ok, null, closable: true);
+                break;
+            }
+        }
     }
 
     private static HashSet<int> QueueifyProcesses()
@@ -1661,7 +1693,10 @@ public sealed partial class MainWindow : Window
         UpdateBar.IsOpen = true;
         // Opening, the bar announces itself; later states are said here.
         if (wasOpen) Announce(UpdateBar, message);
-        if (focusInBar && action != null) action.Loaded += (_, _) => action.Focus(FocusState.Keyboard);
+        // Only grows while open, so the page below doesn't jump up and down from one state to the next.
+        if (wasOpen) UpdateBar.MinHeight = Math.Max(UpdateBar.MinHeight, UpdateBar.ActualHeight);
+        if (focusInBar && ((Control?)action ?? content as Control) is { IsTabStop: true } target)
+            target.Loaded += (_, _) => target.Focus(FocusState.Keyboard);
     }
 
     private static bool IsInside(DependencyObject? element, DependencyObject container)
