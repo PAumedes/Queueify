@@ -18,4 +18,9 @@ public static class StarterMessage
     /// seconds), and only when it's slow otherwise (an unpacked version opens in under a second).
     /// </summary>
     public static TimeSpan LoadingDelay(bool unpacking) => unpacking ? TimeSpan.Zero : TimeSpan.FromMilliseconds(600);
+
+    /// <summary>The app ended before showing its window: what to tell the user instead of nothing.</summary>
+    public static string ClosedWhileStarting(int exitCode, bool spanish) => spanish
+        ? $"Queueify se cerró al arrancar (código {exitCode}). Si vuelve a pasar, crash.log en la carpeta de datos de Queueify dice por qué."
+        : $"Queueify closed while starting (code {exitCode}). If it keeps happening, crash.log in Queueify's data folder says why.";
 }

@@ -119,7 +119,7 @@ Check ($null -ne $script:root) 'Queueify starts from the copy'
 $badge = $null
 for ($i = 0; $i -lt 30 -and -not $badge; $i++) { Start-Sleep -Milliseconds 500; $badge = Badge }
 Check ($null -ne $badge) 'a newer release shows as a dot on Help'
-Check ($null -eq (Find '*new version is out*')) 'nothing else about it on the To listen page'
+Check ($null -ne (Find '*new version is out: Queueify 99.0.0*') -and $null -ne (Find 'Show' 'Button')) 'and a short note at the bottom, with Show'
 Check ((Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'the keyboard stays in the search box'
 Open-Help
 Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'Help → About offers it'
@@ -136,6 +136,21 @@ Check ($null -ne (Find 'Release page')) 'the release page is offered too'
 $retry = FindId 'InstallUpdateButton'
 Check ($null -ne $retry -and $retry.Current.Name -eq 'Try again' -and $retry.Current.HasKeyboardFocus) 'Try again is offered, with the keyboard on it'
 
+Stop-App
+
+# ── A result that comes while the user is elsewhere still reaches them: the dot comes back, and a note ──
+Offer '99.0.0' ('0' * 64)
+$routes['/Queueify-99.0.0-win-x64.exe'].Delay = 3000
+Start-App
+Open-Help
+Invoke (FindId 'InstallUpdateButton')
+Select-Item (Find 'To listen*' 'ListItem')
+$problem = $null
+for ($i = 0; $i -lt 40 -and -not $problem; $i++) { Start-Sleep -Milliseconds 500; $problem = Find 'Help, the update needs a look' 'ListItem' }
+Check ($null -ne $problem) 'a failure found on another page puts the dot back on Help'
+Check ($null -ne (Find "*doesn't match the release*")) 'and a note says what happened'
+Open-Help
+Check ($null -ne (Find "*doesn't match the release*") -and $null -ne (FindId 'InstallUpdateButton')) 'Help shows it, with Try again'
 Stop-App
 
 # ── A download that fails can be tried again; then the new exe takes the old one's place, and Queueify

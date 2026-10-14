@@ -68,7 +68,8 @@ internal sealed unsafe partial class LoadingScreen : IDisposable
             lock (_lock)
             {
                 if (_closing.IsSet) return;
-                hwnd = CreateWindowExW(WS_EX_APPWINDOW, className, "Queueify", WS_POPUP,
+                // The status as the title too: it's what Narrator reads, and the taskbar shows.
+                hwnd = CreateWindowExW(WS_EX_APPWINDOW, className, s_status, WS_POPUP,
                     info.rcWork.left, info.rcWork.top, 1, 1, 0, 0, instance, 0);
                 if (hwnd == 0) return;
                 _hwnd = hwnd;
@@ -124,10 +125,12 @@ internal sealed unsafe partial class LoadingScreen : IDisposable
         int S(int dip) => (int)(dip * scale);
         GetClientRect(hwnd, out var client);
 
-        // Windows 11's Mica-like base colours.
-        uint background = s_dark ? Rgb(0x20, 0x20, 0x20) : Rgb(0xF3, 0xF3, 0xF3);
-        uint primary = s_dark ? Rgb(0xFF, 0xFF, 0xFF) : Rgb(0x1A, 0x1A, 0x1A);
-        uint secondary = s_dark ? Rgb(0xC5, 0xC5, 0xC5) : Rgb(0x5F, 0x5F, 0x5F);
+        // Windows 11's base colours, or the user's own in high contrast.
+        var contrast = new HIGHCONTRASTW { cbSize = (uint)sizeof(HIGHCONTRASTW) };
+        bool highContrast = SystemParametersInfoW(SPI_GETHIGHCONTRAST, contrast.cbSize, &contrast, 0) && (contrast.dwFlags & HCF_HIGHCONTRASTON) != 0;
+        uint background = highContrast ? GetSysColor(COLOR_WINDOW) : s_dark ? Rgb(0x20, 0x20, 0x20) : Rgb(0xF3, 0xF3, 0xF3);
+        uint primary = highContrast ? GetSysColor(COLOR_WINDOWTEXT) : s_dark ? Rgb(0xFF, 0xFF, 0xFF) : Rgb(0x1A, 0x1A, 0x1A);
+        uint secondary = highContrast ? GetSysColor(COLOR_WINDOWTEXT) : s_dark ? Rgb(0xC5, 0xC5, 0xC5) : Rgb(0x5F, 0x5F, 0x5F);
         var brush = CreateSolidBrush(background);
         FillRect(dc, &client, brush);
         DeleteObject(brush);
@@ -142,8 +145,8 @@ internal sealed unsafe partial class LoadingScreen : IDisposable
 
         SetBkMode(dc, TRANSPARENT);
         int textLeft = S(Margin + IconSize + 20);
-        var title = CreateFontW(-S(TitleSize), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI Variable Display");
-        var status = CreateFontW(-S(StatusSize), 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, "Segoe UI Variable Text");
+        var title = CreateFontW(-S(TitleSize), 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, Windows11 ? "Segoe UI Variable Display" : "Segoe UI Semibold");
+        var status = CreateFontW(-S(StatusSize), 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, Windows11 ? "Segoe UI Variable Text" : "Segoe UI");
         var old = SelectObject(dc, title);
         SetTextColor(dc, primary);
         var titleRect = new RECT { left = textLeft, top = iconTop - S(2), right = client.right - S(Margin), bottom = iconTop + S(40) };
@@ -157,6 +160,9 @@ internal sealed unsafe partial class LoadingScreen : IDisposable
         DeleteObject(status);
         EndPaint(hwnd, &paint);
     }
+
+    /// <summary>Segoe UI Variable comes with Windows 11; Windows 10 has Segoe UI.</summary>
+    private static bool Windows11 => Environment.OSVersion.Version.Build >= 22000;
 
     private static uint Rgb(byte r, byte g, byte b) => (uint)(r | g << 8 | b << 16);
 
@@ -197,6 +203,12 @@ internal sealed unsafe partial class LoadingScreen : IDisposable
         public char* lpszMenuName, lpszClassName;
         public nint hIconSm;
     }
+
+    private const uint SPI_GETHIGHCONTRAST = 0x42, HCF_HIGHCONTRASTON = 1;
+    private const int COLOR_WINDOW = 5, COLOR_WINDOWTEXT = 8;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HIGHCONTRASTW { public uint cbSize, dwFlags; public nint lpszDefaultScheme; }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int left, top, right, bottom; }
@@ -254,5 +266,7 @@ internal sealed unsafe partial class LoadingScreen : IDisposable
     [LibraryImport("gdi32.dll")] private static partial uint SetTextColor(nint dc, uint color);
     [LibraryImport("gdi32.dll", StringMarshalling = StringMarshalling.Utf16)]
     private static partial nint CreateFontW(int height, int width, int escapement, int orientation, int weight, uint italic, uint underline, uint strikeOut, uint charSet, uint outPrecision, uint clipPrecision, uint quality, uint pitchAndFamily, string face);
+    [LibraryImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static partial bool SystemParametersInfoW(uint action, uint param, void* value, uint winIni);
+    [LibraryImport("user32.dll")] private static partial uint GetSysColor(int index);
     [LibraryImport("dwmapi.dll")] private static partial int DwmSetWindowAttribute(nint hwnd, uint attribute, void* value, int size);
 }

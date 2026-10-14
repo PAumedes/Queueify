@@ -37,4 +37,13 @@ public class StarterMessageTests
         Assert.Equal(TimeSpan.Zero, StarterMessage.LoadingDelay(unpacking: true));
         Assert.Equal(TimeSpan.FromMilliseconds(600), StarterMessage.LoadingDelay(unpacking: false));
     }
+
+    [Fact]
+    public void An_app_that_closes_before_its_window_opens_says_where_to_look()
+    {
+        Assert.Equal("Queueify closed while starting (code 3). If it keeps happening, crash.log in Queueify's data folder says why.",
+            StarterMessage.ClosedWhileStarting(3, spanish: false));
+        Assert.Equal("Queueify se cerró al arrancar (código 3). Si vuelve a pasar, crash.log en la carpeta de datos de Queueify dice por qué.",
+            StarterMessage.ClosedWhileStarting(3, spanish: true));
+    }
 }

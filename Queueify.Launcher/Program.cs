@@ -33,10 +33,16 @@ internal static partial class Program
             var start = new ProcessStartInfo(Path.Combine(folder, "Queueify.exe")) { UseShellExecute = false, WorkingDirectory = folder };
             foreach (var arg in args) start.ArgumentList.Add(arg);
             start.Environment["QUEUEIFY_EXE"] = self;
-            // The loading screen has the foreground; the app's window takes it over when it opens.
-            AllowSetForegroundWindow(ASFW_ANY);
             using var app = Process.Start(start);
-            WaitForWindow(app);
+            // The loading screen has the foreground; the app's window takes it over when it opens.
+            if (app != null) AllowSetForegroundWindow(app.Id);
+            // Gone before its window opened: say so, rather than leave the user with nothing on screen.
+            if (WaitForWindow(app) is { } exitCode && exitCode != 0)
+            {
+                loading.Dispose();
+                MessageBox(0, StarterMessage.ClosedWhileStarting(exitCode, spanish), "Queueify", 0x30 /* MB_ICONWARNING */);
+                return 1;
+            }
         }
         catch (Exception ex)
         {
@@ -57,25 +63,25 @@ internal static partial class Program
         return 0;
     }
 
-    /// <summary>Until the app's window is open (or it stopped), so the loading screen hands over to it.</summary>
-    private static void WaitForWindow(Process? app)
+    /// <summary>Until the app's window is open, so the loading screen hands over to it; the exit code if it ended first.</summary>
+    private static int? WaitForWindow(Process? app)
     {
-        if (app == null) return;
+        if (app == null) return null;
         var until = DateTime.UtcNow.AddSeconds(30);
         while (DateTime.UtcNow < until)
         {
             app.Refresh();
-            if (app.HasExited || app.MainWindowHandle != 0) return;
+            if (app.HasExited) return app.ExitCode;
+            if (app.MainWindowHandle != 0) return null;
             Thread.Sleep(100);
         }
+        return null;
     }
 
     /// <summary>Same rule as the app (AppData.LocalAppDataRoot): the variable only when it's a full path.</summary>
     private static string LocalAppData() =>
         Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } v && v.IndexOfAny(['"', '<', '>', '*', '?', '|', '\0', '\t', '\r', '\n']) < 0 && Path.IsPathFullyQualified(v)
             ? v : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-    private const int ASFW_ANY = -1;
 
     // The starter has no culture data (InvariantGlobalization keeps it small), so it asks Windows directly.
     [LibraryImport("kernel32.dll")]

@@ -108,7 +108,8 @@ public sealed partial class MainWindow : Window
         // The line under the search box shows only while it has something to say.
         SearchStatus.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => UpdateSearchStatusPanel());
         SearchProgress.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) => UpdateSearchStatusPanel());
-        AddWithoutLink.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) => UpdateSearchStatusPanel());        // The bar keeps its height from state to state while open; a new window size starts it over.
+        AddWithoutLink.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) => UpdateSearchStatusPanel());
+        // The bar keeps its height from state to state while open; a new window size starts it over.
         UpdateBar.Closed += (_, _) => UpdateBar.MinHeight = 0;
         SizeChanged += (_, _) => UpdateBar.MinHeight = 0;
 
@@ -557,14 +558,24 @@ public sealed partial class MainWindow : Window
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? Loc.F(count == 1 ? nameKey + ".one" : nameKey, label, count) : label);
     }
 
-    /// <summary>The dot on Help while a new version waits there, named for screen readers ("Help, new version available").</summary>
-    private void SetUpdateBadge(bool shown)
+    /// <summary>
+    /// The dot on Help while something about an update waits there: a new version, or a problem with one
+    /// (then in the caution colour). Named for screen readers, and in the tooltip.
+    /// </summary>
+    private void SetUpdateBadge(bool shown, bool problem = false)
     {
         UpdateBadge.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
-        var name = shown ? Loc.F("nav.help.update", Loc.T("nav.help")) : Loc.T("nav.help");
+        UpdateBadge.Style = problem ? (Style)Application.Current.Resources["CautionDotInfoBadgeStyle"] : null;
+        var key = problem ? "nav.help.update_problem" : "nav.help.update";
+        var name = shown ? Loc.F(key, Loc.T("nav.help")) : Loc.T("nav.help");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(HelpNav, name);
+        ToolTipService.SetToolTip(HelpNav, shown ? Loc.F(key, Loc.T("nav.help")) + " (F1)" : Loc.T("nav.help.tip"));
         if (shown) Announce(HelpNav, name);
     }
+
+    /// <summary>A short note at the bottom with a way to Help → About, for update news found on another page.</summary>
+    private void ShowUpdateToast(string message, InfoBarSeverity severity) =>
+        ShowToast(message, undo: () => GoTo(Page.Help), actionText: Loc.T("update.show"), severity: severity);
 
     private enum Page { Queue, Listened, Photo, Help, Settings }
 
@@ -1553,8 +1564,13 @@ public sealed partial class MainWindow : Window
             if (release != null && !_updating && Updater.IsWanted(release, _ui.SkippedVersion, asked: _reportCheck))
             {
                 OfferUpdate(release);
-                // Found at start: only the dot on Help says so; the offer itself waits in About.
-                if (_page != Page.Help) SetUpdateBadge(true);
+                // Found while on another page: a dot on Help and a short note say so; the offer itself waits
+                // in About.
+                if (_page != Page.Help)
+                {
+                    SetUpdateBadge(true);
+                    ShowUpdateToast(Loc.F("update.available", release.Version), InfoBarSeverity.Informational);
+                }
             }
             // The offer, right above, already says what's new; the line under the button says the rest.
             if (_reportCheck) ShowUpdateStatus(release != null ? "" : Loc.T("update.latest"));
@@ -1668,6 +1684,8 @@ public sealed partial class MainWindow : Window
                 var retry = new HyperlinkButton { Content = Loc.T("update.retry"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
                 AutomationProperties.SetAutomationId(retry, "InstallUpdateButton");
                 retry.Click += (_, _) => _ = InstallUpdateAsync(release);
+                // Too important to wait behind a dot: the user mustn't close Queueify without reading it.
+                GoTo(Page.Help);
                 ShowUpdateBar(InfoBarSeverity.Error, Loc.F("update.start_failed", release.Version), releases, retry, closable: false);
                 break;
             }
@@ -1721,6 +1739,12 @@ public sealed partial class MainWindow : Window
         UpdateBar.Content = content;
         UpdateBar.IsClosable = closable;
         UpdateBar.IsOpen = true;
+        // A problem while the user is on another page: the dot comes back, and a note says what happened.
+        if (_page != Page.Help && severity is InfoBarSeverity.Warning or InfoBarSeverity.Error)
+        {
+            SetUpdateBadge(true, problem: true);
+            ShowUpdateToast(message, severity);
+        }
         // Opening, the bar announces itself; later states are said here.
         if (wasOpen) Announce(UpdateBar, message);
         // Only grows while open, so the page below doesn't jump up and down from one state to the next.

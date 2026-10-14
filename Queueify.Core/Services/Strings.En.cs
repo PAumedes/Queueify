@@ -310,6 +310,8 @@ public static partial class Loc
         ["update.cancel"] = "Cancel",
         ["update.skip"] = "Skip this version",
         ["nav.help.update"] = "{0}, new version available",
+        ["nav.help.update_problem"] = "{0}, the update needs a look",
+        ["update.show"] = "Show",
         ["update.start_failed"] = "Queueify {0} is in place but didn't start, so your Queueify exe won't open until it's replaced. Keep this window open and download a version that works from the releases page (an earlier one, if this one is broken). Try again only helps if something on this PC got in the way, like a full disk or an antivirus.",
         ["update.releases"] = "Releases page",
         ["update.ok"] = "OK",
