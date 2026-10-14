@@ -68,3 +68,22 @@ Sync: each PC keeps its own database. Online, a queue is `queues/{key}` in the u
 `PrimaryLanguageOverride`), then creates `MainWindow`, which restores the window, loads settings and the
 queue, applies the theme, and syncs once it's loaded. A language change restarts the app, because XAML
 reads its texts while it loads.
+
+## Web app: Settings, Help, Photo and data
+
+`Queueify.Web` (Blazor Web App, Interactive Server, [ADR-0010](adr/0010-web-app-and-shared-queue.md)) keeps
+one folder per user under the data root (`Queueify:DataRoot`, default `App_Data`): `queueify.db`,
+`settings.json` and `prefs.json`. `UserStores` is the only door to them; with Data Protection (key ring in
+`keys/`) it encrypts the two client secrets inside `settings.json`.
+
+| Piece | Responsibility |
+| --- | --- |
+| `Core: IOcr`, `WindowsOcr`, `OcrService.CleanLine` | The reader contract (plain boxes, no Windows types); the desktop adapter; the line cleanup both builds share. |
+| `Ocr/` | `ImageGuard` (sniff, pixel budget, upright, scale, re-encode), `TesseractOcr` (child process, TSV), `TessdataFetcher` (pinned, checksummed models), `OcrGate` (one per user), `PhotoReader`, `POST /api/photo` ([ADR-0011](adr/0011-web-ocr.md)). |
+| `Services/SettingsService`, `PreferencesStore` | Music settings with the desktop's edit rules (`AppSettings.ApplyEdits`), the key test through the catalogs, and per-user theme, language, reading language and tour state. |
+| `Services/DataTransfer`, `DataEndpoints` | JSON and CSV export; import of the desktop's `queueify.db` (read through a read-only, immutable connection with the schema distrusted, never attached) or an exported JSON, through `BacklogStore`, so rows keep their `uid`. |
+| `Components/Pages/Settings, Help, Photo` and `Components/Shared/Settings*, HelpTour` | The pages. Secrets are write-only: the page only ever learns "configured". `<HelpTour />` is the first-run tour; the layout should mount it once, and Help mounts one as a fallback (only one shows). |
+| `wwwroot/js/queueify-upload.js` | Chosen, dropped or pasted files stay in the browser; C# asks it to upload one by id. |
+
+The pages style themselves with Fluent design tokens (`--colorNeutral…`, with fallbacks) in scoped CSS, so they
+look right inside the Fluent UI Blazor shell without depending on its components.
