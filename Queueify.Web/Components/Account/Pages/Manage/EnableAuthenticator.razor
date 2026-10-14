@@ -12,7 +12,7 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<EnableAuthenticator> Logger
 
-<PageTitle>Configure authenticator app</PageTitle>
+<PageTitle>@Loc.T("web.acct.auth.config")</PageTitle>
 
 @if (recoveryCodes is not null)
 {
@@ -21,41 +21,39 @@
 else
 {
     <StatusMessage Message="@message" />
-    <h3>Configure authenticator app</h3>
+    <h3>@Loc.T("web.acct.auth.config")</h3>
     <div>
-        <p>To use an authenticator app go through the following steps:</p>
+        <p>@Loc.T("web.acct.auth.steps")</p>
         <ol>
             <li>
                 <p>
-                    Download a two-factor authenticator app like Microsoft Authenticator for
+                    @Loc.T("web.acct.auth.step1")
                     <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> and
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> or
-                    Google Authenticator for
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> @Loc.T("web.acct.auth.step1b")
                     <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> and
                     <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
                 </p>
             </li>
             <li>
-                <p>Scan the QR Code or enter this key <kbd>@sharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-                <div class="q-alert">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
+                <p>@Loc.T("web.acct.auth.step2a") <kbd>@sharedKey</kbd> @Loc.T("web.acct.auth.step2b")</p>
+                <div class="q-alert">@Loc.T("web.acct.auth.qr") <a href="https://go.microsoft.com/fwlink/?Linkid=852423">@Loc.T("web.acct.auth.qr_link")</a>.</div>
                 <div></div>
                 <div data-url="@authenticatorUri"></div>
             </li>
             <li>
                 <p>
-                    Once you have scanned the QR code or input the key above, your two factor authentication app will provide you
-                    with a unique code. Enter the code in the confirmation box below.
+                    @Loc.T("web.acct.auth.step3")
                 </p>
                 <div class="q-form-row">
                     <div class="q-col">
                         <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
                             <DataAnnotationsValidator />
                             <div class="q-field">
-                                <InputText @bind-Value="Input.Code" id="Input.Code" class="q-input" autocomplete="off" placeholder="Enter the code" />
-                                <label for="Input.Code" class="q-label">Verification Code</label>
+                                <InputText @bind-Value="Input.Code" id="Input.Code" class="q-input" autocomplete="off" placeholder="@Loc.T("web.acct.auth.code.ph")" />
+                                <label for="Input.Code" class="q-label">@Loc.T("web.acct.auth.code")</label>
                                 <ValidationMessage For="() => Input.Code" class="q-field-error" />
                             </div>
-                            <button type="submit" class="q-btn primary wide">Verify</button>
+                            <button type="submit" class="q-btn primary wide">@Loc.T("web.acct.auth.verify")</button>
                             <ValidationSummary class="q-field-error" role="alert" />
                         </EditForm>
                     </div>
@@ -110,7 +108,7 @@ else
 
         if (!is2faTokenValid)
         {
-            message = "Error: Verification code is invalid.";
+            message = "Error: " + Loc.T("web.acct.m.code_invalid");
             return;
         }
 
@@ -118,7 +116,7 @@ else
         var userId = await UserManager.GetUserIdAsync(user);
         Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", userId);
 
-        message = "Your authenticator app has been verified.";
+        message = Loc.T("web.acct.m.auth_ok");
 
         if (await UserManager.CountRecoveryCodesAsync(user) == 0)
         {
@@ -175,8 +173,8 @@ else
 
     private sealed class InputModel
     {
-        [Required]
-        [StringLength(7, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [LocRequired]
+        [LocStringLength(7, MinimumLength = 6)]
         [DataType(DataType.Text)]
         [Display(Name = "Verification Code")]
         public string Code { get; set; } = "";

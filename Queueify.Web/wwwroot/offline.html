@@ -4,17 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Queueify</title>
-<link rel="stylesheet" href="queueify.css">
+<!-- Self-contained on purpose: the app's stylesheet has a fingerprinted name that changes with every release, so this page can't depend on a cached copy of it. -->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; font: 15px/22px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+         background: light-dark(#F7F4EF, #14111B); color: light-dark(#1B1724, #F2EFF8); }
+  main { width: min(440px, 100%); display: grid; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 20px; }
+  .brand img { width: 44px; height: 44px; border-radius: 12px; }
+  .card { display: grid; gap: 12px; padding: 20px; border-radius: 8px; border: 1px solid light-dark(#E6E1D8, #2E2940); background: light-dark(#fff, #1E1A28); }
+  h1 { margin: 0; font-size: 24px; line-height: 30px; }
+  p { margin: 0; }
+  button { min-height: 48px; border: 0; border-radius: 8px; background: light-dark(#6544E6, #6B4CF0); color: #fff; font: 600 15px/20px inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid light-dark(#5030C4, #B5A2FF); outline-offset: 2px; }
+</style>
 </head>
 <body>
-<main class="q-bare">
-  <div class="q-auth">
-    <div class="q-auth-brand"><img src="icons/icon-192.png" alt="" width="44" height="44"><h2>Queueify</h2></div>
-    <div class="q-card stack">
-      <h1 id="t">You're offline</h1>
-      <p id="m">Queueify needs a connection to reach your queue. Try again when you're back online.</p>
-      <button class="q-btn primary" id="b" onclick="location.reload()">Try again</button>
-    </div>
+<main>
+  <div class="brand"><img src="icons/icon-192.png" alt="" width="44" height="44">Queueify</div>
+  <div class="card">
+    <h1 id="t">You're offline</h1>
+    <p id="m">Queueify needs a connection to reach your queue. Try again when you're back online.</p>
+    <button id="b" onclick="location.reload()">Try again</button>
   </div>
 </main>
 <script>

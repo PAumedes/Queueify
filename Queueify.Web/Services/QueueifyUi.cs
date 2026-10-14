@@ -16,6 +16,15 @@ public static class QueueifyUi
     /// <summary>The first account is the owner; after that, only when the server's configuration opens registration.</summary>
     public static bool RegistrationOpen(bool allowRegistration, bool anyUserExists) => !anyUserExists || allowRegistration;
 
+    /// <summary>
+    /// Everything comes from this site, except album covers (any https host, as catalogs choose them). Styles allow
+    /// inline because Fluent's components set them; scripts do not.
+    /// </summary>
+    public const string ContentSecurityPolicy =
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; " +
+        "font-src 'self' data:; connect-src 'self' ws: wss:; manifest-src 'self'; worker-src 'self'; " +
+        "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
     public static WebApplicationBuilder AddQueueifyUi(this WebApplicationBuilder builder)
     {
         var services = builder.Services;
@@ -40,6 +49,7 @@ public static class QueueifyUi
 
         // No e-mail goes out from this server, so there is nothing for "confirm your account" to wait for.
         services.Configure<IdentityOptions>(o => o.SignIn.RequireConfirmedAccount = false);
+        services.Replace(ServiceDescriptor.Scoped<IdentityErrorDescriber, LocalizedIdentityErrors>());
         return builder;
     }
 
@@ -52,6 +62,14 @@ public static class QueueifyUi
         // through LocCircuitHandler. Loc keeps it per async flow, so two users never swap languages.
         app.Use(async (context, next) =>
         {
+            context.Response.OnStarting(() =>
+            {
+                var headers = context.Response.Headers;
+                headers["Content-Security-Policy"] = ContentSecurityPolicy;
+                headers["X-Content-Type-Options"] = "nosniff";
+                headers["Referrer-Policy"] = "no-referrer";
+                return Task.CompletedTask;
+            });
             var language = Prefs.Language(context.Request.Cookies[Prefs.LanguageCookie], context.Request.Headers.AcceptLanguage);
             context.Items[nameof(Prefs.Language)] = language;
             using (Loc.Override(language)) await next();

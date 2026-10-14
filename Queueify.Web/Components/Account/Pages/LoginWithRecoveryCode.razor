@@ -9,14 +9,13 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<LoginWithRecoveryCode> Logger
 
-<PageTitle>Recovery code verification</PageTitle>
+<PageTitle>@Loc.T("web.acct.recovery.title")</PageTitle>
 
-<h1>Recovery code verification</h1>
+<h1>@Loc.T("web.acct.recovery.title")</h1>
 <hr />
 <StatusMessage Message="@message" />
 <p>
-    You have requested to log in with a recovery code. This login will not be remembered until you provide
-    an authenticator app code at log in or disable 2FA and log in again.
+    @Loc.T("web.acct.recovery.intro")
 </p>
 <div class="q-form-row">
     <div class="q-col">
@@ -25,10 +24,10 @@
             <ValidationSummary class="q-field-error" role="alert" />
             <div class="q-field">
                 <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="q-input" autocomplete="off" placeholder="RecoveryCode" />
-                <label for="Input.RecoveryCode">Recovery Code</label>
+                <label for="Input.RecoveryCode">@Loc.T("web.acct.recovery.code")</label>
                 <ValidationMessage For="() => Input.RecoveryCode" class="q-field-error" />
             </div>
-            <button type="submit" class="q-btn primary wide">Log in</button>
+            <button type="submit" class="q-btn primary wide">@Loc.T("web.auth.login")</button>
         </EditForm>
     </div>
 </div>
@@ -73,13 +72,13 @@
         else
         {
             Logger.LogWarning("Invalid recovery code entered for user with ID '{UserId}' ", userId);
-            message = "Error: Invalid recovery code entered.";
+            message = "Error: " + Loc.T("web.acct.m.invalid_recovery");
         }
     }
 
     private sealed class InputModel
     {
-        [Required]
+        [LocRequired]
         [DataType(DataType.Text)]
         [Display(Name = "Recovery Code")]
         public string RecoveryCode { get; set; } = "";

@@ -8,9 +8,9 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Confirm email</PageTitle>
+<PageTitle>@Loc.T("web.acct.confirm.title")</PageTitle>
 
-<h1>Confirm email</h1>
+<h1>@Loc.T("web.acct.confirm.title")</h1>
 <StatusMessage Message="@statusMessage" />
 
 @code {
@@ -43,7 +43,7 @@
         {
             var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
             var result = await UserManager.ConfirmEmailAsync(user, code);
-            statusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
+            statusMessage = result.Succeeded ? Loc.T("web.acct.m.confirm.ok") : Loc.T("web.acct.m.confirm.err");
         }
     }
 }

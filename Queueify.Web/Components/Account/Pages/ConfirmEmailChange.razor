@@ -9,9 +9,9 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Confirm email change</PageTitle>
+<PageTitle>@Loc.T("web.acct.confirm.change.title")</PageTitle>
 
-<h1>Confirm email change</h1>
+<h1>@Loc.T("web.acct.confirm.change.title")</h1>
 
 <StatusMessage Message="@message" />
 
@@ -50,7 +50,7 @@
         var result = await UserManager.ChangeEmailAsync(user, Email, code);
         if (!result.Succeeded)
         {
-            message = "Error changing email.";
+            message = Loc.T("web.acct.m.change.err");
             return;
         }
 
@@ -64,6 +64,6 @@
         }
 
         await SignInManager.RefreshSignInAsync(user);
-        message = "Thank you for confirming your email change.";
+        message = Loc.T("web.acct.m.change.ok");
     }
 }

@@ -8,9 +8,9 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Profile</PageTitle>
+<PageTitle>@Loc.T("web.acct.profile.title")</PageTitle>
 
-<h3>Profile</h3>
+<h3>@Loc.T("web.acct.profile.title")</h3>
 <StatusMessage />
 
 <div class="q-form-row">
@@ -20,14 +20,14 @@
             <ValidationSummary class="q-field-error" role="alert" />
             <div class="q-field">
                 <input type="text" value="@username" id="username" class="q-input" placeholder="Choose your username." disabled />
-                <label for="username">Username</label>
+                <label for="username">@Loc.T("web.acct.profile.username")</label>
             </div>
             <div class="q-field">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="q-input" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber">Phone number</label>
+                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="q-input" placeholder="@Loc.T("web.acct.profile.phone.ph")" />
+                <label for="Input.PhoneNumber">@Loc.T("web.acct.profile.phone")</label>
                 <ValidationMessage For="() => Input.PhoneNumber" class="q-field-error" />
             </div>
-            <button type="submit" class="q-btn primary wide">Save</button>
+            <button type="submit" class="q-btn primary wide">@Loc.T("web.acct.profile.save")</button>
         </EditForm>
     </div>
 </div>
@@ -73,13 +73,13 @@
             var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
             if (!setPhoneResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: " + Loc.T("web.acct.m.phone_fail"), HttpContext);
                 return;
             }
         }
 
         await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        RedirectManager.RedirectToCurrentPageWithStatus(Loc.T("web.acct.m.profile_ok"), HttpContext);
     }
 
     private sealed class InputModel

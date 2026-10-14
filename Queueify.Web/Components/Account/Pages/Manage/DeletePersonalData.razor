@@ -9,15 +9,15 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
 
-<PageTitle>Delete Personal Data</PageTitle>
+<PageTitle>@Loc.T("web.acct.delete.title")</PageTitle>
 
 <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
+<h3>@Loc.T("web.acct.delete.title")</h3>
 
 <div class="q-alert warn" role="alert">
     <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+        <strong>@Loc.T("web.acct.delete.warn")</strong>
     </p>
 </div>
 
@@ -28,12 +28,12 @@
         @if (requirePassword)
         {
             <div class="q-field">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="Input.Password">Password</label>
+                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="current-password" aria-required="true" placeholder="@Loc.T("web.acct.enterpass")" />
+                <label for="Input.Password">@Loc.T("web.acct.password")</label>
                 <ValidationMessage For="() => Input.Password" class="q-field-error" />
             </div>
         }
-        <button class="q-btn danger wide" type="submit">Delete data and close my account</button>
+        <button class="q-btn danger wide" type="submit">@Loc.T("web.acct.delete.btn")</button>
     </EditForm>
 </div>
 
@@ -71,7 +71,7 @@
 
         if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
         {
-            message = "Error: Incorrect password.";
+            message = "Error: " + Loc.T("web.acct.m.bad_pw");
             return;
         }
 

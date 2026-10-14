@@ -8,10 +8,10 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Two-factor authentication (2FA)</PageTitle>
+<PageTitle>@Loc.T("web.acct.tf.title")</PageTitle>
 
 <StatusMessage />
-<h3>Two-factor authentication (2FA)</h3>
+<h3>@Loc.T("web.acct.tf.title")</h3>
 @if (canTrack)
 {
     if (is2faEnabled)
@@ -19,22 +19,22 @@
         if (recoveryCodesLeft == 0)
         {
             <div class="q-alert bad">
-                <strong>You have no recovery codes left.</strong>
-                <p>You must <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a> before you can log in with a recovery code.</p>
+                <strong>@Loc.T("web.acct.tf.none_left")</strong>
+                <p>@Loc.T("web.acct.tf.none_left2") <a href="Account/Manage/GenerateRecoveryCodes">@Loc.T("web.acct.tf.gen_new")</a> @Loc.T("web.acct.tf.none_left3")</p>
             </div>
         }
         else if (recoveryCodesLeft == 1)
         {
             <div class="q-alert bad">
-                <strong>You have 1 recovery code left.</strong>
-                <p>You can <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a>.</p>
+                <strong>@Loc.T("web.acct.tf.one_left")</strong>
+                <p>@Loc.T("web.acct.tf.can") <a href="Account/Manage/GenerateRecoveryCodes">@Loc.T("web.acct.tf.gen_new")</a>.</p>
             </div>
         }
         else if (recoveryCodesLeft <= 3)
         {
             <div class="q-alert warn">
-                <strong>You have @recoveryCodesLeft recovery codes left.</strong>
-                <p>You should <a href="Account/Manage/GenerateRecoveryCodes">generate a new set of recovery codes</a>.</p>
+                <strong>@Loc.F("web.acct.tf.left_n", recoveryCodesLeft)</strong>
+                <p>@Loc.T("web.acct.tf.few") <a href="Account/Manage/GenerateRecoveryCodes">@Loc.T("web.acct.tf.gen_new")</a>.</p>
             </div>
         }
 
@@ -42,30 +42,30 @@
         {
             <form style="display: inline-block" @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
                 <AntiforgeryToken />
-                <button type="submit" class="q-btn primary">Forget this browser</button>
+                <button type="submit" class="q-btn primary">@Loc.T("web.acct.tf.forget")</button>
             </form>
         }
 
-        <a href="Account/Manage/Disable2fa" class="q-btn primary">Disable 2FA</a>
-        <a href="Account/Manage/GenerateRecoveryCodes" class="q-btn primary">Reset recovery codes</a>
+        <a href="Account/Manage/Disable2fa" class="q-btn primary">@Loc.T("web.acct.disable.btn")</a>
+        <a href="Account/Manage/GenerateRecoveryCodes" class="q-btn primary">@Loc.T("web.acct.tf.reset_codes")</a>
     }
 
-    <h4>Authenticator app</h4>
+    <h4>@Loc.T("web.acct.tf.app")</h4>
     @if (!hasAuthenticator)
     {
-        <a href="Account/Manage/EnableAuthenticator" class="q-btn primary">Add authenticator app</a>
+        <a href="Account/Manage/EnableAuthenticator" class="q-btn primary">@Loc.T("web.acct.tf.add_app")</a>
     }
     else
     {
-        <a href="Account/Manage/EnableAuthenticator" class="q-btn primary">Set up authenticator app</a>
-        <a href="Account/Manage/ResetAuthenticator" class="q-btn primary">Reset authenticator app</a>
+        <a href="Account/Manage/EnableAuthenticator" class="q-btn primary">@Loc.T("web.acct.tf.setup_app")</a>
+        <a href="Account/Manage/ResetAuthenticator" class="q-btn primary">@Loc.T("web.acct.tf.reset_app")</a>
     }
 }
 else
 {
     <div class="q-alert bad">
-        <strong>Privacy and cookie policy have not been accepted.</strong>
-        <p>You must accept the policy before you can enable two factor authentication.</p>
+        <strong>@Loc.T("web.acct.tf.privacy")</strong>
+        <p>@Loc.T("web.acct.tf.privacy2")</p>
     </div>
 }
 

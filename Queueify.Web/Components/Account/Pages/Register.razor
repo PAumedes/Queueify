@@ -1,4 +1,4 @@
-@page "/Account/Register"
+﻿@page "/Account/Register"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -79,19 +79,22 @@ else
 
     public async Task RegisterUser(EditContext editContext)
     {
-        // The form can be posted without ever showing the page, so the rule is checked again here.
-        if (!await Registration.IsOpenAsync())
+        // The form can be posted without ever showing the page, so the rule is checked again here,
+        // in the same lock as the write: two first registrations at once cannot both become owner.
+        var user = CreateUser();
+        IdentityResult result = default!;
+        var allowed = await Registration.RunIfOpenAsync(async () =>
+        {
+            await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+            var emailStore = GetEmailStore();
+            await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+            result = await UserManager.CreateAsync(user, Input.Password);
+        });
+        if (!allowed)
         {
             open = false;
             return;
         }
-
-        var user = CreateUser();
-
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-        var emailStore = GetEmailStore();
-        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-        var result = await UserManager.CreateAsync(user, Input.Password);
 
         if (!result.Succeeded)
         {
@@ -147,20 +150,20 @@ else
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocRequired]
+        [LocEmail]
         [Display(Name = "Email")]
         public string Email { get; set; } = "";
 
-        [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [LocRequired]
+        [LocStringLength(100, MinimumLength = 6)]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = "";
 
         [DataType(DataType.Password)]
         [Display(Name = "Confirm password")]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        [LocCompare("Password")]
         public string ConfirmPassword { get; set; } = "";
     }
 }

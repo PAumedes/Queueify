@@ -12,9 +12,9 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Manage email</PageTitle>
+<PageTitle>@Loc.T("web.acct.email.manage")</PageTitle>
 
-<h3>Manage email</h3>
+<h3>@Loc.T("web.acct.email.manage")</h3>
 
 <StatusMessage Message="@message"/>
 <div class="q-form-row">
@@ -28,27 +28,27 @@
             @if (isEmailConfirmed)
             {
                 <div class="q-field">
-                    <input type="text" value="@email" id="email" class="q-input" placeholder="Enter your email" disabled />
+                    <input type="text" value="@email" id="email" class="q-input" placeholder="@Loc.T("web.acct.email.enter")" disabled />
                     <div>
                         <span aria-hidden="true">✓</span>
                     </div>
-                    <label for="email">Email</label>
+                    <label for="email">@Loc.T("web.acct.email")</label>
                 </div>
             }
             else
             {
                 <div class="q-field">
-                    <input type="text" value="@email" id="email" class="q-input" placeholder="Enter your email" disabled />
-                    <label for="email">Email</label>
-                    <button type="submit" class="q-linkbtn" form="send-verification-form">Send verification email</button>
+                    <input type="text" value="@email" id="email" class="q-input" placeholder="@Loc.T("web.acct.email.enter")" disabled />
+                    <label for="email">@Loc.T("web.acct.email")</label>
+                    <button type="submit" class="q-linkbtn" form="send-verification-form">@Loc.T("web.acct.email.send_ver")</button>
                 </div>
             }
             <div class="q-field">
-                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="q-input" autocomplete="email" aria-required="true" placeholder="Enter a new email" />
-                <label for="Input.NewEmail">New email</label>
+                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="q-input" autocomplete="email" aria-required="true" placeholder="@Loc.T("web.acct.email.new.ph")" />
+                <label for="Input.NewEmail">@Loc.T("web.acct.email.new")</label>
                 <ValidationMessage For="() => Input.NewEmail" class="q-field-error" />
             </div>
-            <button type="submit" class="q-btn primary wide">Change email</button>
+            <button type="submit" class="q-btn primary wide">@Loc.T("web.acct.email.change")</button>
         </EditForm>
     </div>
 </div>
@@ -86,7 +86,7 @@
     {
         if (Input.NewEmail is null || Input.NewEmail == email)
         {
-            message = "Your email is unchanged.";
+            message = Loc.T("web.acct.m.email_same");
             return;
         }
 
@@ -105,7 +105,7 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
 
-        message = "Confirmation link to change email sent. Please check your email.";
+        message = Loc.T("web.acct.m.email_link");
     }
 
     private async Task OnSendEmailVerificationAsync()
@@ -130,13 +130,13 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
 
-        message = "Verification email sent. Please check your email.";
+        message = Loc.T("web.acct.m.ver_sent");
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocRequired]
+        [LocEmail]
         [Display(Name = "New email")]
         public string? NewEmail { get; set; }
     }

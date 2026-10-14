@@ -48,7 +48,7 @@
   document.addEventListener('click', function (e) {
     document.querySelectorAll('details.q-more[open], details.q-menu[open]').forEach(function (d) {
       const insideLink = e.target.closest && d.contains(e.target) && e.target.closest('a');
-      if (!d.contains(e.target) || insideLink) d.removeAttribute('open');
+      if (!d.contains(e.target) || insideLink || (e.target.classList && e.target.classList.contains('q-scrim'))) d.removeAttribute('open');
     });
   });
   document.addEventListener('keydown', function (e) {

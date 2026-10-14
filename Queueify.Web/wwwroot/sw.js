@@ -1,7 +1,8 @@
 // Caches the shell (icons, stylesheet, offline page) so the app is installable and fails politely offline.
 // Pages and data are never cached: they are per user and live on the server.
-const CACHE = 'queueify-shell-v1';
-const SHELL = ['offline.html', 'queueify.css', 'icons/icon-192.png', 'icons/icon.svg'];
+const CACHE = 'queueify-shell-v2';
+// Only files whose names never change; the app's stylesheet is fingerprinted per release and always comes from the network.
+const SHELL = ['offline.html', 'icons/icon-192.png', 'icons/icon.svg'];
 
 self.addEventListener('install', function (event) {
   event.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));

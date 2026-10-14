@@ -457,3 +457,11 @@ h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
 .q-pill.off { opacity: .7; }
 .q-switch, .q-switch span { color: var(--q-ink); }
 
+
+.q-scrim { display: none; }
+@media (max-width: 759.98px) {
+  .q-scrim { display: block; position: fixed; inset: 0; z-index: 54; background: rgb(0 0 0 / .4); }
+  .q-more-sheet .q-navitem { color: var(--q-ink); }
+  .q-more-sheet .q-prefs { padding: 8px 12px 4px; border-top: 1px solid var(--q-hair); margin-top: 4px; }
+}
+

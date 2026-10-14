@@ -1,4 +1,4 @@
-@page "/Account/Login"
+﻿@page "/Account/Login"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
@@ -139,11 +139,11 @@
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocRequired]
+        [LocEmail]
         public string Email { get; set; } = "";
 
-        [Required]
+        [LocRequired]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 

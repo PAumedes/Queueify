@@ -8,24 +8,23 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ResetAuthenticator> Logger
 
-<PageTitle>Reset authenticator key</PageTitle>
+<PageTitle>@Loc.T("web.acct.resetauth.title")</PageTitle>
 
 <StatusMessage />
-<h3>Reset authenticator key</h3>
+<h3>@Loc.T("web.acct.resetauth.title")</h3>
 <div class="q-alert warn" role="alert">
     <p>
         <Ico Name="warn" />
-        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
+        <strong>@Loc.T("web.acct.resetauth.warn")</strong>
     </p>
     <p>
-        This process disables 2FA until you verify your authenticator app.
-        If you do not complete your authenticator app configuration you may lose access to your account.
+        @Loc.T("web.acct.resetauth.text")
     </p>
 </div>
 <div>
     <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
         <AntiforgeryToken />
-        <button class="q-btn danger" type="submit">Reset authenticator key</button>
+        <button class="q-btn danger" type="submit">@Loc.T("web.acct.resetauth.title")</button>
     </form>
 </div>
 

@@ -9,12 +9,12 @@
 @inject IUserStore<ApplicationUser> UserStore
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Manage your external logins</PageTitle>
+<PageTitle>@Loc.T("web.auth.nav.external")</PageTitle>
 
 <StatusMessage />
 @if (currentLogins?.Count > 0)
 {
-    <h3>Registered Logins</h3>
+    <h3>@Loc.T("web.acct.ext.registered")</h3>
     <table class="q-table">
         <tbody>
             @foreach (var login in currentLogins)
@@ -29,7 +29,7 @@
                                 <div>
                                     <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
                                     <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
-                                    <button type="submit" class="q-btn primary" title="Remove this @login.ProviderDisplayName login from your account">Remove</button>
+                                    <button type="submit" class="q-btn primary" title="@Loc.F("web.acct.ext.remove_tip", login.ProviderDisplayName)">@Loc.T("web.acct.ext.remove")</button>
                                 </div>
                             </form>
                         }
@@ -45,7 +45,7 @@
 }
 @if (otherLogins?.Count > 0)
 {
-    <h4>Add another service to log in.</h4>
+    <h4>@Loc.T("web.acct.ext.add")</h4>
     <hr />
     <form class="q-form" action="Account/Manage/LinkExternalLogin" method="post">
         <AntiforgeryToken />
@@ -53,7 +53,7 @@
             <p>
                 @foreach (var provider in otherLogins)
                 {
-                    <button type="submit" class="q-btn primary" name="Provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
+                    <button type="submit" class="q-btn primary" name="Provider" value="@provider.Name" title="@Loc.F("web.acct.ext.login_tip", provider.DisplayName)">
                         @provider.DisplayName
                     </button>
                 }
@@ -121,12 +121,12 @@
         var result = await UserManager.RemoveLoginAsync(user, LoginProvider!, ProviderKey!);
         if (!result.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The external login was not removed.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: " + Loc.T("web.acct.m.ext_not_removed"), HttpContext);
         }
         else
         {
             await SignInManager.RefreshSignInAsync(user);
-            RedirectManager.RedirectToCurrentPageWithStatus("The external login was removed.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(Loc.T("web.acct.m.ext_removed"), HttpContext);
         }
     }
 
@@ -142,7 +142,7 @@
         var info = await SignInManager.GetExternalLoginInfoAsync(userId);
         if (info is null)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: Could not load external login info.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: " + Loc.T("web.acct.m.ext_load"), HttpContext);
             return;
         }
 
@@ -152,7 +152,7 @@
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
 
-            RedirectManager.RedirectToCurrentPageWithStatus("The external login was added.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(Loc.T("web.acct.m.ext_added"), HttpContext);
         }
         else
         {

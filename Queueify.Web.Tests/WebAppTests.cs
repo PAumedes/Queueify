@@ -107,6 +107,17 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task Two_simultaneous_first_registrations_make_one_owner()
+    {
+        using var factory = Factory(allowRegistration: false);
+        var results = await Task.WhenAll(Enumerable.Range(0, 6).Select(i => RegisterAsync(Client(factory), $"owner{i}@example.com")));
+
+        using var scope = factory.Services.CreateScope();
+        Assert.Single(scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().Users.ToList());
+        Assert.Equal(1, results.Count(r => r.StatusCode == HttpStatusCode.Redirect && r.Headers.Location?.ToString().Contains("Login") != true));
+    }
+
+    [Fact]
     public async Task With_registration_open_a_second_account_is_created()
     {
         using var factory = Factory(allowRegistration: true);
@@ -265,6 +276,62 @@ public sealed partial class WebAppTests : IDisposable
         Assert.Equal(HttpStatusCode.Redirect, post.StatusCode);
         Assert.StartsWith("/", post.Headers.Location!.ToString());
         Assert.DoesNotContain("evil", post.Headers.Location!.ToString());
+    }
+
+    [Theory]
+    [InlineData("/Account/Login")]
+    [InlineData("/manifest.webmanifest")]
+    public async Task Every_response_carries_the_security_headers(string path)
+    {
+        using var factory = Factory();
+        var response = await Client(factory).GetAsync(path, TestContext.Current.CancellationToken);
+
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+        var csp = response.Headers.GetValues("Content-Security-Policy").Single();
+        Assert.Contains("frame-ancestors 'none'", csp);
+        Assert.Contains("default-src 'self'", csp);
+        Assert.Contains("object-src 'none'", csp);
+        Assert.Contains("form-action 'self'", csp);
+        Assert.Contains("connect-src 'self'", csp);   // the Blazor circuit's WebSocket
+    }
+
+    [Theory]
+    [InlineData("es", "al menos un dígito", "Este campo es obligatorio")]
+    [InlineData("en", "at least one digit", "This field is required")]
+    public async Task Form_and_password_messages_come_in_the_users_language(string language, string digitRule, string required)
+    {
+        using var factory = Factory();
+        var client = Client(factory);
+        client.DefaultRequestHeaders.Add("Cookie", $"qlang={language}");
+        var token = Token().Match(await client.GetStringAsync("/Account/Register", TestContext.Current.CancellationToken)).Groups[1].Value;
+
+        var weak = await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["_handler"] = "register", ["Input.Email"] = "owner@example.com",
+            ["Input.Password"] = "Abcdefg!", ["Input.ConfirmPassword"] = "Abcdefg!",
+        }), TestContext.Current.CancellationToken);
+        Assert.Contains(digitRule, System.Net.WebUtility.HtmlDecode(await weak.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)));
+
+        var empty = await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["_handler"] = "register", ["Input.Email"] = "", ["Input.Password"] = "", ["Input.ConfirmPassword"] = "",
+        }), TestContext.Current.CancellationToken);
+        Assert.Contains(required, System.Net.WebUtility.HtmlDecode(await empty.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)));
+    }
+
+    [Fact]
+    public async Task The_offline_page_and_the_service_worker_do_not_depend_on_the_fingerprinted_stylesheet()
+    {
+        using var factory = Factory();
+        var client = Client(factory);
+
+        var worker = await client.GetStringAsync("/sw.js", TestContext.Current.CancellationToken);
+        var offline = await client.GetStringAsync("/offline.html", TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("queueify.css", worker);
+        Assert.DoesNotContain("queueify.css", offline);
+        Assert.Contains("<style>", offline);
     }
 
     [Fact]

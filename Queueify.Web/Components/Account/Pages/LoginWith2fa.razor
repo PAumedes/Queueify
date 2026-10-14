@@ -9,12 +9,12 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<LoginWith2fa> Logger
 
-<PageTitle>Two-factor authentication</PageTitle>
+<PageTitle>@Loc.T("web.acct.twofa.title")</PageTitle>
 
-<h1>Two-factor authentication</h1>
+<h1>@Loc.T("web.acct.twofa.title")</h1>
 <hr />
 <StatusMessage Message="@message" />
-<p>Your login is protected with an authenticator app. Enter your authenticator code below.</p>
+<p>@Loc.T("web.acct.twofa.intro")</p>
 <div class="q-form-row">
     <div class="q-col">
         <EditForm Model="Input" FormName="login-with-2fa" OnValidSubmit="OnValidSubmitAsync" method="post">
@@ -24,24 +24,24 @@
             <ValidationSummary class="q-field-error" role="alert" />
             <div class="q-field">
                 <InputText @bind-Value="Input.TwoFactorCode" id="Input.TwoFactorCode" class="q-input" autocomplete="off" />
-                <label for="Input.TwoFactorCode">Authenticator code</label>
+                <label for="Input.TwoFactorCode">@Loc.T("web.acct.twofa.code")</label>
                 <ValidationMessage For="() => Input.TwoFactorCode" class="q-field-error" />
             </div>
             <div class="q-check-row">
                 <label for="remember-machine">
                     <InputCheckbox @bind-Value="Input.RememberMachine" />
-                    Remember this machine
+                    @Loc.T("web.acct.twofa.remember")
                 </label>
             </div>
             <div>
-                <button type="submit" class="q-btn primary wide">Log in</button>
+                <button type="submit" class="q-btn primary wide">@Loc.T("web.auth.login")</button>
             </div>
         </EditForm>
     </div>
 </div>
 <p>
-    Don't have access to your authenticator device? You can
-    <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl">log in with a recovery code</a>.
+    @Loc.T("web.acct.twofa.nodevice")
+    <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl">@Loc.T("web.acct.twofa.use_recovery")</a>.
 </p>
 
 @code {
@@ -85,14 +85,14 @@
         else
         {
             Logger.LogWarning("Invalid authenticator code entered for user with ID '{UserId}'.", userId);
-            message = "Error: Invalid authenticator code.";
+            message = "Error: " + Loc.T("web.acct.m.invalid2fa");
         }
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [StringLength(7, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [LocRequired]
+        [LocStringLength(7, MinimumLength = 6)]
         [DataType(DataType.Text)]
         [Display(Name = "Authenticator code")]
         public string? TwoFactorCode { get; set; }
