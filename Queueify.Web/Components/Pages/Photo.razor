@@ -165,7 +165,13 @@
         _error = code switch
         {
             "tooLarge" => Loc.F("webPhoto.err.tooLarge", Limits.MaxBytes / (1024 * 1024)),
-            "tooManyPixels" or "notAnImage" or "corrupt" or "busy" or "timeout" or "engineMissing" or "unauthorized" or "network" => Loc.T("webPhoto.err." + code),
+            "tooManyPixels" => Loc.T("webPhoto.err.tooManyPixels"),
+            "notAnImage" => Loc.T("webPhoto.err.notAnImage"),
+            "corrupt" => Loc.T("webPhoto.err.corrupt"),
+            "busy" => Loc.T("webPhoto.err.busy"),
+            "timeout" => Loc.T("webPhoto.err.timeout"),
+            "unauthorized" => Loc.T("webPhoto.err.unauthorized"),
+            "network" => Loc.T("webPhoto.err.network"),
             "language" => Loc.T("webPhoto.err.language"),
             _ => Loc.T("webPhoto.err.engineMissing"),
         };
