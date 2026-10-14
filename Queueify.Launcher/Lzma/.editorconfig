@@ -1,0 +1,4 @@
+# The LZMA SDK's C# code as published, kept as is: no analyzers or nullable warnings.
+[*.cs]
+generated_code = true
+

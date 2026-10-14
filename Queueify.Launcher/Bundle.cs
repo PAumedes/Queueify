@@ -1,8 +1,9 @@
 using System.Buffers.Binary;
 using System.Formats.Tar;
-using System.IO.Compression;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using SevenZip;
 
 namespace Queueify.Launcher;
 
@@ -13,13 +14,15 @@ public sealed record BundleInfo(long Offset, long Length, string Id);
 public sealed class BundleDamagedException(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>
-/// The download is the starter exe followed by the app folder as one Brotli-compressed tar, then a
-/// trailer: the archive's length, its id (a hash of it, which names the unpacked folder) and a marker.
-/// Windows runs an exe from its headers, so whatever is appended after the starter doesn't disturb it.
+/// The download is the starter exe followed by the app folder as one tar, run through the x86 branch filter
+/// and compressed with LZMA, then a trailer: the archive's length, its id (a hash of it, which names the
+/// unpacked folder) and a marker. Windows runs an exe from its headers, so whatever is appended after the
+/// starter doesn't disturb it. The archive is LZMA's 5 property bytes, the tar's length (8 bytes) and the
+/// compressed tar.
 /// </summary>
 public static class Bundle
 {
-    private static readonly byte[] Marker = "QFYAPP01"u8.ToArray();
+    private static readonly byte[] Marker = "QFYAPP02"u8.ToArray();
     private const int IdLength = 32;
     private const int TrailerLength = sizeof(long) + IdLength + 8;
     private const string Complete = ".complete";
@@ -32,9 +35,8 @@ public static class Bundle
         var archive = outputExe + ".archive";
         try
         {
-            using (var file = File.Create(archive))
-            using (var brotli = new BrotliCompressingStream(file))
-            using (var tar = new TarWriter(brotli, TarEntryFormat.Gnu, leaveOpen: true))
+            var tarData = new MemoryStream();
+            using (var tar = new TarWriter(tarData, TarEntryFormat.Gnu, leaveOpen: true))
             {
                 var root = Path.GetFullPath(appFolder);
                 var files = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
@@ -51,6 +53,7 @@ public static class Bundle
                     });
                 }
             }
+            using (var file = File.Create(archive)) Compress(tarData.ToArray(), file);
 
             byte[] id;
             using (var file = File.OpenRead(archive)) id = Encoding.ASCII.GetBytes(Convert.ToHexStringLower(SHA256.HashData(file))[..IdLength]);
@@ -112,8 +115,8 @@ public static class Bundle
 
     private static void Extract(Stream exe, BundleInfo info, string folder)
     {
-        // Checked before anything is written: Brotli has no checksum of its own, and the id is the
-        // archive's hash. About 20 MB, read in a moment.
+        // Checked before anything is written: LZMA has no checksum of its own, and the id is the
+        // archive's hash. About 17 MB, read in a moment.
         using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
         {
             exe.Seek(info.Offset, SeekOrigin.Begin);
@@ -123,11 +126,21 @@ public static class Bundle
         }
 
         exe.Seek(info.Offset, SeekOrigin.Begin);
-        var archive = new Slice(exe, info.Length, null);
+        byte[] tarData;
         try
         {
-            using var brotli = new BrotliStream(archive, CompressionMode.Decompress, leaveOpen: true);
-            using var tar = new TarReader(brotli);
+            tarData = Decompress(new Slice(exe, info.Length, null));
+        }
+        catch (Exception ex) when (ex is ApplicationException or InvalidDataException or EndOfStreamException or IndexOutOfRangeException or NotSupportedException)
+        {
+            // The LZMA SDK's own DataErrorException is an ApplicationException; a decoder fed bad data can
+            // also run off its arrays, or past the size it was told.
+            throw new BundleDamagedException("The appended app can't be read.", ex);
+        }
+
+        try
+        {
+            using var tar = new TarReader(new MemoryStream(tarData, writable: false));
             var root = Path.GetFullPath(folder) + Path.DirectorySeparatorChar;
             while (tar.GetNextEntry() is { } entry)
             {
@@ -204,50 +217,44 @@ public static class Bundle
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
-    /// <summary>Brotli at its strongest, with the largest window: the app folder is one big archive.</summary>
-    private sealed class BrotliCompressingStream(Stream inner) : Stream
+    /// <summary>
+    /// LZMA at its strongest, as 7-Zip's Ultra: a 64 MB dictionary (or less, for less) and the longest matches.
+    /// About a minute for the app's 70 MB, at build time.
+    /// </summary>
+    private static void Compress(byte[] data, Stream output)
     {
-        private BrotliEncoder _encoder = new(quality: 11, window: 24);
-        private readonly byte[] _buffer = new byte[1 << 16];
-
-        public override void Write(ReadOnlySpan<byte> source)
-        {
-            while (!source.IsEmpty)
-            {
-                _encoder.Compress(source, _buffer, out int read, out int written, isFinalBlock: false);
-                inner.Write(_buffer, 0, written);
-                source = source[read..];
-            }
-        }
-
-        public override void Write(byte[] buffer, int offset, int count) => Write(buffer.AsSpan(offset, count));
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                System.Buffers.OperationStatus status;
-                do
-                {
-                    status = _encoder.Compress([], _buffer, out _, out int written, isFinalBlock: true);
-                    inner.Write(_buffer, 0, written);
-                } while (status == System.Buffers.OperationStatus.DestinationTooSmall);
-                _encoder.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        public override bool CanRead => false;
-        public override bool CanSeek => false;
-        public override bool CanWrite => true;
-        public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() => inner.Flush();
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
+        X86Filter.Encode(data);
+        var encoder = new SevenZip.Compression.LZMA.Encoder();
+        var dictionary = (int)Math.Min(1u << 26, BitOperations.RoundUpToPowerOf2((uint)Math.Max(data.Length, 1 << 12)));
+        encoder.SetCoderProperties(
+            [CoderPropID.DictionarySize, CoderPropID.LitContextBits, CoderPropID.LitPosBits, CoderPropID.PosStateBits,
+             CoderPropID.Algorithm, CoderPropID.NumFastBytes, CoderPropID.MatchFinder, CoderPropID.EndMarker],
+            [dictionary, 3, 0, 2, 2, 273, "bt4", false]);
+        encoder.WriteCoderProperties(output);
+        Span<byte> length = stackalloc byte[sizeof(long)];
+        BinaryPrimitives.WriteInt64LittleEndian(length, data.Length);
+        output.Write(length);
+        encoder.Code(new MemoryStream(data, writable: false), output, -1, -1, null);
     }
 
+    /// <summary>The whole tar, in memory: the branch filter undoes its work over all of it at once.</summary>
+    private static byte[] Decompress(Stream archive)
+    {
+        var properties = new byte[5];
+        archive.ReadExactly(properties);
+        Span<byte> lengthBytes = stackalloc byte[sizeof(long)];
+        archive.ReadExactly(lengthBytes);
+        var length = BinaryPrimitives.ReadInt64LittleEndian(lengthBytes);
+        if (length is < 0 or > 1L << 30) throw new InvalidDataException("Unexpected app size.");
+
+        var data = new byte[length];
+        var decoder = new SevenZip.Compression.LZMA.Decoder();
+        decoder.SetDecoderProperties(properties);
+        // The decoder reads a byte at a time.
+        decoder.Code(new BufferedStream(archive, 1 << 16), new MemoryStream(data), archive.Length - archive.Position, length, null);
+        X86Filter.Decode(data);
+        return data;
+    }
     /// <summary>The archive's bytes only, so decompression can't run into the trailer; hashed as they're read.</summary>
     private sealed class Slice(Stream inner, long length, IncrementalHash? hash) : Stream
     {

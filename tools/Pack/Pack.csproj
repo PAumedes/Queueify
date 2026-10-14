@@ -1,12 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <!-- Build-time tool for tools\package.ps1: appends the published app to the starter exe (ADR-0008). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\Queueify.Launcher\Bundle.cs" Link="Bundle.cs" />
+    <ProjectReference Include="..\..\Queueify.Launcher\Queueify.Launcher.csproj" />
   </ItemGroup>
 </Project>

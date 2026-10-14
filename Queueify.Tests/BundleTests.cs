@@ -56,6 +56,24 @@ public sealed class BundleTests : IDisposable
     }
 
     [Fact]
+    public void Program_code_comes_back_out_exactly_as_it_went_in()
+    {
+        // Real machine code goes through the branch filter on the way in and back out.
+        var app = App("app");
+        File.Copy(Environment.ProcessPath!, Path.Combine(app, "Queueify.exe"), overwrite: true);
+        File.Copy(typeof(Bundle).Assembly.Location, Path.Combine(app, "Queueify.Launcher.dll"));
+        var output = Path.Combine(_dir, "Queueify.exe");
+        Bundle.Write(Starter(), app, output);
+
+        string unpacked;
+        using (var exe = File.OpenRead(output))
+            unpacked = Bundle.Unpack(exe, Bundle.Read(exe)!, Path.Combine(_dir, "cache"));
+
+        Assert.Equal(File.ReadAllBytes(Environment.ProcessPath!), File.ReadAllBytes(Path.Combine(unpacked, "Queueify.exe")));
+        Assert.Equal(File.ReadAllBytes(typeof(Bundle).Assembly.Location), File.ReadAllBytes(Path.Combine(unpacked, "Queueify.Launcher.dll")));
+    }
+
+    [Fact]
     public void The_starter_still_runs_as_it_was_built()
     {
         var output = Path.Combine(_dir, "Queueify.exe");
