@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Queueify.Services;
@@ -34,6 +35,7 @@ public static class SyncExtensions
         services.AddSingleton<SyncLimits>();
         services.AddScoped<PersonalAccessTokens>();
         services.AddHostedService<IdentityMigrator>();
+        services.AddTransient<IStartupFilter, ProxyStartupFilter>();
 
         services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, TokenAuthenticationHandler>(TokenAuthenticationHandler.Scheme, null);
         services.AddAuthorizationBuilder().AddPolicy(Policy, p => p.AddAuthenticationSchemes(TokenAuthenticationHandler.Scheme).RequireAuthenticatedUser());
@@ -83,6 +85,36 @@ public static class SyncExtensions
             ? Results.StatusCode(StatusCodes.Status400BadRequest)
             : Results.Text(JsonSerializer.Serialize(response, SyncJson.Default.SyncResponse), "application/json");
     }
+}
+
+/// <summary>
+/// Trusts <c>X-Forwarded-For/Proto</c> only from the proxies listed in <c>Queueify:Proxy:KnownProxies</c> (addresses) and
+/// <c>Queueify:Proxy:KnownNetworks</c> (CIDR), so the rate limit sees real client addresses behind a reverse proxy.
+/// With neither set, the headers are not trusted at all.
+/// </summary>
+internal sealed class ProxyStartupFilter(IConfiguration configuration) : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        var section = configuration.GetSection("Queueify:Proxy");
+        var proxies = section.GetSection("KnownProxies").Get<string[]>() ?? [];
+        var networks = section.GetSection("KnownNetworks").Get<string[]>() ?? [];
+        if (proxies.Length + networks.Length > 0)
+        {
+            var options = new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
+            {
+                ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                    | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto,
+                ForwardLimit = section.GetValue("ForwardLimit", 1),
+            };
+            options.KnownProxies.Clear();
+            options.KnownIPNetworks.Clear();
+            foreach (var p in proxies) options.KnownProxies.Add(System.Net.IPAddress.Parse(p));
+            foreach (var n in networks) options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(n));
+            app.UseForwardedHeaders(options);
+        }
+        next(app);
+    };
 }
 
 /// <summary>The root folder that holds every user's data and the Data Protection keys.</summary>

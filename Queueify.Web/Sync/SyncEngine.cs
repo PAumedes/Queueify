@@ -18,6 +18,7 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock)
 {
     public const int MaxAlbums = 1000;
     public const int MaxText = 500;
+    public static readonly TimeSpan TombstoneLifetime = TimeSpan.FromDays(90);
     private static readonly TimeSpan MaxClockAhead = TimeSpan.FromMinutes(10);
 
     private const string Columns =
@@ -88,6 +89,12 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock)
         Execute(db, "INSERT OR IGNORE INTO sync_meta (key, value) VALUES ('last_stamp', 0)");
         long last = Meta(db, "last_stamp");
         long nowTicks = clock.GetUtcNow().UtcDateTime.Ticks / 10 * 10;
+
+        // A deletion is kept so the other PCs delete the album too; after this long every PC that syncs has had it.
+        // A PC that stayed offline longer may keep an album that was deleted elsewhere.
+        var cutoff = clock.GetUtcNow().UtcDateTime - TombstoneLifetime;
+        Execute(db, "DELETE FROM items WHERE deleted = 1 AND dirty = 0 AND server_time < $t AND updated_at < $u",
+            ("$t", cutoff.Ticks), ("$u", Stamp(cutoff)));
         long Next() => last = Math.Max(last + 10, nowTicks);
 
         // Changes made through BacklogStore (the web pages) get their stamp now.

@@ -80,7 +80,7 @@ them with a `server_time` (a column `BacklogStore` doesn't know, next to a `sync
 never get either) and clears the flag. Stamps are strictly increasing per user, so `since` pagination never skips
 a row. Incoming rows win when their `updatedAt` is newer than the server's (a tie keeps the server's row); a row
 the server refuses is stamped again, so it comes back to the sender in the same response and the PC converges.
-Deletions stay as soft rows. Text is cut at 500 characters, ratings and years are made valid, and an `updatedAt`
+Deletions stay as soft rows for 90 days, then each sync purges them. Behind a reverse proxy, `Queueify:Proxy:KnownProxies` / `KnownNetworks` say whose `X-Forwarded-For` to trust, so the rate limit sees client addresses. Text is cut at 500 characters, ratings and years are made valid, and an `updatedAt`
 more than ten minutes ahead of the server's clock is pulled back to that, so a wrong PC clock can't win forever.
 A request holds at most 1,000 albums (400 otherwise) and `Queueify:Sync:MaxBodyBytes` (8 MB, 413); a response
 holds at most 1,000 albums, and when it is full its `serverTime` is the stamp of its last album, so the client
