@@ -22,6 +22,7 @@ flowchart LR
     MW --> S & M & CAT & CS & O & L & ST
     CAT -->|HTTPS| SP[(Spotify Web API)] & TI[(Tidal Open API)]
     CS -->|HTTPS REST| FS[(Your Firestore)]
+    MW --> U[Updater] -->|HTTPS| GH[(GitHub releases)]
     O --> WOCR[(Windows.Media.Ocr)]
 ```
 
@@ -49,6 +50,7 @@ flowchart LR
 | `Loc`, `Strings.En/Es` | All texts, the app language and the formats that go with it. |
 | `AppData`, `UiState` | Where the data folder is; `settings.json` (synced settings, keys) and `ui.json` (per-PC layout, theme, language). |
 | `Countries` | The countries where both services work, named in the app language. |
+| `Updater` | The latest GitHub release: whether it's newer, downloading and checking its exe, swapping it in ([ADR-0009](adr/0009-update-from-github-releases.md)). |
 
 ## Data
 

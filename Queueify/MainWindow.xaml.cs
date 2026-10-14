@@ -3,6 +3,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -33,6 +34,8 @@ public sealed partial class MainWindow : Window
     private readonly SpotifyCatalog _spotify;
     private readonly TidalCatalog _tidal;
     private readonly CloudSync _cloud;
+    private readonly Updater _updater = new(Http, UpdateSource.For(Environment.GetEnvironmentVariable("QUEUEIFY_UPDATE_SERVER")));
+    private bool _updating;
 
     private readonly DispatcherQueueTimer _searchDebounce;
     private readonly DispatcherQueueTimer _toastTimer;
@@ -57,7 +60,10 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Queueify.ico"));
         if (AppData.StarterExe is { } starter)
+        {
             TaskbarIdentity.PinTo(WinRT.Interop.WindowNative.GetWindowHandle(this), starter);
+            Updater.RemoveLeftovers(starter);
+        }
 
         _ui = UiState.Load();
         RestoreWindow();
@@ -112,6 +118,7 @@ public sealed partial class MainWindow : Window
         {
             SearchBox.Focus(FocusState.Programmatic);
             _ = SyncNowAsync();
+            if (_ui.CheckForUpdates) _ = CheckForUpdatesAsync(quiet: true);
             if (!_ui.TourSeen) DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => ShowTourStep(0));
         };
     }
@@ -1076,27 +1083,66 @@ public sealed partial class MainWindow : Window
     private Button RestartButton()
     {
         var restart = new Button { Content = Loc.T("app.restart") };
-        restart.Click += (_, _) => RestartApp();
+        restart.Click += (_, _) => _ = RestartAppAsync();
         return restart;
     }
 
-    /// <summary>Starts a fresh copy and closes this one (which saves the window and layout as usual).</summary>
-    private void RestartApp()
+    /// <summary>
+    /// Starts a fresh copy and closes this one (which saves the window and layout as usual); false when it
+    /// couldn't. Through the download's starter, this window stays until the starter has unpacked the new
+    /// copy and started it, so there's never a moment without Queueify on screen.
+    /// </summary>
+    private async Task<bool> RestartAppAsync()
     {
+        // A second click while the new copy starts would start another one.
+        if (_restarting) return true;
+        _restarting = true;
         // Saved first, so the new copy opens where this one was.
         SaveWindow();
+        System.Diagnostics.Process? started;
+        var running = QueueifyProcesses();
         try
         {
             // Through the download's starter when there is one, so the new copy knows it too.
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppData.StarterExe ?? Environment.ProcessPath!) { UseShellExecute = false });
+            started = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppData.StarterExe ?? Environment.ProcessPath!) { UseShellExecute = false });
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             ShowToast(Loc.F("app.restart_failed", ex.Message), severity: InfoBarSeverity.Warning);
-            return;
+            _restarting = false;
+            return false;
+        }
+        using (started)
+        {
+            if (started != null && AppData.StarterExe != null)
+            {
+                try
+                {
+                    using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                    await started.WaitForExitAsync(limit.Token);
+                    // The starter showed its own message about what went wrong.
+                    if (started.ExitCode != 0)
+                    {
+                        _restarting = false;
+                        return false;
+                    }
+                    // The starter is done once the new copy runs; its window takes a moment more.
+                    while (!NewQueueifyWindow(running))
+                        await Task.Delay(200, limit.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Two minutes without a new window (the starter may be showing an error): this one stays.
+                    _restarting = false;
+                    return false;
+                }
+            }
         }
         Close();
+        return true;
     }
+
+    private bool _restarting;
 
     // ───────────────────────── Sync between PCs ─────────────────────────
 
@@ -1459,6 +1505,178 @@ public sealed partial class MainWindow : Window
         AboutDataPath.Text = AppData.Folder;
     }
 
+    // ───────────────────────── Updates ─────────────────────────
+
+    private bool _checkingUpdates;
+    /// <summary>Asked from About: the running check shows its result there.</summary>
+    private bool _reportCheck;
+    private CancellationTokenSource? _download;
+
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(quiet: false);
+
+    /// <summary>
+    /// Asks GitHub for a newer version and offers it under the page title. Quiet (at start) shows nothing
+    /// unless there is one; from About, the result shows under the button.
+    /// </summary>
+    private async Task CheckForUpdatesAsync(bool quiet)
+    {
+        // One check at a time. Asked from About while the quiet one at start runs, that one reports there
+        // when it's done. The button stays enabled, so keyboard focus stays on it.
+        if (!quiet)
+        {
+            _reportCheck = true;
+            ShowUpdateStatus(Loc.T("update.checking"));
+        }
+        if (_checkingUpdates) return;
+        _checkingUpdates = true;
+        try
+        {
+            var release = await _updater.CheckAsync(AppInfo.Version, CancellationToken.None);
+            if (release != null && !_updating) OfferUpdate(release);
+            if (_reportCheck) ShowUpdateStatus(release != null ? Loc.F("update.available", release.Version) : Loc.T("update.latest"));
+        }
+        catch (Exception ex)
+        {
+            // UpdateException carries its own message; anything else is a bug, still not worth a crash.
+            if (_reportCheck) ShowUpdateStatus(ex is UpdateException ? ex.Message : Loc.F("update.failed", ex.Message));
+        }
+        finally
+        {
+            _checkingUpdates = false;
+            _reportCheck = false;
+        }
+    }
+
+    private void ShowUpdateStatus(string text)
+    {
+        UpdateStatus.Text = text;
+        // At the bottom of Help, maybe below the window's edge; and said aloud for screen readers.
+        UpdateStatus.StartBringIntoView();
+        Announce(UpdateStatus, text);
+    }
+
+    private void OfferUpdate(AppRelease release)
+    {
+        var whatsNew = new HyperlinkButton { Content = Loc.T("update.whats_new"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
+        whatsNew.Click += (_, _) => OpenInBrowser(release.Page);
+        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.available", release.Version), InstallButton(release, "update.install"), whatsNew, closable: true);
+    }
+
+    private Button InstallButton(AppRelease release, string text)
+    {
+        var install = new Button { Content = Loc.T(text), Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
+        AutomationProperties.SetAutomationId(install, "InstallUpdateButton");
+        install.Click += (_, _) => _ = InstallUpdateAsync(release);
+        return install;
+    }
+
+    /// <summary>Downloads the new exe, checks it, puts it in place of this one and restarts through it.</summary>
+    private async Task InstallUpdateAsync(AppRelease release)
+    {
+        if (_updating) return;
+        if (AppData.StarterExe is not { } exe)
+        {
+            // Running from a build folder, not a download: nothing to replace.
+            ShowUpdateProblem(Loc.T("update.manual"), release, retry: false);
+            return;
+        }
+        _updating = true;
+        var message = Loc.F("update.downloading", release.Version);
+        var bar = new ProgressBar { Maximum = 1, Margin = new Thickness(0, 0, 0, 12) };
+        AutomationProperties.SetName(bar, message);
+        // No overall time limit: a slow download that keeps coming is fine, a stalled one gives up, and
+        // Cancel stops either.
+        var cancel = new Button { Content = Loc.T("update.cancel") };
+        cancel.Click += (_, _) => _download?.Cancel();
+        ShowUpdateBar(InfoBarSeverity.Informational, message, cancel, bar, closable: false);
+        _download = new CancellationTokenSource();
+        try
+        {
+            var downloaded = await _updater.DownloadAsync(release, exe, new Progress<double>(v => bar.Value = v), _download.Token);
+            Updater.Replace(exe, downloaded);
+        }
+        catch (OperationCanceledException) when (_download.IsCancellationRequested)
+        {
+            _updating = false;
+            OfferUpdate(release);
+            return;
+        }
+        catch (Exception ex)
+        {
+            _updating = false;
+            ShowUpdateProblem(ex is UpdateException ? ex.Message : Loc.F("update.failed", ex.Message), release, retry: true);
+            return;
+        }
+        finally
+        {
+            _download.Dispose();
+            _download = null;
+        }
+        // The new version unpacks before its window opens: this one says so and stays until then.
+        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.restarting", release.Version), null,
+            new ProgressBar { IsIndeterminate = true, Margin = new Thickness(0, 0, 0, 12) }, closable: false);
+        // The new exe is in place either way; if it can't be started now, the next start uses it. _updating
+        // stays set, so it isn't downloaded again.
+        if (!await RestartAppAsync())
+            ShowUpdateBar(InfoBarSeverity.Warning, Loc.F("update.restart_failed", release.Version), null, null, closable: true);
+    }
+
+    private static HashSet<int> QueueifyProcesses()
+    {
+        var ids = new HashSet<int>();
+        foreach (var p in System.Diagnostics.Process.GetProcessesByName("Queueify"))
+            using (p) ids.Add(p.Id);
+        return ids;
+    }
+
+    /// <summary>A Queueify window from a process that wasn't running before (another copy open already doesn't count).</summary>
+    private static bool NewQueueifyWindow(HashSet<int> before)
+    {
+        var found = false;
+        foreach (var p in System.Diagnostics.Process.GetProcessesByName("Queueify"))
+            using (p)
+                found |= !before.Contains(p.Id) && p.MainWindowHandle != 0;
+        return found;
+    }
+
+    private void ShowUpdateProblem(string message, AppRelease release, bool retry)
+    {
+        var page = new HyperlinkButton { Content = Loc.T("update.page"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
+        page.Click += (_, _) => OpenInBrowser(release.Page);
+        ShowUpdateBar(InfoBarSeverity.Warning, message, retry ? InstallButton(release, "update.retry") : null, page, closable: true);
+    }
+
+    private void ShowUpdateBar(InfoBarSeverity severity, string message, Microsoft.UI.Xaml.Controls.Primitives.ButtonBase? action, UIElement? content, bool closable)
+    {
+        // Keyboard focus in the bar (on the button just pressed) moves to the new button (Cancel, Try again)
+        // instead of falling into the page when that button goes away. Anywhere else, it stays: someone
+        // typing in the search box keeps typing there, and a key never presses Try again by surprise.
+        var focusInBar = IsInside(FocusManager.GetFocusedElement(Root.XamlRoot) as DependencyObject, UpdateBar);
+        var wasOpen = UpdateBar.IsOpen;
+        UpdateBar.Severity = severity;
+        UpdateBar.Message = message;
+        UpdateBar.ActionButton = action;
+        UpdateBar.Content = content;
+        UpdateBar.IsClosable = closable;
+        UpdateBar.IsOpen = true;
+        // Opening, the bar announces itself; later states are said here.
+        if (wasOpen) Announce(UpdateBar, message);
+        if (focusInBar && action != null) action.Loaded += (_, _) => action.Focus(FocusState.Keyboard);
+    }
+
+    private static bool IsInside(DependencyObject? element, DependencyObject container)
+    {
+        for (; element != null; element = VisualTreeHelper.GetParent(element))
+            if (element == container) return true;
+        return false;
+    }
+
+    private static void Announce(UIElement element, string text) =>
+        (FrameworkElementAutomationPeer.FromElement(element) ?? FrameworkElementAutomationPeer.CreatePeerForElement(element))
+            ?.RaiseNotificationEvent(AutomationNotificationKind.Other, AutomationNotificationProcessing.ImportantMostRecent, text, "QueueifyUpdate");
+    private static void OpenInBrowser(Uri page) =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(page.AbsoluteUri) { UseShellExecute = true });
+
     private void OnOpenDataFolder(object sender, RoutedEventArgs e)
     {
         Directory.CreateDirectory(AppData.Folder);
@@ -1605,6 +1823,7 @@ public sealed partial class MainWindow : Window
             LanguageBox.SelectedItem = LanguageBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Language)
                                        ?? LanguageBox.Items[0];
             UpdateLanguageRestart();
+            UpdateCheckToggle.IsOn = _ui.CheckForUpdates;
             SettingsDataPath.Text = AppData.Folder;
             FillOcrSettings();
             UpdateServiceCards();
@@ -1774,6 +1993,13 @@ public sealed partial class MainWindow : Window
         var edited = _settingsShown.Clone();
         edited.CountryCode = country.Code;
         CommitSettingsEdit(edited);
+    }
+
+    private void OnUpdateCheckToggled(object sender, RoutedEventArgs e)
+    {
+        if (_fillingSettings) return;
+        _ui.CheckForUpdates = UpdateCheckToggle.IsOn;
+        _ui.Save();
     }
 
     private void OnThemeChanged(object sender, SelectionChangedEventArgs e)

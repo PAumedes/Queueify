@@ -34,6 +34,9 @@ public sealed class UiState
     /// <summary>"Don't show this again" on the Photo page's offer to install Spanish text recognition.</summary>
     public bool OcrHintDismissed { get; set; }
 
+    /// <summary>Ask GitHub for a newer version at each start (Settings → Updates).</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary>Back to the original layout (panel, list view, order, window size); the tour isn't repeated.</summary>
     public void ResetLayout()
     {

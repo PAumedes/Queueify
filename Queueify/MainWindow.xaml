@@ -489,6 +489,10 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <FontIcon x:Name="PageIcon" Glyph="&#xE8D6;" FontSize="30" VerticalAlignment="Center"
                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -498,6 +502,10 @@
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
+                        <!-- A newer version: offered here, under the title of every page, until it's installed or
+                             closed. A row of its own, so it never squeezes the title on a narrow window. -->
+                        <InfoBar x:Name="UpdateBar" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0"
+                                 AutomationProperties.AutomationId="UpdateBar" />
                     </Grid>
 
                     <!-- Toolbar for the queue pages: labeled commands, like UniGetUI -->
@@ -642,6 +650,7 @@
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.2}" />
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.3}" />
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.4}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.5}" IsTextSelectionEnabled="True" />
                                 </StackPanel>
                             </Border>
 
@@ -665,9 +674,13 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                                            <Button x:Name="CheckUpdatesButton" Content="{l:Tr Key=update.check}" Click="OnCheckForUpdates"
+                                                    AutomationProperties.AutomationId="CheckUpdatesButton" />
                                             <Button Content="{l:Tr Key=help.data}" Click="OnOpenDataFolder"
                                                     ToolTipService.ToolTip="{l:Tr Key=help.data.tip}" />
                                         </StackPanel>
+                                        <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" AutomationProperties.AutomationId="UpdateStatus"
+                                                   AutomationProperties.LiveSetting="Polite" />
                                         <TextBlock x:Name="AboutDataPath" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" IsTextSelectionEnabled="True" />
                                     </StackPanel>
@@ -868,6 +881,28 @@
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                     <Button Grid.Column="2" Content="{l:Tr Key=settings.layout.reset}" Click="OnResetLayout" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <TextBlock Text="{l:Tr Key=settings.updates}" Style="{StaticResource SettingsSection}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE896;" FontSize="20" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{l:Tr Key=settings.updates.auto}" />
+                                        <TextBlock Text="{l:Tr Key=settings.updates.auto.text}"
+                                                   Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="UpdateCheckToggle" Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
+                                                  OnContent="" OffContent="" Toggled="OnUpdateCheckToggled"
+                                                  AutomationProperties.AutomationId="UpdateCheckToggle"
+                                                  AutomationProperties.Name="{l:Tr Key=settings.updates.auto}" />
                                 </Grid>
                             </Border>
 

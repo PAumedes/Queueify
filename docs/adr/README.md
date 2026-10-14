@@ -13,3 +13,4 @@ old one and mark the old one `Superseded by ADR-NNNN`. Start from [`0000-templat
 | [0006](0006-release-from-conventional-commits.md) | Releases and changelog from Conventional Commits | Accepted |
 | [0007](0007-single-trimmed-exe.md) | One trimmed exe as the download | Packaging superseded by 0008 |
 | [0008](0008-native-aot-and-a-starter-exe.md) | Native AOT and a starter exe | Accepted |
+| [0009](0009-update-from-github-releases.md) | Update from GitHub releases, inside the app | Accepted |

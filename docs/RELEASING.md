@@ -31,6 +31,10 @@ the About section shows it.
    directly (the branch rule lets admins bypass it), so the release commit and its tag arrive together.
 5. The release workflow publishes the exe. Download it once and run it from an empty folder.
 
+The app updates itself from the latest release ([ADR-0009](adr/0009-update-from-github-releases.md)): it
+looks for the asset `Queueify-X.Y.Z-win-x64.exe` in `https://github.com/PAumedes/Queueify/releases/download/`
+and its SHA-256 digest. Never rename the asset or publish it elsewhere; pre-releases are never offered.
+
 If the security rules (`tools/firestore.rules`) changed, say in the release notes that users must copy
 and publish them again (Sync → Copy security rules).
 
