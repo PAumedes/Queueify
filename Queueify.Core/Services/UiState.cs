@@ -37,6 +37,9 @@ public sealed class UiState
     /// <summary>Ask GitHub for a newer version at each start (Settings → Updates).</summary>
     public bool CheckForUpdates { get; set; } = true;
 
+    /// <summary>"Skip this version" on the offer: not offered at start again, only by Check for updates.</summary>
+    public string? SkippedVersion { get; set; }
+
     /// <summary>Back to the original layout (panel, list view, order, window size); the tour isn't repeated.</summary>
     public void ResetLayout()
     {

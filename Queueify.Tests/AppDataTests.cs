@@ -177,15 +177,15 @@ public sealed class AppDataTests : IDisposable
         {
             PaneWidth = 512, PaneVisible = false, CoverView = true, Sort = "artist",
             WindowBounds = [10, 20, 1300, 900], Maximized = true, TourSeen = true,
-            Theme = "dark", Language = "es", OcrLanguage = "en-US", OcrHintDismissed = true, CheckForUpdates = false,
+            Theme = "dark", Language = "es", OcrLanguage = "en-US", OcrHintDismissed = true, CheckForUpdates = false, SkippedVersion = "1.4.0",
         };
 
         saved.Save(path);
         var loaded = UiState.Load(path);
 
         Assert.Equal(
-            (saved.PaneWidth, saved.PaneVisible, saved.CoverView, saved.Sort, saved.Maximized, saved.TourSeen, saved.Theme, saved.Language, saved.OcrLanguage, saved.OcrHintDismissed, saved.CheckForUpdates),
-            (loaded.PaneWidth, loaded.PaneVisible, loaded.CoverView, loaded.Sort, loaded.Maximized, loaded.TourSeen, loaded.Theme, loaded.Language, loaded.OcrLanguage, loaded.OcrHintDismissed, loaded.CheckForUpdates));
+            (saved.PaneWidth, saved.PaneVisible, saved.CoverView, saved.Sort, saved.Maximized, saved.TourSeen, saved.Theme, saved.Language, saved.OcrLanguage, saved.OcrHintDismissed, saved.CheckForUpdates, saved.SkippedVersion),
+            (loaded.PaneWidth, loaded.PaneVisible, loaded.CoverView, loaded.Sort, loaded.Maximized, loaded.TourSeen, loaded.Theme, loaded.Language, loaded.OcrLanguage, loaded.OcrHintDismissed, loaded.CheckForUpdates, loaded.SkippedVersion));
         Assert.Equal(saved.WindowBounds, loaded.WindowBounds);
     }
 

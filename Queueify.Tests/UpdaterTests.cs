@@ -134,6 +134,15 @@ public sealed class UpdaterTests : IDisposable
         Assert.Equal(newer, Updater.IsNewer(candidate, current));
     }
 
+    [Theory]
+    [InlineData(null, false, true)]       // nothing skipped
+    [InlineData("1.4.0", false, false)]   // skipped: not offered at start
+    [InlineData("1.4.0", true, true)]     // but Check for updates still finds it
+    [InlineData("1.3.5", false, true)]    // a newer one than the skipped one is offered again
+    public void A_skipped_version_is_only_offered_when_asked_for(string? skipped, bool asked, bool offered)
+    {
+        Assert.Equal(offered, Updater.IsWanted(Release(), skipped, asked));
+    }
     // ── Asking GitHub ──
 
     [Fact]

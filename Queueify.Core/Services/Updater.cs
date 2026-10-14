@@ -95,6 +95,9 @@ public sealed class Updater(HttpClient http, UpdateSource source, TimeSpan? stal
     public static bool IsNewer(string candidate, string current) =>
         System.Version.TryParse(candidate, out var c) && System.Version.TryParse(current, out var v) && c > v;
 
+    /// <summary>Whether to offer a release: one the user skipped only when they asked (Check for updates).</summary>
+    public static bool IsWanted(AppRelease release, string? skipped, bool asked) => asked || release.Version != skipped;
+
     /// <summary>The latest release when it's newer than this version; null when this is the latest.</summary>
     public async Task<AppRelease?> CheckAsync(string currentVersion, CancellationToken ct)
     {

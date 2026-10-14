@@ -308,6 +308,8 @@ public static partial class Loc
         ["update.available"] = "A new version is out: Queueify {0}.",
         ["update.retry"] = "Try again",
         ["update.cancel"] = "Cancel",
+        ["update.skip"] = "Skip this version",
+        ["update.start_failed"] = "Queueify {0} is in place but didn't start. Try again to download it again, or get it from the release page.",
         ["update.restarting"] = "Starting Queueify {0}…",
         ["update.install"] = "Update and restart",
         ["update.whats_new"] = "What's new",
