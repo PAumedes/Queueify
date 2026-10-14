@@ -32,6 +32,7 @@ public static class QueueifyUi
         services.AddScoped<AlbumSearch>();
         services.AddScoped<IUserContext, AuthUserContext>();
         services.AddScoped<UserQueue>();
+        services.AddScoped<RegistrationGate>();
         services.AddScoped<Toasts>();
         services.AddScoped<LanguageState>();
         services.AddScoped<CircuitHandler, LocCircuitHandler>();

@@ -438,3 +438,6 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 }
 
 .q-star.on svg { fill: currentColor; }
+.q-field > label { order: -1; }
+.q-col { min-width: 0; }
+.q-check-row input { flex: none; }

@@ -19,14 +19,14 @@
         <h4>Enter a name for your passkey</h4>
     }
     <hr />
-    <ValidationSummary class="text-danger" role="alert" />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="My passkey" />
-        <label for="Input.Name" class="form-label">Passkey name</label>
-        <ValidationMessage For="() => Input.Name" class="text-danger" />
+    <ValidationSummary class="q-field-error" role="alert" />
+    <div class="q-field">
+        <InputText @bind-Value="Input.Name" id="Input.Name" class="q-input" aria-required="true" placeholder="My passkey" />
+        <label for="Input.Name">Passkey name</label>
+        <ValidationMessage For="() => Input.Name" class="q-field-error" />
     </div>
     <div>
-        <button type="submit" class="w-100 btn btn-lg btn-primary">Continue</button>
+        <button type="submit" class="q-btn primary wide">Continue</button>
     </div>
 </EditForm>
 

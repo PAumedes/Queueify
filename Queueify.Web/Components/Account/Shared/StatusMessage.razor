@@ -1,8 +1,9 @@
-﻿@if (!string.IsNullOrEmpty(DisplayMessage))
+@if (!string.IsNullOrEmpty(DisplayMessage))
 {
-    var statusMessageClass = DisplayMessage.StartsWith("Error") ? "danger" : "success";
-    <div class="alert alert-@statusMessageClass" role="alert">
-        @DisplayMessage
+    var bad = DisplayMessage.StartsWith("Error");
+    <div class="q-alert @(bad ? "bad" : "ok")" role="alert">
+        <Ico Name="@(bad ? "warn" : "check")" />
+        <p>@DisplayMessage</p>
     </div>
 }
 

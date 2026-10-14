@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 
 <a class="q-skip" href="@(Nav.Uri)#main">@Loc.T("web.nav.skip")</a>
 
@@ -19,7 +19,7 @@
                     <img src="icons/icon-192.png" alt="" width="44" height="44" />
                     <h2>Queueify</h2>
                 </div>
-                @Body
+                <div class="q-card stack">@Body</div>
             </main>
         </div>
     </NotAuthorized>
@@ -28,9 +28,10 @@
 <div id="blazor-error-ui" data-nosnippet>
     @Loc.T("web.error.unhandled")
     <a href="." class="reload">@Loc.T("web.error.reload")</a>
-    <span class="dismiss" role="button" aria-label="@Loc.T("web.toast.dismiss")">🗙</span>
+    <span class="dismiss" role="button" aria-label="@Loc.T("web.toast.dismiss")">x</span>
 </div>
 
 @code {
     [Inject] private NavigationManager Nav { get; set; } = default!;
 }
+

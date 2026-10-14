@@ -152,7 +152,14 @@ else
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private string SortLabel(string key) => Loc.T("sort." + (key == "source" ? "magazine" : key));
+    private static string SortLabel(string key) => key switch
+    {
+        "newest" => Loc.T("sort.newest"),
+        "artist" => Loc.T("sort.artist"),
+        "year" => Loc.T("sort.year"),
+        "source" => Loc.T("sort.magazine"),
+        _ => Loc.T("sort.oldest"),
+    };
 
     private string Subtitle(BacklogItem item) => item.Subtitle;
 
