@@ -22,15 +22,20 @@ tools\firestore-emulator.ps1 -Background          # Java 21+; downloads the jar 
 $env:QUEUEIFY_FIRESTORE_EMULATOR = '127.0.0.1:8080'
 dotnet test --project Queueify.Tests               # now with the sync tests
 
-tools\package.ps1                                  # dist\Queueify\Queueify.exe
+tools\package.ps1                                  # dist\Queueify\Queueify.exe (the download, ~5 min)
 powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe dist\Queueify\Queueify.exe
 powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.SyncUiTests.ps1 -Exe dist\Queueify\Queueify.exe
 ```
 
-The UI tests move the `Data` folder next to the exe aside and restore it afterwards, even when they fail;
-the backup folder is only deleted once every file is back. They pin the app to English so they work on
-any Windows language, and close only the copy of Queueify they started. Leave the mouse and keyboard
-alone while they run.
+The UI tests run the download itself, in portable mode: they move the `Data` folder next to the exe aside
+and restore it afterwards, even when they fail; the backup folder is only deleted once every file is back.
+They point `LOCALAPPDATA` at a scratch folder, so the app the starter unpacks never lands in the real one,
+and follow the app's own process from there. They pin the app to English so they work on any Windows
+language, and close only the copy of Queueify they started. The photo check puts the test photo on the
+clipboard. Leave the mouse and keyboard alone while they run.
+
+`tools\package.ps1` checks what the UI tests can't: the download starts under another name from an empty
+folder, keeps its data in local app data (default mode), and a taskbar pin would start the downloaded exe.
 
 ## TDD cycle
 

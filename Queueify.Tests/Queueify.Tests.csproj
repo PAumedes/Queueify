@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Queueify.Core\Queueify.Core.csproj" />
+    <ProjectReference Include="..\Queueify.Launcher\Queueify.Launcher.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -16,7 +16,7 @@ syncing through the user's own Firestore. English and Rioplatense Spanish. GPL-3
 $env:DOTNET_ROOT = "$env:LOCALAPPDATA\Microsoft\dotnet"   # if the SDK isn't on PATH
 dotnet test --project Queueify.Tests                      # unit tests, the TDD loop
 tools\firestore-emulator.ps1 -Background; $env:QUEUEIFY_FIRESTORE_EMULATOR = '127.0.0.1:8080'
-tools\package.ps1                                         # dist\Queueify\Queueify.exe + versioned copy
+tools\package.ps1                                         # dist\Queueify\Queueify.exe + versioned copy (AOT, ~5 min)
 powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe dist\Queueify\Queueify.exe
 tools\release.ps1 -Preview                                # next changelog
 ```
@@ -38,5 +38,7 @@ tools\release.ps1 -Preview                                # next changelog
 
 - The dev PC runs Windows 11 IoT Enterprise LTSC (no winget, no Microsoft Store). Git and the GitHub CLI
   are portable installs in `%LOCALAPPDATA%\Programs`.
+- Native AOT needs the C++ build tools (installed: VS 2022 Build Tools, VCTools workload); package.ps1
+  puts vswhere on PATH for it.
 - Windows PowerShell 5.1 reads `.ps1` files as ANSI unless they have a UTF-8 BOM: save scripts with
   non-ASCII text with a BOM.

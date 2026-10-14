@@ -48,6 +48,12 @@ Check ($updated.IndexOf('## [1.2.0]') -lt $updated.IndexOf('## [1.1.0]') -and $u
 Check (-not $updated.Contains("`n`n`n")) 'one blank line between sections'
 $csproj = "<Project>`n  <PropertyGroup>`n    <Version>1.0.0</Version>`n  </PropertyGroup>`n</Project>"
 Check ((Set-ProjectVersion -Project $csproj -Version '1.1.0') -match '<Version>1\.1\.0</Version>') 'the project version is replaced'
+# Every project that carries the app's version gets the new one (the exe's version comes from these).
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$versioned = Get-ChildItem $repo -Recurse -Filter *.csproj | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' -and (Get-Content -Raw $_.FullName) -match '<Version>' } |
+    ForEach-Object { $_.FullName.Substring($repo.Length + 1) }
+$missing = $versioned | Where-Object { $_ -notin $Projects }
+Check (@($missing).Count -eq 0) "the release bumps every versioned project (missing: $($missing -join ', '))"
 
 # ── Pre-releases ──
 Check ((Get-NextVersion '1.2.0-rc.1' @('fix: a')) -eq '1.2.0') 'after a pre-release, the next version is the final one'

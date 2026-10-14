@@ -11,10 +11,9 @@
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
-    <!-- Builds resources.pri with the compiled XAML in it, which unpackaged publish needs (and single-file requires). -->
+    <!-- Builds resources.pri with the compiled XAML in it, which unpackaged publish needs. -->
     <EnableMsixTooling>true</EnableMsixTooling>
-    <!-- Not Queueify.pri: WinUI looks for <exe name>.pri or resources.pri, and the download is called
-         Queueify-X.Y.Z-win-x64.exe (or "Queueify (1).exe" when downloaded twice). -->
+    <!-- Not Queueify.pri: WinUI looks for <exe name>.pri or resources.pri, whatever the exe is called. -->
     <ProjectPriFileName>resources.pri</ProjectPriFileName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -23,13 +22,20 @@
     <Version>1.2.0</Version>
   </PropertyGroup>
 
-  <!-- The download: one Queueify.exe, trimmed to the code the app uses. See ADR-0007. -->
+  <!-- Compiled ahead of time to native code, so no .NET runtime ships with it; tools\package.ps1 then
+       packs the published folder into the single download exe (Queueify.Launcher). See ADR-0008. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <PublishTrimmed>true</PublishTrimmed>
-    <PublishSingleFile>true</PublishSingleFile>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <!-- Inside the dlls, so crash.log stack traces keep file and line. -->
-    <DebugType>embedded</DebugType>
+    <PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <!-- The symbols would be a separate 50 MB file; crash.log still names the methods. -->
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- The WinRT interop code WinUI needs is generated at build time (required for AOT); for lists it
+         needs unsafe code, and without it the generator silently skips them. -->
+    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

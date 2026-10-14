@@ -41,9 +41,12 @@ For **1.2.0**, the first release as a single exe, put this at the top of the pub
 
 ## Self-check of the download
 
-`tools\package.ps1` already fails when the build is more than `Queueify.exe` or over its size budget
-([ADR-0007](adr/0007-single-trimmed-exe.md)). By hand:
+`tools\package.ps1` already fails when the download is over its size budget, doesn't start, keeps its data in
+the wrong place or would break a taskbar pin ([ADR-0008](adr/0008-native-aot-and-a-starter-exe.md)). By hand:
 
 - Run it from an empty folder: it starts and keeps its data in `%LOCALAPPDATA%\Queueify`, not next to itself (`package.ps1` checks this too).
 - Runs on a PC without the .NET or Windows App SDK runtimes installed (it's self-contained).
-- Album covers show in the queue and in search results (they're the part trimming could break).
+- Album covers show in the queue and in search results, and the settings lists show names (the parts
+  compiling ahead of time could break).
+- Start the previous version's exe, then the new one: the old unpacked copy in `%LOCALAPPDATA%\Queueify\app`
+  goes away once the old one is closed.

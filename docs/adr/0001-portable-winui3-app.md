@@ -1,6 +1,6 @@
 # ADR-0001: A portable, unpackaged WinUI 3 app
 
-- Status: Accepted (packaging and where the data lives: see ADR-0007)
+- Status: Accepted (packaging: see ADR-0008; where the data lives: ADR-0007)
 - Date: 2026-10-11
 
 ## Context

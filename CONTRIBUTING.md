@@ -7,6 +7,8 @@ Thanks for helping. Queueify aims for a small, correct and boring codebase. Read
 
 - Windows 10 2004+ or Windows 11, x64
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (`global.json` pins the feature band)
+- For `tools\package.ps1`: Visual Studio's C++ build tools (the *Desktop development with C++* workload, or
+  Build Tools with `Microsoft.VisualStudio.Workload.VCTools`): the app is compiled ahead of time to native code
 - Git, with the repository's hooks: `git config core.hooksPath .githooks`
 - Optional, for the sync tests: Java 21+ (the Firestore emulator jar is downloaded on first use)
 
@@ -16,7 +18,7 @@ Thanks for helping. Queueify aims for a small, correct and boring codebase. Read
 | --- | --- |
 | `dotnet test --project Queueify.Tests` | Unit tests (the TDD loop) |
 | `tools\firestore-emulator.ps1 -Background` then `$env:QUEUEIFY_FIRESTORE_EMULATOR = '127.0.0.1:8080'` | Runs the sync tests too instead of skipping them |
-| `tools\package.ps1` | Builds the portable app: one trimmed `dist\Queueify\Queueify.exe`, plus a versioned copy for the release |
+| `tools\package.ps1` | Builds the portable app (about 5 minutes): one `dist\Queueify\Queueify.exe`, the starter with the app appended, plus a versioned copy for the release |
 | `tests\ui\Queueify.UiTests.ps1 -Exe dist\Queueify\Queueify.exe` | UI tests through Windows UI Automation |
 | `tests\ui\Queueify.SyncUiTests.ps1 -Exe dist\Queueify\Queueify.exe` | Sync UI test (needs the emulator) |
 | `tests\tools\Release.Tests.ps1` | Tests for the release tool |
@@ -24,7 +26,7 @@ Thanks for helping. Queueify aims for a small, correct and boring codebase. Read
 
 Run the PowerShell scripts with `powershell -ExecutionPolicy Bypass -File <script>` if your execution
 policy blocks them. The UI tests move the `Data` folder next to the exe aside and put it back afterwards,
-so they never touch your real queue. Details: [docs/TESTING.md](docs/TESTING.md).
+and give the app a scratch `%LOCALAPPDATA%`, so they never touch your real queue. Details: [docs/TESTING.md](docs/TESTING.md).
 
 ## Workflow
 

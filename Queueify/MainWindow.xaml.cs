@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -55,6 +56,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Queueify.ico"));
+        if (AppData.StarterExe is { } starter)
+            TaskbarIdentity.PinTo(WinRT.Interop.WindowNative.GetWindowHandle(this), starter);
 
         _ui = UiState.Load();
         RestoreWindow();
@@ -363,7 +366,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowResults(List<AlbumResult> results)
     {
-        ResultsList.ItemsSource = results;
+        ResultsList.ItemsSource = Items(results);
         bool any = results.Count > 0;
         ResultsList.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         SearchTips.Visibility = any || SearchBox.Text.Trim().Length > 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -462,6 +465,13 @@ public sealed partial class MainWindow : Window
 
     // ───────────────────────── Queue ─────────────────────────
 
+    /// <summary>
+    /// Lists for ItemsSource as List&lt;object&gt; built here: compiled ahead of time, WinUI can only read a list
+    /// whose WinRT interop code was generated at build time, and that happens for lists made in this project,
+    /// not for those Queueify.Core returns. The {x:Bind} templates cast each item back.
+    /// </summary>
+    private static List<object> Items<T>(IEnumerable<T> items) where T : notnull => [.. items.Cast<object>()];
+
     private void RefreshQueue()
     {
         // Selection/text events can fire while InitializeComponent is still building the UI.
@@ -484,8 +494,8 @@ public sealed partial class MainWindow : Window
         };
         var list = items.ToList();
 
-        QueueList.ItemsSource = _ui.CoverView ? null : list;
-        QueueGrid.ItemsSource = _ui.CoverView ? list : null;
+        QueueList.ItemsSource = _ui.CoverView ? null : Items(list);
+        QueueGrid.ItemsSource = _ui.CoverView ? Items(list) : null;
         QueueList.Visibility = _ui.CoverView ? Visibility.Collapsed : Visibility.Visible;
         QueueGrid.Visibility = _ui.CoverView ? Visibility.Visible : Visibility.Collapsed;
 
@@ -876,24 +886,22 @@ public sealed partial class MainWindow : Window
         LineCanvas.Children.Clear();
         var accent = (Color)Application.Current.Resources["SystemAccentColor"];
         var idle = new SolidColorBrush(Color.FromArgb(36, accent.R, accent.G, accent.B));
-        var hover = new SolidColorBrush(Color.FromArgb(110, accent.R, accent.G, accent.B));
         var stroke = new SolidColorBrush(accent);
+        var style = (Style)Root.Resources["PhotoLineButton"];
         foreach (var line in page.Lines)
         {
-            var box = new Border
+            var box = new Button
             {
+                Style = style,
                 Width = line.Bounds.Width + 8,
                 Height = line.Bounds.Height + 6,
                 Background = idle,
                 BorderBrush = stroke,
-                BorderThickness = new Thickness(1.5),
-                CornerRadius = new CornerRadius(3),
                 Tag = line.Text,
             };
+            AutomationProperties.SetName(box, line.Text);
             ToolTipService.SetToolTip(box, line.Text);
-            box.PointerEntered += (_, _) => box.Background = hover;
-            box.PointerExited += (_, _) => box.Background = idle;
-            box.Tapped += OnLineTapped;
+            box.Click += OnLineClicked;
             Canvas.SetLeft(box, line.Bounds.X - 4);
             Canvas.SetTop(box, line.Bounds.Y - 3);
             LineCanvas.Children.Add(box);
@@ -923,9 +931,9 @@ public sealed partial class MainWindow : Window
     /// A click on a line of the photo puts it in the search box: the first click after an album
     /// was added starts a new search, later clicks are appended (artist, then album).
     /// </summary>
-    private void OnLineTapped(object sender, TappedRoutedEventArgs e)
+    private void OnLineClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Border { Tag: string raw } box) return;
+        if (sender is not Button { Tag: string raw } box) return;
         var (text, year) = OcrService.CleanLine(raw);
         box.Opacity = 0.45;
 
@@ -1079,7 +1087,8 @@ public sealed partial class MainWindow : Window
         SaveWindow();
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false });
+            // Through the download's starter when there is one, so the new copy knows it too.
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppData.StarterExe ?? Environment.ProcessPath!) { UseShellExecute = false });
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
@@ -1443,10 +1452,10 @@ public sealed partial class MainWindow : Window
 
     private void FillHelp()
     {
-        ShortcutList.ItemsSource = Shortcuts.All;
+        ShortcutList.ItemsSource = Items(Shortcuts.All);
         AboutVersion.Text = Loc.F("about.version", AppInfo.Version);
         AboutTagline.Text = AppInfo.Tagline;
-        AboutCredits.ItemsSource = AppInfo.Credits;
+        AboutCredits.ItemsSource = Items(AppInfo.Credits);
         AboutDataPath.Text = AppData.Folder;
     }
 
@@ -1589,7 +1598,7 @@ public sealed partial class MainWindow : Window
 
             PreferredBox.SelectedItem = shown.PreferredService;
             var countries = Countries.Options(shown.CountryCode, CultureInfo.CurrentCulture);
-            CountryBox.ItemsSource = countries;
+            CountryBox.ItemsSource = Items(countries);
             CountryBox.SelectedItem = countries.FirstOrDefault(c => c.Code == shown.CountryCode);
             ThemeBox.SelectedItem = ThemeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Theme)
                                     ?? ThemeBox.Items[0];
@@ -1785,7 +1794,7 @@ public sealed partial class MainWindow : Window
             var installed = OcrService.InstalledTags;
             var choices = new List<OcrLanguageOption> { new("auto", Loc.T("ocr.auto")) };
             choices.AddRange(installed.Select(t => new OcrLanguageOption(t, OcrLanguages.NameOf(t))));
-            OcrLanguageBox.ItemsSource = choices;
+            OcrLanguageBox.ItemsSource = Items(choices);
             OcrLanguageBox.SelectedItem = choices.FirstOrDefault(c => c.Tag.Equals(_ui.OcrLanguage, StringComparison.OrdinalIgnoreCase))
                                           ?? choices[0];
 
@@ -1799,7 +1808,7 @@ public sealed partial class MainWindow : Window
             // The button and progress follow the install actually running, wherever it was started.
             var installable = OcrLanguages.Installable(installed, pending);
             bool installing = OcrService.InstallingTag != null;
-            OcrInstallBox.ItemsSource = installable;
+            OcrInstallBox.ItemsSource = Items(installable);
             OcrInstallBox.SelectedIndex = installable.Count > 0 ? 0 : -1;
             OcrInstallBox.IsEnabled = OcrInstallButton.IsEnabled = installable.Count > 0 && !installing;
             OcrInstallProgress.Visibility = installing ? Visibility.Visible : Visibility.Collapsed;

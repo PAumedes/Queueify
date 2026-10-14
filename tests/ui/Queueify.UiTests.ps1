@@ -20,9 +20,25 @@ function Check([bool]$ok, [string]$what) {
     '{0}  {1}' -f $(if ($ok) { 'PASS' } else { 'FAIL' }), $what
 }
 
+# The download is a starter that unpacks the app into %LOCALAPPDATA%\Queueify\app and runs it from there.
+# The tests point LOCALAPPDATA at a scratch folder, so that copy never lands in the real one, and follow
+# the app's own process: the exe under test itself, or the copy it unpacked.
+$realLocalAppData = $env:LOCALAPPDATA
+$env:LOCALAPPDATA = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-local-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
+$appCache = Join-Path $env:LOCALAPPDATA 'Queueify\app'
+function Get-AppProcess {
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ($_.Path -eq $Exe -or $_.Path.StartsWith("$appCache\", [StringComparison]::OrdinalIgnoreCase)) }
+}
+
 function Start-App {
-    $p = Start-Process $Exe -PassThru
-    for ($i = 0; $i -lt 60 -and $p.MainWindowHandle -eq 0; $i++) { Start-Sleep -Milliseconds 500; $p.Refresh() }
+    $before = @(Get-AppProcess | ForEach-Object Id)
+    Start-Process $Exe | Out-Null
+    $p = $null
+    for ($i = 0; $i -lt 60 -and -not $p; $i++) {
+        Start-Sleep -Milliseconds 500
+        $p = Get-AppProcess | Where-Object { $_.Id -notin $before -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+    }
     Start-Sleep 3
     $script:proc = $p
     $script:root = $A::FromHandle($p.MainWindowHandle)
@@ -35,8 +51,7 @@ function Stop-App {
 
 # Only the copy under test is stopped; a Queueify running from another folder is left alone.
 function Stop-TestApp {
-    Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
-        ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
+    Get-AppProcess | ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
 }
 
 function All { $script:root.FindAll($Tree::Descendants, $Cond::TrueCondition) }
@@ -152,9 +167,14 @@ Start-Sleep 2
 $addLink = Find 'Add *without a link' 'Hyperlink'
 Check ($null -ne $addLink) 'offers to add without a link when no service is connected'
 $magazineBox = Find 'Magazine (optional)' 'Edit'
-Check ($null -ne $addLink -and $null -ne $magazineBox -and
-       $addLink.Current.BoundingRectangle.Bottom -le $magazineBox.Current.BoundingRectangle.Top) `
-    'what the search found shows right under it, above the magazine field'
+# Measured again for up to 3 s: right after the search the panel may still be laying out.
+$below = $false
+for ($i = 0; $i -lt 10 -and -not $below -and $addLink -and $magazineBox; $i++) {
+    $below = $addLink.Current.BoundingRectangle.Bottom -le $magazineBox.Current.BoundingRectangle.Top
+    if (-not $below) { Start-Sleep -Milliseconds 300 }
+}
+Check $below `
+    "what the search found shows right under it, above the magazine field (link bottom $($addLink.Current.BoundingRectangle.Bottom), magazine top $($magazineBox.Current.BoundingRectangle.Top))"
 Invoke $addLink
 Check ((Find 'To listen*' 'ListItem').Current.Name -like '*1*') "badge counts 1 album: $((Find 'To listen*' 'ListItem').Current.Name)"
 Check ($null -ne (Find 'Clics Modernos' 'Text')) 'album shows in the queue'
@@ -185,6 +205,26 @@ Check ($null -ne $rail -and $rail.Current.BoundingRectangle.Right -lt (FindId 'P
 Select-Item (Find 'Magazine photo*' 'ListItem')
 Check ((FindId 'PageTitle').Current.Name -eq 'Magazine photo') 'photo page title'
 Check ($null -ne (Find 'Open photo*' 'Button')) 'photo page offers Open photo'
+
+# Reading a photo goes through Windows' clipboard, imaging and OCR, all calls compiled ahead of time in the
+# download. The page's lines are buttons, so they work by keyboard and screen reader too.
+# (Replaces the clipboard's content with the test photo.)
+Add-Type -AssemblyName System.Drawing
+$photo = [System.Drawing.Image]::FromFile((Resolve-Path "$PSScriptRoot\..\..\Queueify.Tests\TestData\magazine-page.png").Path)
+[System.Windows.Forms.Clipboard]::SetImage($photo); $photo.Dispose()
+# Reading a photo opens the Add albums panel; put it back as it was for the checks after this one.
+$paneWasHidden = $null -ne (Find 'Show the Add albums panel*' 'Button')
+Invoke (Find 'Paste*' 'Button')
+$line = $null
+for ($i = 0; $i -lt 20 -and -not $line; $i++) { Start-Sleep -Milliseconds 500; $line = Find 'Clics modernos (Interdisc, 1983)' 'Button' }
+Check ($null -ne $line) 'a pasted magazine photo is read: its lines are buttons'
+if ($line) {
+    Invoke $line
+    Check ((Find 'Find an album' 'Edit').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -eq 'Clics modernos 1983') `
+        'choosing a line puts it in the search, tidied'
+    SetText (Find 'Find an album' 'Edit') ''
+}
+if ($paneWasHidden -and $null -eq (Find 'Show the Add albums panel*' 'Button')) { Keys '^b' }
 
 # ── Help (F1) ──
 Keys '{F1}'
@@ -288,7 +328,7 @@ Check ($null -ne $restart) 'choosing a language offers a restart'
 $oldId = $script:proc.Id
 Invoke $restart
 for ($i = 0; $i -lt 40; $i++) {
-    $next = Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe -and $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
+    $next = Get-AppProcess | Where-Object { $_.Id -ne $oldId -and $_.MainWindowHandle -ne 0 }
     if ($next) { break }
     Start-Sleep -Milliseconds 500
 }
@@ -315,6 +355,9 @@ catch {
 finally {
     Stop-TestApp
     Restore-Data
+    Start-Sleep 1
+    Remove-Item $env:LOCALAPPDATA -Recurse -Force -ErrorAction SilentlyContinue
+    $env:LOCALAPPDATA = $realLocalAppData
 }
 
 "`n$script:failures failure(s)"

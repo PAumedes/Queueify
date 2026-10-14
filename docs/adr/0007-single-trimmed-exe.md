@@ -1,6 +1,6 @@
 # ADR-0007: One trimmed exe as the download
 
-- Status: Accepted
+- Status: Packaging superseded by [ADR-0008](0008-native-aot-and-a-starter-exe.md); where the data lives still stands
 - Date: 2026-10-13
 
 ## Context
