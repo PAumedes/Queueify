@@ -21,7 +21,7 @@ you've heard it, rate it, move on.
 
 ## Download
 
-1. Download `Queueify-<version>-win-x64.exe` (about 21 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
+1. Download `Queueify-<version>-win-x64.exe` (about 18 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
 2. Put it in a folder of its own (say `Documents\Queueify`) and run it from there.
 
 Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may

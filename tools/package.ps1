@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Builds the portable app: dist\Queueify\Queueify.exe, one file (the starter with the app appended,
     ADR-0008), and a copy named dist\Queueify-<version>-win-x64.exe for the release. Used by CI and the
@@ -8,8 +8,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 # Fails the build when the download grows past this. 1.1.0 was a 93 MB zip; 1.2.0 a 35 MB exe (ADR-0007);
-# compiled ahead of time and packed with Brotli it is about 21 MB (ADR-0008).
-$maxMB = 24
+# compiled ahead of time and packed with LZMA it is about 17.6 MB (ADR-0008).
+$maxMB = 20
 
 # Native AOT links with the C++ build tools and finds them through vswhere, which isn't on PATH by default.
 $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer'
