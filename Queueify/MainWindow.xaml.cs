@@ -56,6 +56,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Queueify.ico"));
+        if (AppData.StartedExe(Environment.GetEnvironmentVariable("QUEUEIFY_EXE"), null) is { } starter)
+            TaskbarIdentity.PinTo(WinRT.Interop.WindowNative.GetWindowHandle(this), starter);
 
         _ui = UiState.Load();
         RestoreWindow();
@@ -364,7 +366,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowResults(List<AlbumResult> results)
     {
-        ResultsList.ItemsSource = results;
+        ResultsList.ItemsSource = Items(results);
         bool any = results.Count > 0;
         ResultsList.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
         SearchTips.Visibility = any || SearchBox.Text.Trim().Length > 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -463,6 +465,13 @@ public sealed partial class MainWindow : Window
 
     // ───────────────────────── Queue ─────────────────────────
 
+    /// <summary>
+    /// Lists for ItemsSource as List&lt;object&gt; built here: compiled ahead of time, WinUI can only read a list
+    /// whose WinRT interop code was generated at build time, and that happens for lists made in this project,
+    /// not for those Queueify.Core returns. The {x:Bind} templates cast each item back.
+    /// </summary>
+    private static List<object> Items<T>(IEnumerable<T> items) where T : notnull => [.. items.Cast<object>()];
+
     private void RefreshQueue()
     {
         // Selection/text events can fire while InitializeComponent is still building the UI.
@@ -485,8 +494,8 @@ public sealed partial class MainWindow : Window
         };
         var list = items.ToList();
 
-        QueueList.ItemsSource = _ui.CoverView ? null : list;
-        QueueGrid.ItemsSource = _ui.CoverView ? list : null;
+        QueueList.ItemsSource = _ui.CoverView ? null : Items(list);
+        QueueGrid.ItemsSource = _ui.CoverView ? Items(list) : null;
         QueueList.Visibility = _ui.CoverView ? Visibility.Collapsed : Visibility.Visible;
         QueueGrid.Visibility = _ui.CoverView ? Visibility.Visible : Visibility.Collapsed;
 
@@ -1442,10 +1451,10 @@ public sealed partial class MainWindow : Window
 
     private void FillHelp()
     {
-        ShortcutList.ItemsSource = Shortcuts.All;
+        ShortcutList.ItemsSource = Items(Shortcuts.All);
         AboutVersion.Text = Loc.F("about.version", AppInfo.Version);
         AboutTagline.Text = AppInfo.Tagline;
-        AboutCredits.ItemsSource = AppInfo.Credits;
+        AboutCredits.ItemsSource = Items(AppInfo.Credits);
         AboutDataPath.Text = AppData.Folder;
     }
 
@@ -1588,7 +1597,7 @@ public sealed partial class MainWindow : Window
 
             PreferredBox.SelectedItem = shown.PreferredService;
             var countries = Countries.Options(shown.CountryCode, CultureInfo.CurrentCulture);
-            CountryBox.ItemsSource = countries;
+            CountryBox.ItemsSource = Items(countries);
             CountryBox.SelectedItem = countries.FirstOrDefault(c => c.Code == shown.CountryCode);
             ThemeBox.SelectedItem = ThemeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Theme)
                                     ?? ThemeBox.Items[0];
@@ -1784,7 +1793,7 @@ public sealed partial class MainWindow : Window
             var installed = OcrService.InstalledTags;
             var choices = new List<OcrLanguageOption> { new("auto", Loc.T("ocr.auto")) };
             choices.AddRange(installed.Select(t => new OcrLanguageOption(t, OcrLanguages.NameOf(t))));
-            OcrLanguageBox.ItemsSource = choices;
+            OcrLanguageBox.ItemsSource = Items(choices);
             OcrLanguageBox.SelectedItem = choices.FirstOrDefault(c => c.Tag.Equals(_ui.OcrLanguage, StringComparison.OrdinalIgnoreCase))
                                           ?? choices[0];
 
@@ -1798,7 +1807,7 @@ public sealed partial class MainWindow : Window
             // The button and progress follow the install actually running, wherever it was started.
             var installable = OcrLanguages.Installable(installed, pending);
             bool installing = OcrService.InstallingTag != null;
-            OcrInstallBox.ItemsSource = installable;
+            OcrInstallBox.ItemsSource = Items(installable);
             OcrInstallBox.SelectedIndex = installable.Count > 0 ? 0 : -1;
             OcrInstallBox.IsEnabled = OcrInstallButton.IsEnabled = installable.Count > 0 && !installing;
             OcrInstallProgress.Visibility = installing ? Visibility.Visible : Visibility.Collapsed;

@@ -59,6 +59,27 @@ public sealed class AppDataTests : IDisposable
     }
 
     [Theory]
+    // The download unpacks the app and runs it from its cache; the starter says which exe the user opened.
+    [InlineData(@"E:\Queueify\Queueify.exe", @"C:\Users\ana\AppData\Local\Queueify\app\1a2b\Queueify.exe", @"E:\Queueify\Queueify.exe")]
+    [InlineData(null, @"E:\Queueify\Queueify.exe", @"E:\Queueify\Queueify.exe")]
+    [InlineData("", @"E:\Queueify\Queueify.exe", @"E:\Queueify\Queueify.exe")]
+    [InlineData("Queueify.exe", @"E:\Queueify\Queueify.exe", @"E:\Queueify\Queueify.exe")]
+    public void The_exe_the_user_started_is_the_starter_when_there_is_one(string? starter, string processPath, string expected)
+    {
+        Assert.Equal(expected, AppData.StartedExe(starter, processPath));
+    }
+
+    [Theory]
+    // A taskbar pin made while the app runs from its unpacked copy must start the download's exe instead:
+    // the copy goes away with the next version.
+    [InlineData(@"E:\Queueify\Queueify.exe", "\"E:\\Queueify\\Queueify.exe\"")]
+    [InlineData(@"C:\Users\Ana María\Apps\Queueify (1).exe", "\"C:\\Users\\Ana María\\Apps\\Queueify (1).exe\"")]
+    public void A_pinned_Queueify_starts_the_exe_the_user_opened(string started, string expected)
+    {
+        Assert.Equal(expected, AppData.RelaunchCommand(started));
+    }
+
+    [Theory]
     [InlineData(@"D:\Scratch\local", @"D:\Scratch\local")]
     [InlineData(null, Local)]
     [InlineData("", Local)]

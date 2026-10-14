@@ -10,7 +10,7 @@ namespace Queueify.Services;
 public static class AppData
 {
     public static string Folder { get; } = FolderFor(
-        Environment.ProcessPath,
+        StartedExe(Environment.GetEnvironmentVariable("QUEUEIFY_EXE"), Environment.ProcessPath),
         LocalAppDataRoot(Environment.GetEnvironmentVariable("LOCALAPPDATA"), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)),
         EntriesOf);
 
@@ -25,6 +25,16 @@ public static class AppData
             return null;   // unreadable: not a portable copy we can use
         }
     }
+
+    /// <summary>
+    /// The exe the user opened: the download's starter (QUEUEIFY_EXE, set when it runs the app from its
+    /// unpacked copy) when there is one, so a Data folder next to it still makes the app portable.
+    /// </summary>
+    public static string? StartedExe(string? starter, string? processPath) =>
+        starter is { Length: > 0 } s && s.IndexOfAny(NeverInAPath) < 0 && Path.IsPathFullyQualified(s) ? s : processPath;
+
+    /// <summary>What a taskbar pin runs: the exe the user opened, quoted (its path may have spaces).</summary>
+    public static string RelaunchCommand(string startedExe) => $"\"{startedExe}\"";
 
     /// <summary>
     /// The LOCALAPPDATA variable when it's a full path (package.ps1's smoke test points it at a scratch

@@ -21,22 +21,25 @@ you've heard it, rate it, move on.
 
 ## Download
 
-1. Download `Queueify-<version>-win-x64.exe` (about 35 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
-2. Put it in a folder of its own (say `Documents\Queueify`) and run it from there, not from Downloads: a
-   .NET single-file app loads some files from its own folder, so keep it where others can't drop files.
+1. Download `Queueify-<version>-win-x64.exe` (about 21 MB) from the [latest release](https://github.com/PAumedes/Queueify/releases/latest).
+2. Put it in a folder of its own (say `Documents\Queueify`) and run it from there.
 
 Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
 warn the first time because the app isn't signed: *More info → Run anyway*. The first start of each
-version takes a few seconds longer: the app unpacks itself into `%TEMP%\.net` (about 70 MB, which you
-can delete when Queueify isn't running).
+version takes a moment longer: the exe unpacks the app into `%LOCALAPPDATA%\Queueify\app` (about 70 MB)
+and runs it from there. The copy of the previous version is removed by itself.
 
 Your queue, keys and layout live in `%LOCALAPPDATA%\Queueify` (Help → *Open data folder*). To move to a new
-version, replace the exe.
+version, replace the exe. Pinned to the taskbar, Queueify starts the exe you downloaded, so the pin keeps
+working after updates.
 
 **Portable mode**: if there's a `Data` folder next to the exe that is empty or has Queueify's files in it,
 Queueify keeps everything there instead, so a copy on a USB stick carries its queue along. To switch an
 existing queue to portable mode, close Queueify and move the files from `%LOCALAPPDATA%\Queueify` into
 that `Data` folder. (A `Data` folder with other files in it, like your own, is left alone.)
+
+**Coming from 1.2.0?** Replace the exe. 1.2.0 left an unpacked copy in `%TEMP%\.net\Queueify` that you can
+delete.
 
 **Coming from 1.1.0 (a zip with many files)?** Don't put the new exe in the old folder: it won't start
 there. Either make a new folder with the new exe and your old `Data` folder next to it (portable), or move

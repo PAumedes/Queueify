@@ -37,10 +37,17 @@ $hadData = Test-Path $data
 $files = 'queueify.db', 'settings.json', 'ui.json', 'crash.log'
 $backup = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-backup-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $backup | Out-Null
-# Only the copy under test is stopped; a Queueify running from another folder is left alone.
+# As in Queueify.UiTests.ps1: a scratch LOCALAPPDATA for the copy the starter unpacks, and the app's own
+# process followed (the exe under test, or that unpacked copy). Only these are stopped.
+$realLocalAppData = $env:LOCALAPPDATA
+$env:LOCALAPPDATA = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-local-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
+$appCache = Join-Path $env:LOCALAPPDATA 'Queueify\app'
+function Get-AppProcess {
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ($_.Path -eq $Exe -or $_.Path.StartsWith("$appCache\", [StringComparison]::OrdinalIgnoreCase)) }
+}
 function Stop-TestApp {
-    Get-Process ([IO.Path]::GetFileNameWithoutExtension($Exe)) -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $Exe } |
-        ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
+    Get-AppProcess | ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }
 }
 Stop-TestApp
 
@@ -55,8 +62,9 @@ New-Item -ItemType Directory -Force $data | Out-Null
 '{ "TourSeen": true, "Language": "en" }' | Set-Content -Encoding UTF8 (Join-Path $data 'ui.json')
 
 $env:QUEUEIFY_FIRESTORE_EMULATOR = $Emulator
-$proc = Start-Process $Exe -PassThru
-for ($i = 0; $i -lt 60 -and $proc.MainWindowHandle -eq 0; $i++) { Start-Sleep -Milliseconds 500; $proc.Refresh() }
+Start-Process $Exe | Out-Null
+$proc = $null
+for ($i = 0; $i -lt 60 -and -not $proc; $i++) { Start-Sleep -Milliseconds 500; $proc = Get-AppProcess | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }
 Start-Sleep 3
 $script:root = $A::FromHandle($proc.MainWindowHandle)
 
@@ -121,6 +129,9 @@ finally {
     }
     if ($allBack) { Remove-Item $backup -Recurse -ErrorAction SilentlyContinue }
     if (-not $hadData -and (Test-Path $data) -and -not (Get-ChildItem $data -Force)) { Remove-Item $data }
+    Start-Sleep 1
+    Remove-Item $env:LOCALAPPDATA -Recurse -Force -ErrorAction SilentlyContinue
+    $env:LOCALAPPDATA = $realLocalAppData
 }
 "`n$script:failures failure(s)"
 exit $script:failures

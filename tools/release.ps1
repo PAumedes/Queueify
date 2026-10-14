@@ -16,7 +16,7 @@ param(
     [string]$Notes
 )
 
-$Projects = 'Queueify\Queueify.csproj', 'Queueify.Core\Queueify.Core.csproj'
+$Projects = 'Queueify\Queueify.csproj', 'Queueify.Core\Queueify.Core.csproj', 'Queueify.Launcher\Queueify.Launcher.csproj'
 $Groups = [ordered]@{
     feat = 'Features'
     fix = 'Fixes'

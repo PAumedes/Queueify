@@ -1,6 +1,8 @@
 # Architecture
 
-Queueify is a portable WinUI 3 desktop app (Windows App SDK, .NET 10, unpackaged and self-contained).
+Queueify is a portable WinUI 3 desktop app (Windows App SDK, .NET 10, unpackaged and self-contained,
+compiled ahead of time to native code). The download is one exe: a small starter with the app appended,
+which it unpacks once per version into `%LOCALAPPDATA%\Queueify\app` ([ADR-0008](adr/0008-native-aot-and-a-starter-exe.md)).
 
 ```mermaid
 flowchart LR
@@ -29,10 +31,11 @@ flowchart LR
 | --- | --- |
 | `Queueify\` | The window: navigation, pages (To listen, Listened, Magazine photo, Help, Settings), dialogs, quick tour, theme, assets. `Tr.cs` is the `{l:Tr Key=…}` markup extension. |
 | `Queueify.Core\` | Everything that isn't UI. No WinUI references, so it's tested directly. |
-| `Queueify.Tests\` | xUnit v3 tests for Core, on Microsoft Testing Platform. |
+| `Queueify.Launcher\` | The download's starter: `Bundle` (append, read and unpack the app) and `Program` (unpack, start the app with `QUEUEIFY_EXE`, remove older versions). No WinUI. |
+| `Queueify.Tests\` | xUnit v3 tests for Core and the starter's `Bundle`, on Microsoft Testing Platform. |
 | `tests\ui\` | PowerShell + Windows UI Automation tests that drive the published app. |
 | `tests\tools\` | Tests for the release tool. |
-| `tools\` | `firestore.rules` (embedded into Core), release, packaging and emulator scripts, `make-icon.ps1`. |
+| `tools\` | `firestore.rules` (embedded into Core), release, packaging and emulator scripts, `make-icon.ps1`; `tools\Pack\` appends the app to the starter at build time. |
 
 ## Core services
 
