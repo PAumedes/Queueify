@@ -108,23 +108,60 @@ function Offer([string]$version, [string]$digest) {
 
 try {
 
-# ── A download that doesn't match the release is refused, and the exe stays ──
+# ── The offer never squeezes the page: a narrow window with the panel open (1.4.0's first try put the bar
+#    beside the title, which then wrapped a letter per line) ──
+'{ "Language": "en", "TourSeen": true, "PaneVisible": true, "WindowBounds": [50, 50, 1100, 700] }' | Set-Content -Encoding UTF8 (Join-Path $env:LOCALAPPDATA 'Queueify\ui.json')
 Offer '99.0.0' ('0' * 64)
 Start-App
 Check ($null -ne $script:root) 'Queueify starts from the copy'
-Check ($null -ne (Wait-Find '*Queueify 99.0.0 is available*')) 'a newer release is offered at the start'
+Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'a newer release is offered at the start'
+$title = (FindId 'PageTitle').Current.BoundingRectangle
+Check (-not $title.IsEmpty -and $title.Height -lt 60 -and $title.Width -gt 100) "the page title keeps its line beside the offer ($($title.Width) x $($title.Height))"
+Check ((Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'the offer leaves the keyboard in the search box'
+
+# ── A download that doesn't match the release is refused, the exe stays, and it can be tried again ──
 $stamp = (Get-Item $copy).LastWriteTimeUtc
 Invoke (FindId 'InstallUpdateButton')
 Check ($null -ne (Wait-Find "*doesn't match the release*")) 'a download that does not match is refused'
 Check (((Get-Item $copy).LastWriteTimeUtc -eq $stamp) -and -not (Test-Path "$copy.download") -and -not (Test-Path "$copy.old")) 'the exe is left as it was'
-Check ($null -ne (Find 'Release page')) 'the release page is offered instead'
+Check ($null -ne (Find 'Release page')) 'the release page is offered too'
+$retry = FindId 'InstallUpdateButton'
+Check ($null -ne $retry -and $retry.Current.Name -eq 'Try again' -and $retry.Current.HasKeyboardFocus) 'Try again is offered, with the keyboard on it'
+
+Stop-App
+
+# ── A download that fails can be tried again; then the new exe takes the old one's place, and Queueify
+#    restarts through it without a moment with no window ──
+Offer '99.0.0' $sha256
+$routes.Remove('/Queueify-99.0.0-win-x64.exe')
+Start-App
+Invoke (FindId 'InstallUpdateButton')
+Check ($null -ne (Wait-Find '*GitHub answered with an error (404)*')) 'a failed download says so'
+Offer '99.0.0' $sha256
+[System.IO.File]::SetLastWriteTimeUtc($copy, [datetime]'2001-01-01')
+$before = @(Get-AppProcess | ForEach-Object Id)
+Invoke (FindId 'InstallUpdateButton')
+$gap = $false
+for ($i = 0; $i -lt 300; $i++) {
+    $windows = @(Get-AppProcess | Where-Object { $_.MainWindowHandle -ne 0 })
+    if ($windows.Count -eq 0) { $gap = $true }
+    if ($windows | Where-Object { $_.Id -notin $before }) { break }
+    Start-Sleep -Milliseconds 100
+}
+Wait-App $before
+Check ($null -ne $script:root) 'Queueify restarts after updating'
+Check (-not $gap) 'a Queueify window is on screen the whole time'
+Check ((Get-FileHash $copy -Algorithm SHA256).Hash.ToLowerInvariant() -eq $sha256 -and (Get-Item $copy).LastWriteTimeUtc.Year -gt 2001) 'the downloaded exe is in place, under the same name'
+Check (-not (Test-Path "$copy.old") -and -not (Test-Path "$copy.download")) 'the old exe is removed after the restart'
+Check (@(Get-AppProcess).Count -eq 1) 'the old copy closed'
+Check ((Get-ChildItem $folder -Name) -join ',' -eq 'Queueify.exe') 'nothing else is left next to the exe'
 Stop-App
 
 # ── The latest version: About says so ──
 $version = (Get-Item $Exe).VersionInfo.FileVersion -replace '^(\d+\.\d+\.\d+).*', '$1'
 Offer $version $sha256
 Start-App
-Check ($null -eq (Find '*is available*')) 'no offer when this is the latest version'
+Check ($null -eq (Find '*new version is out*')) 'no offer when this is the latest version'
 Select-Item (Find 'Help*' 'ListItem')
 Invoke (FindId 'CheckUpdatesButton')
 Check ($null -ne (Wait-Find 'You have the latest version.')) 'About: checking says this is the latest version'
@@ -139,22 +176,10 @@ $toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).To
 Stop-App
 Start-App
 Start-Sleep 3
-Check ($null -eq (Find '*is available*')) 'with checks turned off, nothing is offered at the start'
+Check ($null -eq (Find '*new version is out*')) 'with checks turned off, nothing is offered at the start'
 Select-Item (Find 'Help*' 'ListItem')
 Invoke (FindId 'CheckUpdatesButton')
-Check ($null -ne (Wait-Find '*Queueify 99.0.0 is available*')) 'checking by hand still finds it'
-
-# ── Updating: the new exe takes the old one's place and Queueify restarts through it ──
-[System.IO.File]::SetLastWriteTimeUtc($copy, [datetime]'2001-01-01')
-$before = @(Get-AppProcess | ForEach-Object Id)
-Invoke (FindId 'InstallUpdateButton')
-Wait-App $before
-Check ($null -ne $script:root) 'Queueify restarts after updating'
-Check ((Get-FileHash $copy -Algorithm SHA256).Hash.ToLowerInvariant() -eq $sha256 -and (Get-Item $copy).LastWriteTimeUtc.Year -gt 2001) 'the downloaded exe is in place, under the same name'
-Check (-not (Test-Path "$copy.old") -and -not (Test-Path "$copy.download")) 'the old exe is removed after the restart'
-Check (@(Get-AppProcess).Count -eq 1) 'the old copy closed'
-Check ((Get-ChildItem $folder -Name) -join ',' -eq 'Queueify.exe') 'nothing else is left next to the exe'
-
+Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'checking by hand still finds it'
 }
 finally {
     Stop-App

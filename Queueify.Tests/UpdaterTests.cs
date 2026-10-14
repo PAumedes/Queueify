@@ -45,8 +45,8 @@ public sealed class UpdaterTests : IDisposable
             """;
     }
 
-    private static Updater GitHub(HttpMessageHandler? api = null) =>
-        new(new HttpClient(api ?? new FakeGitHub(HttpStatusCode.OK, LatestJson())), UpdateSource.GitHub);
+    private static Updater GitHub(HttpMessageHandler? api = null, TimeSpan? stall = null) =>
+        new(new HttpClient(api ?? new FakeGitHub(HttpStatusCode.OK, LatestJson())), UpdateSource.GitHub, stall);
 
     // ── What the latest release offers ──
 
@@ -84,6 +84,10 @@ public sealed class UpdaterTests : IDisposable
     [InlineData("https://example.com/Queueify-1.4.0-win-x64.exe")]
     [InlineData("http://github.com/PAumedes/Queueify/releases/download/v1.4.0/Queueify-1.4.0-win-x64.exe")]
     [InlineData("https://github.com/someone/Queueify/releases/download/v1.4.0/Queueify-1.4.0-win-x64.exe")]
+    // Dot segments that would lead out of Queueify's releases once the address is read
+    [InlineData("https://github.com/PAumedes/Queueify/releases/download/../../../../evil/repo/releases/download/v1.4.0/Queueify-1.4.0-win-x64.exe")]
+    [InlineData("https://github.com/PAumedes/Queueify/releases/download/%2e%2e/%2e%2e/%2e%2e/%2e%2e/evil/Queueify-1.4.0-win-x64.exe")]
+    [InlineData("https://github.com/PAumedes/Queueify/releases/download/..\\..\\..\\..\\evil\\Queueify-1.4.0-win-x64.exe")]
     public void A_download_from_anywhere_but_Queueifys_releases_is_not_offered(string url)
     {
         Assert.Null(GitHub().Parse(LatestJson(url: url)));
@@ -96,6 +100,14 @@ public sealed class UpdaterTests : IDisposable
     public void Only_that_versions_exe_is_offered(string name)
     {
         Assert.Null(GitHub().Parse(LatestJson(name: name)));
+    }
+
+    [Theory]
+    [InlineData("v1.4.0.1")]   // Queueify shows three parts: a fourth would be offered again after updating
+    [InlineData("v1.4")]
+    public void Only_three_part_versions_are_offered(string tag)
+    {
+        Assert.Null(GitHub().Parse(LatestJson(tag: tag)));
     }
 
     [Theory]
@@ -161,6 +173,33 @@ public sealed class UpdaterTests : IDisposable
     public async Task No_connection_says_so()
     {
         await Assert.ThrowsAsync<UpdateException>(() => GitHub(new FakeGitHub(new HttpRequestException("No such host"))).CheckAsync("1.3.0", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task An_answer_in_a_character_set_NET_doesnt_know_still_reads()
+    {
+        // GitHub sends UTF-8; a proxy may label it oddly.
+        var api = new FakeGitHub(HttpStatusCode.OK, LatestJson()) { ContentType = "application/json; charset=utf8" };
+
+        Assert.Equal("1.4.0", (await GitHub(api).CheckAsync("1.3.0", CancellationToken.None))?.Version);
+    }
+
+    [Fact]
+    public async Task Any_other_failure_while_checking_says_so()
+    {
+        var api = new FakeGitHub(new InvalidOperationException("Something unexpected"));
+
+        await Assert.ThrowsAsync<UpdateException>(() => GitHub(api).CheckAsync("1.3.0", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task No_answer_in_time_says_so()
+    {
+        // HttpClient's own timeout, not the caller cancelling.
+        var api = new FakeGitHub(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout"));
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() => GitHub(api).CheckAsync("1.3.0", CancellationToken.None));
+        Assert.Equal(Loc.T("update.timeout"), ex.Message);
     }
 
     [Fact]
@@ -234,6 +273,76 @@ public sealed class UpdaterTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_already_named_like_the_download_is_never_written_into()
+    {
+        // In a folder others can add files to, someone could leave one there that they can still change.
+        var exe = Exe();
+        var planted = new FileInfo(exe + ".download");
+        File.WriteAllText(planted.FullName, "planted");
+        var acl = planted.GetAccessControl();
+        var everyone = new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.WorldSid, null);
+        acl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(everyone, System.Security.AccessControl.FileSystemRights.FullControl, System.Security.AccessControl.AccessControlType.Allow));
+        planted.SetAccessControl(acl);
+
+        var downloaded = await GitHub(new FakeGitHub(HttpStatusCode.OK, NewExe)).DownloadAsync(Release(), exe, null, CancellationToken.None);
+
+        var rules = new FileInfo(downloaded).GetAccessControl().GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier));
+        Assert.DoesNotContain(rules.Cast<System.Security.AccessControl.FileSystemAccessRule>(), r => r.IdentityReference == everyone && !r.IsInherited);
+        Assert.Equal(NewExe, File.ReadAllBytes(downloaded));
+    }
+
+    [Theory]
+    [InlineData("io")]
+    [InlineData("other")]
+    public async Task A_download_breaking_off_says_so_and_leaves_nothing(string how)
+    {
+        var exe = Exe();
+        Exception failure = how == "io" ? new IOException("The connection was reset") : new InvalidOperationException("Something unexpected");
+        var api = new FakeGitHub(HttpStatusCode.OK, NewExe) { Body = () => new BrokenStream(NewExe[..5], failure) };
+
+        await Assert.ThrowsAsync<UpdateException>(() => GitHub(api).DownloadAsync(Release(), exe, null, CancellationToken.None));
+
+        Assert.Equal([exe], Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public async Task A_download_that_stops_coming_gives_up()
+    {
+        var exe = Exe();
+        var api = new FakeGitHub(HttpStatusCode.OK, NewExe) { Body = () => new BrokenStream(NewExe[..5], null) };
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() =>
+            GitHub(api, stall: TimeSpan.FromMilliseconds(200)).DownloadAsync(Release(), exe, null, CancellationToken.None));
+
+        Assert.Equal(Loc.T("update.timeout"), ex.Message);
+        Assert.Equal([exe], Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public async Task Cancelling_a_download_is_passed_on_and_leaves_nothing()
+    {
+        var exe = Exe();
+        var api = new FakeGitHub(HttpStatusCode.OK, NewExe) { Body = () => new BrokenStream(NewExe[..5], null) };
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => GitHub(api).DownloadAsync(Release(), exe, null, cancel.Token));
+
+        Assert.Equal([exe], Directory.GetFiles(_dir));
+    }
+
+    [Fact]
+    public async Task A_download_already_running_in_another_window_isnt_called_a_folder_problem()
+    {
+        var exe = Exe();
+        using var other = File.Open(exe + ".download", FileMode.CreateNew, FileAccess.Write, FileShare.None);
+
+        var ex = await Assert.ThrowsAsync<UpdateException>(() =>
+            GitHub(new FakeGitHub(HttpStatusCode.OK, NewExe)).DownloadAsync(Release(), exe, null, CancellationToken.None));
+
+        Assert.NotEqual(Loc.F("update.no_write", _dir), ex.Message);
+    }
+
+    [Fact]
     public async Task A_folder_Queueify_cant_write_to_says_so()
     {
         var exe = Path.Combine(_dir, "gone", "Queueify.exe");
@@ -301,6 +410,22 @@ public sealed class UpdaterTests : IDisposable
     }
 
     [Fact]
+    public void A_read_only_exe_is_updated_and_its_old_copy_removed()
+    {
+        var exe = Exe();
+        File.SetAttributes(exe, FileAttributes.ReadOnly);
+
+        Updater.Replace(exe, Downloaded());
+        Updater.RemoveLeftovers(exe);
+        File.WriteAllText(exe + ".download", "the next one");
+        Updater.Replace(exe, exe + ".download");
+
+        Assert.Equal("the next one", File.ReadAllText(exe));
+        Updater.RemoveLeftovers(exe);
+        Assert.Equal([exe], Directory.GetFiles(_dir));
+    }
+
+    [Fact]
     public void The_old_exe_and_a_stray_download_are_removed_next_time()
     {
         var exe = Exe();
@@ -351,6 +476,36 @@ public sealed class UpdaterTests : IDisposable
         Assert.NotNull(release);
     }
 
+    /// <summary>Gives some bytes, then fails with <paramref name="failure"/>, or never answers again when it's null.</summary>
+    private sealed class BrokenStream(byte[] first, Exception? failure) : Stream
+    {
+        private bool _sent;
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+        {
+            if (!_sent)
+            {
+                _sent = true;
+                first.CopyTo(buffer);
+                return first.Length;
+            }
+            if (failure != null) throw failure;
+            await Task.Delay(Timeout.Infinite, ct);
+            return 0;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     private sealed class SyncProgress(Action<double> report) : IProgress<double>
     {
         public void Report(double value) => report(value);
@@ -368,13 +523,16 @@ public sealed class UpdaterTests : IDisposable
 
         public List<HttpRequestMessage> Requests { get; } = [];
         public long? ClaimedLength { get; init; }
+        public string? ContentType { get; init; }
+        public Func<Stream>? Body { get; init; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Requests.Add(request);
             if (_failure != null) throw _failure;
-            var content = new ByteArrayContent(_body);
+            HttpContent content = Body != null ? new StreamContent(Body()) : new ByteArrayContent(_body);
             if (ClaimedLength is { } length) content.Headers.ContentLength = length;
+            if (ContentType != null) content.Headers.TryAddWithoutValidation("Content-Type", ContentType);
             return Task.FromResult(new HttpResponseMessage(_status) { Content = content });
         }
     }

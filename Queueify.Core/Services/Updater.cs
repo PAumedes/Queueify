@@ -39,8 +39,10 @@ public sealed record UpdateSource(Uri Latest, string DownloadPrefix)
 /// the old one, checks its SHA-256 and swaps the two. The exe isn't in use while the app runs (the starter
 /// has finished by then), so it can be replaced.
 /// </summary>
-public sealed class Updater(HttpClient http, UpdateSource source)
+public sealed class Updater(HttpClient http, UpdateSource source, TimeSpan? stallTimeout = null)
 {
+    private readonly TimeSpan _stallTimeout = stallTimeout ?? TimeSpan.FromSeconds(30);
+
     /// <summary>Several times Queueify's size: anything bigger isn't a Queueify release.</summary>
     private const long MaxDownload = 256L << 20;
 
@@ -58,8 +60,9 @@ public sealed class Updater(HttpClient http, UpdateSource source)
                 || !root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
                 return null;
 
+            // Three parts, as AppInfo.Version shows it: anything else would be offered again after updating.
             var version = tag.GetString()!.TrimStart('v');
-            if (!System.Version.TryParse(version, out _)) return null;
+            if (!System.Version.TryParse(version, out var parsed) || parsed.Build < 0 || parsed.Revision >= 0) return null;
             var page = root.TryGetProperty("html_url", out var html) && html.ValueKind == JsonValueKind.String
                 && Uri.TryCreate(html.GetString(), UriKind.Absolute, out var p) && p.Scheme == Uri.UriSchemeHttps
                 ? p : UpdateSource.Releases;
@@ -70,8 +73,9 @@ public sealed class Updater(HttpClient http, UpdateSource source)
                 if (asset.ValueKind != JsonValueKind.Object || Text(asset, "name") != exeName) continue;
                 var url = Text(asset, "browser_download_url");
                 var digest = Text(asset, "digest");
-                if (url == null || !url.StartsWith(source.DownloadPrefix, StringComparison.Ordinal)
-                    || !Uri.TryCreate(url, UriKind.Absolute, out var download)
+                // Checked once read as an address, after "..", "%2e" and "\" are resolved.
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var download)
+                    || !download.AbsoluteUri.StartsWith(source.DownloadPrefix, StringComparison.Ordinal)
                     || digest is not { Length: 71 } || !digest.StartsWith("sha256:", StringComparison.Ordinal)
                     || !digest[7..].All(char.IsAsciiHexDigit))
                     return null;
@@ -101,10 +105,11 @@ public sealed class Updater(HttpClient http, UpdateSource source)
         {
             using var response = await http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
-                throw new UpdateException(Loc.F("update.http", $"{(int)response.StatusCode} {response.ReasonPhrase}".Trim()));
-            json = await response.Content.ReadAsStringAsync(ct);
+                throw new UpdateException(Loc.F("update.http", (int)response.StatusCode));
+            // GitHub's JSON is UTF-8 whatever a proxy on the way says it is.
+            json = System.Text.Encoding.UTF8.GetString(await response.Content.ReadAsByteArrayAsync(ct));
         }
-        catch (Exception ex) when (Failed(ex, ct) is { } message)
+        catch (Exception ex) when (ex is not UpdateException && Failed(ex, ct) is { } message)
         {
             throw new UpdateException(message, ex);
         }
@@ -115,7 +120,8 @@ public sealed class Updater(HttpClient http, UpdateSource source)
 
     /// <summary>
     /// Downloads the release's exe next to <paramref name="exe"/> and returns its path once its SHA-256
-    /// matches; anything else leaves no file behind.
+    /// matches; anything else leaves no file behind. Only the caller's own cancellation comes out as
+    /// something other than an <see cref="UpdateException"/>.
     /// </summary>
     public async Task<string> DownloadAsync(AppRelease release, string exe, IProgress<double>? progress, CancellationToken ct)
     {
@@ -124,13 +130,29 @@ public sealed class Updater(HttpClient http, UpdateSource source)
         {
             using var response = await http.GetAsync(release.Download, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
-                throw new UpdateException(Loc.F("update.http", $"{(int)response.StatusCode} {response.ReasonPhrase}".Trim()));
+                throw new UpdateException(Loc.F("update.http", (int)response.StatusCode));
             var length = response.Content.Headers.ContentLength;
             if (length > MaxDownload) throw new UpdateException(Loc.T("update.too_big"));
 
+            // Always a file of its own: one already there (or a link) may belong to someone else who can
+            // write the folder, and would keep their rights to the new exe. If it can't go, no update.
+            TryDelete(path);
+            FileStream file;
+            try
+            {
+                file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Still there: another Queueify window is downloading, or someone else's file won't go.
+                throw new UpdateException(File.Exists(path)
+                    ? Loc.T("update.locked")
+                    : Loc.F("update.no_write", Path.GetDirectoryName(exe)), ex);
+            }
+
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            await using (file)
             await using (var body = await response.Content.ReadAsStreamAsync(ct))
-            await using (var file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 var buffer = new byte[1 << 16];
                 long received = 0;
@@ -152,7 +174,7 @@ public sealed class Updater(HttpClient http, UpdateSource source)
         {
             TryDelete(path);
             if (ex is UpdateException) throw;
-            // Reading the download fails as an UpdateException (see ReadAsync); what's left is the file.
+            // Reading the download fails as an UpdateException (see ReadAsync); what's left is writing the file.
             if (ex is IOException or UnauthorizedAccessException)
                 throw new UpdateException(Loc.F("update.no_write", Path.GetDirectoryName(exe)), ex);
             if (Failed(ex, ct) is { } message) throw new UpdateException(message, ex);
@@ -160,6 +182,23 @@ public sealed class Updater(HttpClient http, UpdateSource source)
         }
     }
 
+    /// <summary>
+    /// One read of the download. A connection that sends nothing for a while gives up; a slow one that keeps
+    /// sending doesn't (HttpClient's own timeout stops at the headers).
+    /// </summary>
+    private async Task<int> ReadAsync(Stream body, byte[] buffer, CancellationToken ct)
+    {
+        using var stalled = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        stalled.CancelAfter(_stallTimeout);
+        try
+        {
+            return await body.ReadAsync(buffer, stalled.Token);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            throw new UpdateException(Failed(ex, ct)!, ex);
+        }
+    }
     /// <summary>
     /// Puts the downloaded exe in place of the old one, which stays as "&lt;exe&gt;.old" until
     /// <see cref="RemoveLeftovers"/>. If the new one can't be moved in, the old one goes back.
@@ -169,12 +208,16 @@ public sealed class Updater(HttpClient http, UpdateSource source)
         var old = exe + ".old";
         try
         {
+            // A read-only exe (copied from a CD or a locked-down share) would leave an .old that can't be
+            // removed, and that the next update can't overwrite.
+            ClearReadOnly(exe);
+            ClearReadOnly(old);
             File.Move(exe, old, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             TryDelete(downloaded);
-            throw new UpdateException(Loc.F("update.locked", ex.Message), ex);
+            throw new UpdateException(Loc.T("update.locked"), ex);
         }
         try
         {
@@ -189,21 +232,9 @@ public sealed class Updater(HttpClient http, UpdateSource source)
             }
             catch (Exception back) when (back is IOException or UnauthorizedAccessException)
             {
-                throw new UpdateException(Loc.F("update.halfway", Path.GetFileName(old), Path.GetFileName(exe)), back);
+                throw new UpdateException(Loc.F("update.halfway", Path.GetFileName(old), Path.GetDirectoryName(exe)), back);
             }
-            throw new UpdateException(Loc.F("update.locked", ex.Message), ex);
-        }
-    }
-
-    private static async Task<int> ReadAsync(Stream body, byte[] buffer, CancellationToken ct)
-    {
-        try
-        {
-            return await body.ReadAsync(buffer, ct);
-        }
-        catch (IOException ex)
-        {
-            throw new UpdateException(Loc.F("update.unreachable", ex.Message), ex);
+            throw new UpdateException(Loc.T("update.locked"), ex);
         }
     }
 
@@ -216,16 +247,31 @@ public sealed class Updater(HttpClient http, UpdateSource source)
 
     private static void TryDelete(string path)
     {
-        try { File.Delete(path); }
+        try
+        {
+            ClearReadOnly(path);
+            File.Delete(path);
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
-    /// <summary>The message for a network failure; null for the caller's own cancellation and anything else.</summary>
+    /// <summary>Only on the file itself: a link left in its place is never followed.</summary>
+    private static void ClearReadOnly(string path)
+    {
+        if (!File.Exists(path)) return;
+        var attributes = File.GetAttributes(path);
+        if (attributes.HasFlag(FileAttributes.ReadOnly) && !attributes.HasFlag(FileAttributes.ReparsePoint))
+            File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+    }
+
+    // Plain words for the user: the system's own messages are English and technical. Only an unexpected
+    // failure (a bug) shows it, as a clue.
+    /// <summary>The message for a failure; null only for the caller's own cancellation, which goes on as it is.</summary>
     private static string? Failed(Exception ex, CancellationToken ct) => ex switch
     {
         OperationCanceledException when ct.IsCancellationRequested => null,
         OperationCanceledException => Loc.T("update.timeout"),
-        HttpRequestException => Loc.F("update.unreachable", ex.Message),
-        _ => null,
+        HttpRequestException or IOException => Loc.T("update.unreachable"),
+        _ => Loc.F("update.failed", ex.Message),
     };
 }

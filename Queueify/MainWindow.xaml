@@ -489,6 +489,10 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <FontIcon x:Name="PageIcon" Glyph="&#xE8D6;" FontSize="30" VerticalAlignment="Center"
                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -498,8 +502,9 @@
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                        <!-- A newer version: offered here, on every page, until it's installed or closed -->
-                        <InfoBar x:Name="UpdateBar" Grid.Column="2" VerticalAlignment="Center" MaxWidth="520"
+                        <!-- A newer version: offered here, under the title of every page, until it's installed or
+                             closed. A row of its own, so it never squeezes the title on a narrow window. -->
+                        <InfoBar x:Name="UpdateBar" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0"
                                  AutomationProperties.AutomationId="UpdateBar" />
                     </Grid>
 
