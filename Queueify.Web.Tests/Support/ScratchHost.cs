@@ -30,7 +30,7 @@ public static class ScratchHost
     public static WebApplicationFactory<Program> On(WebApplicationFactory<Program> factory, string dataRoot, Action<IServiceCollection>? swap = null) =>
         factory.WithWebHostBuilder(builder =>
         {
-            builder.UseSetting("Queueify:DataRoot", dataRoot);
+            builder.UseSetting("Queueify:DataDir", dataRoot);
             builder.ConfigureTestServices(services =>
             {
                 services.AddAuthentication(o => o.DefaultScheme = HeaderUserAuthHandler.Scheme)

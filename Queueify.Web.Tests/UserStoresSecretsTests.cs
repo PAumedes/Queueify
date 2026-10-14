@@ -22,6 +22,8 @@ public sealed class UserStoresSecretsTests : IDisposable
         Assert.DoesNotContain("spot-s3cret", onDisk);
         Assert.DoesNotContain("tidal-s3cret", onDisk);
         Assert.Contains("sid", onDisk);   // an id is not a secret
+        var vault = File.ReadAllText(Path.Combine(_root, "alice", "secrets.dat"));
+        Assert.DoesNotContain("s3cret", vault);
 
         var loaded = stores.LoadSettings("alice");
         Assert.Equal("spot-s3cret", loaded.SpotifyClientSecret);

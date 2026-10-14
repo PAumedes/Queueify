@@ -62,6 +62,30 @@ Sync: each PC keeps its own database. Online, a queue is `queues/{key}` in the u
 40-hex-character key is the capability (the sync code is `queueify:{project}:{key}`). See
 [ADR-0003](adr/0003-firestore-rest-sync.md).
 
+## Web server and the sync endpoint
+
+`Queueify.Web` is the shared database for people who use the web app ([ADR-0010](adr/0010-web-app-and-shared-queue.md)).
+Its sync code lives in `Queueify.Web\Sync\` and is wired by `AddQueueifySync` / `MapQueueifySync`.
+
+| Part | Responsibility |
+| --- | --- |
+| `UserStores` | One folder per user under `Queueify:DataDir` (default `./data`): `queueify.db` (a `BacklogStore` file), `settings.json` and `secrets.dat`. The Spotify and Tidal secrets are encrypted with Data Protection (bound to the user) into `secrets.dat` and never written to `settings.json`. The Data Protection keys are in `DataDir\keys`. |
+| `PersonalAccessTokens` | Tokens `qw_` + 32 random bytes in base64url, shown once. Only the SHA-256 hash, name, created, last-used and revoked time are stored (Identity database, table `PersonalAccessTokens`). At most 20 live tokens per user. |
+| `TokenAuthenticationHandler` | The `QueueifyToken` scheme: `Authorization: Bearer`. A missing, bad or revoked token is 401 with an empty body; the cookie is not accepted on `/api/sync`. It also counts every attempt against a per-address limit (`Queueify:Sync:RequestsPerMinute`, 120), so guessing is throttled (429). |
+| `SyncEngine` | `POST /api/sync`: one SQLite transaction per request, one request at a time per user. |
+| `ConnectPc.razor` | `/connect`: create, list and revoke tokens; the connect text (`SyncConnect.Format`) is shown once. |
+
+How a sync works: rows changed through `BacklogStore` by the web pages are flagged `dirty`; the next sync stamps
+them with a `server_time` (a column `BacklogStore` doesn't know, next to a `sync_meta` table; desktop databases
+never get either) and clears the flag. Stamps are strictly increasing per user, so `since` pagination never skips
+a row. Incoming rows win when their `updatedAt` is newer than the server's (a tie keeps the server's row); a row
+the server refuses is stamped again, so it comes back to the sender in the same response and the PC converges.
+Deletions stay as soft rows for 90 days, then each sync purges them. Behind a reverse proxy, `Queueify:Proxy:KnownProxies` / `KnownNetworks` say whose `X-Forwarded-For` to trust, so the rate limit sees client addresses. Text is cut at 500 characters, ratings and years are made valid, and an `updatedAt`
+more than ten minutes ahead of the server's clock is pulled back to that, so a wrong PC clock can't win forever.
+A request holds at most 1,000 albums (400 otherwise) and `Queueify:Sync:MaxBodyBytes` (8 MB, 413); a response
+holds at most 1,000 albums, and when it is full its `serverTime` is the stamp of its last album, so the client
+repeats until the response is empty. Settings follow the same rule with their own stamp.
+
 ## Startup
 
 `App.OnLaunched` reads `ui.json`, sets the language (`Loc.Use` and WinUI's

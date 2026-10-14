@@ -6,6 +6,7 @@ using Queueify.Web.Components.Account;
 using Queueify.Web.Data;
 using Queueify.Web.Ocr;
 using Queueify.Web.Services;
+using Queueify.Web.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,9 +40,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
-builder.Services.AddQueueifyStorage(builder.Configuration, builder.Environment);
 builder.Services.AddQueueifyOcr(builder.Configuration, builder.Environment);
 builder.Services.AddQueueifyData();
+builder.Services.AddQueueifySync();
 
 var app = builder.Build();
 
@@ -70,6 +71,7 @@ app.MapAdditionalIdentityEndpoints();
 
 app.MapQueueifyPhoto();
 app.MapQueueifyData();
+app.MapQueueifySync();
 
 app.MapGet("/healthz", () => Results.Ok("ok")).AllowAnonymous();
 

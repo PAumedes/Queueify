@@ -453,5 +453,20 @@ public static partial class Loc
         ["webPhoto.found"] = "Se encontraron {0} líneas. Tocá el artista y el álbum, en ese orden, y buscá.",
         ["webHelp.col.keys"] = "Teclas",
         ["webHelp.col.does"] = "Qué hace",
+        // ── Conectar una PC (web) ──
+        ["connect.title"] = "Conectar una PC",
+        ["connect.intro"] = "Dale a cada PC su propia ficha de acceso. Pegá el texto de conexión en los ajustes de Sincronizar de Queueify en esa PC.",
+        ["connect.name"] = "Nombre de la PC",
+        ["connect.create"] = "Crear ficha",
+        ["connect.once"] = "Copialo ahora: se muestra una sola vez.",
+        ["connect.text"] = "Texto de conexión",
+        ["connect.tokens"] = "Tus fichas",
+        ["connect.empty"] = "Todavía no hay fichas.",
+        ["connect.created"] = "Creada",
+        ["connect.last_used"] = "Último uso",
+        ["connect.never"] = "Nunca",
+        ["connect.revoked"] = "Revocada",
+        ["connect.revoke"] = "Revocar",
+        ["connect.limit"] = "Llegaste al límite de fichas. Revocá una para crear otra.",
     };
 }
