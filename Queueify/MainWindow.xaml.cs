@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -876,24 +877,22 @@ public sealed partial class MainWindow : Window
         LineCanvas.Children.Clear();
         var accent = (Color)Application.Current.Resources["SystemAccentColor"];
         var idle = new SolidColorBrush(Color.FromArgb(36, accent.R, accent.G, accent.B));
-        var hover = new SolidColorBrush(Color.FromArgb(110, accent.R, accent.G, accent.B));
         var stroke = new SolidColorBrush(accent);
+        var style = (Style)Root.Resources["PhotoLineButton"];
         foreach (var line in page.Lines)
         {
-            var box = new Border
+            var box = new Button
             {
+                Style = style,
                 Width = line.Bounds.Width + 8,
                 Height = line.Bounds.Height + 6,
                 Background = idle,
                 BorderBrush = stroke,
-                BorderThickness = new Thickness(1.5),
-                CornerRadius = new CornerRadius(3),
                 Tag = line.Text,
             };
+            AutomationProperties.SetName(box, line.Text);
             ToolTipService.SetToolTip(box, line.Text);
-            box.PointerEntered += (_, _) => box.Background = hover;
-            box.PointerExited += (_, _) => box.Background = idle;
-            box.Tapped += OnLineTapped;
+            box.Click += OnLineClicked;
             Canvas.SetLeft(box, line.Bounds.X - 4);
             Canvas.SetTop(box, line.Bounds.Y - 3);
             LineCanvas.Children.Add(box);
@@ -923,9 +922,9 @@ public sealed partial class MainWindow : Window
     /// A click on a line of the photo puts it in the search box: the first click after an album
     /// was added starts a new search, later clicks are appended (artist, then album).
     /// </summary>
-    private void OnLineTapped(object sender, TappedRoutedEventArgs e)
+    private void OnLineClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Border { Tag: string raw } box) return;
+        if (sender is not Button { Tag: string raw } box) return;
         var (text, year) = OcrService.CleanLine(raw);
         box.Opacity = 0.45;
 

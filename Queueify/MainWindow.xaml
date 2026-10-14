@@ -222,6 +222,42 @@
                 </Grid>
             </DataTemplate>
 
+            <!-- A line read from a magazine photo: a tinted box over the text, a button so it works by
+                 keyboard and screen reader too. Background and border come from code (the accent colour). -->
+            <Style x:Key="PhotoLineButton" TargetType="Button">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="BorderThickness" Value="1.5" />
+                <Setter Property="CornerRadius" Value="3" />
+                <Setter Property="UseSystemFocusVisuals" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="Highlight.Opacity" Value="0.35" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="Highlight.Opacity" Value="0.5" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled" />
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" />
+                                <Border x:Name="Highlight" Background="{TemplateBinding BorderBrush}" CornerRadius="{TemplateBinding CornerRadius}" Opacity="0" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- Compiled bindings, not DisplayMemberPath: the app is trimmed and compiled ahead of time. -->
             <DataTemplate x:Key="CountryItem" x:DataType="services:CountryOption">
                 <TextBlock Text="{x:Bind Name}" />

@@ -186,6 +186,26 @@ Select-Item (Find 'Magazine photo*' 'ListItem')
 Check ((FindId 'PageTitle').Current.Name -eq 'Magazine photo') 'photo page title'
 Check ($null -ne (Find 'Open photo*' 'Button')) 'photo page offers Open photo'
 
+# Reading a photo goes through Windows' clipboard, imaging and OCR, all calls compiled ahead of time in the
+# download. The page's lines are buttons, so they work by keyboard and screen reader too.
+# (Replaces the clipboard's content with the test photo.)
+Add-Type -AssemblyName System.Drawing
+$photo = [System.Drawing.Image]::FromFile((Resolve-Path "$PSScriptRoot\..\..\Queueify.Tests\TestData\magazine-page.png").Path)
+[System.Windows.Forms.Clipboard]::SetImage($photo); $photo.Dispose()
+# Reading a photo opens the Add albums panel; put it back as it was for the checks after this one.
+$paneWasHidden = $null -ne (Find 'Show the Add albums panel*' 'Button')
+Invoke (Find 'Paste*' 'Button')
+$line = $null
+for ($i = 0; $i -lt 20 -and -not $line; $i++) { Start-Sleep -Milliseconds 500; $line = Find 'Clics modernos (Interdisc, 1983)' 'Button' }
+Check ($null -ne $line) 'a pasted magazine photo is read: its lines are buttons'
+if ($line) {
+    Invoke $line
+    Check ((Find 'Find an album' 'Edit').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -eq 'Clics modernos 1983') `
+        'choosing a line puts it in the search, tidied'
+    SetText (Find 'Find an album' 'Edit') ''
+}
+if ($paneWasHidden -and $null -eq (Find 'Show the Add albums panel*' 'Button')) { Keys '^b' }
+
 # ── Help (F1) ──
 Keys '{F1}'
 Check ((FindId 'PageTitle').Current.Name -eq 'Help') 'F1 opens Help'
