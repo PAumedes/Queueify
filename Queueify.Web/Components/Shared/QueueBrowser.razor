@@ -32,7 +32,10 @@
             <option value="@key" selected="@(key == _sort)">@SortLabel(key)</option>
         }
     </select>
-    <FluentSwitch Value="_covers" ValueChanged="SetCovers" Label="@Loc.T("queue.covers")" title="@Loc.T("queue.covers.tip")" />
+    <span class="q-switch" title="@Loc.T("queue.covers.tip")">
+        <FluentSwitch Value="_covers" ValueChanged="SetCovers" aria-labelledby="q-covers-label" />
+        <span id="q-covers-label">@Loc.T("queue.covers")</span>
+    </span>
     @if (!Listened)
     {
         <button type="button" class="q-btn" title="@Loc.T("queue.surprise.tip")" @onclick="Surprise"><Ico Name="dice" />@Loc.T("queue.surprise")</button>
