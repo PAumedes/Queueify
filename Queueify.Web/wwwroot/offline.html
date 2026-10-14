@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queueify</title>
+<link rel="stylesheet" href="queueify.css">
+</head>
+<body>
+<main class="q-bare">
+  <div class="q-auth">
+    <div class="q-auth-brand"><img src="icons/icon-192.png" alt="" width="44" height="44"><h2>Queueify</h2></div>
+    <div class="q-card stack">
+      <h1 id="t">You're offline</h1>
+      <p id="m">Queueify needs a connection to reach your queue. Try again when you're back online.</p>
+      <button class="q-btn primary" id="b" onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+</main>
+<script>
+  if ((navigator.language || '').toLowerCase().startsWith('es')) {
+    document.documentElement.lang = 'es';
+    document.getElementById('t').textContent = 'Estás sin conexión';
+    document.getElementById('m').textContent = 'Queueify necesita conexión para llegar a tu lista. Probá de nuevo cuando vuelvas a tener internet.';
+    document.getElementById('b').textContent = 'Probar de nuevo';
+  }
+</script>
+</body>
+</html>

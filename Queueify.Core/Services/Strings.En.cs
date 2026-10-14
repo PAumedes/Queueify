@@ -1,4 +1,4 @@
-namespace Queueify.Services;
+﻿namespace Queueify.Services;
 
 public static partial class Loc
 {
@@ -353,5 +353,35 @@ public static partial class Loc
         ["tour.3"] = "Photograph a magazine page with your phone and drop the photo into this window. Then click the artist and the album on it.",
         ["tour.4.title"] = "All your PCs",
         ["tour.4"] = "Connect Sync once to keep the same queue on every PC. Help (F1) explains everything else.",
+
+        // ── Web app: shell, queue and add pages ──
+        ["web.nav.skip"] = "Skip to content",
+        ["web.nav.main"] = "Main navigation",
+        ["web.nav.more"] = "More",
+        ["web.nav.add"] = "Add",
+        ["web.nav.add.tip"] = "Add an album to your queue (Ctrl+K)",
+        ["web.nav.connect"] = "Connect a PC",
+        ["web.nav.connect.tip"] = "Connect a PC: sync the desktop app with this queue",
+        ["web.nav.signout"] = "Sign out",
+        ["web.pref.title"] = "Language and theme",
+        ["web.pref.language"] = "Language",
+        ["web.pref.theme"] = "Theme",
+        ["web.pref.system"] = "Auto",
+        ["web.error.unhandled"] = "Something went wrong.",
+        ["web.error.reload"] = "Reload",
+        ["web.toast.dismiss"] = "Dismiss",
+        ["web.reconnect.first"] = "Reconnecting to the server…",
+        ["web.reconnect.repeat"] = "Still trying. Next attempt in (seconds):",
+        ["web.reconnect.failed"] = "Couldn't reconnect. Retry, or reload the page.",
+        ["web.reconnect.retry"] = "Retry",
+        ["web.reconnect.paused"] = "The session was paused by the server.",
+        ["web.reconnect.resume"] = "Resume",
+        ["web.queue.stars"] = "{0} stars",
+        ["web.add.summary"] = "Someone recommended an album? Type it as you heard it.",
+        ["web.add.keys_link"] = "Open Settings",
+        ["web.add.quick"] = "Add by hand",
+        ["web.add.artist"] = "Artist",
+        ["web.add.album"] = "Album",
+        ["web.add.year"] = "Year",
     };
 }

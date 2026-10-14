@@ -1,0 +1,14 @@
+@* Five stars as a radio-like group of buttons: usable with the keyboard and read out as "3 stars, pressed". *@
+<span class="q-stars" role="group" aria-label="@Loc.T("item.rating")">
+    @for (int i = 1; i <= 5; i++)
+    {
+        var stars = i;
+        <button type="button" class="q-star @(Item.Rating >= stars ? "on" : "")" aria-pressed="@(Item.Rating == stars ? "true" : "false")"
+                aria-label="@Loc.F("web.queue.stars", stars)" title="@Loc.F("web.queue.stars", stars)" @onclick="() => OnRate.InvokeAsync(stars)"><Ico Name="star" /></button>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public BacklogItem Item { get; set; } = default!;
+    [Parameter] public EventCallback<double> OnRate { get; set; }
+}

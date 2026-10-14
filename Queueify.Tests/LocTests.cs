@@ -36,7 +36,7 @@ public partial class LocTests
         var root = RepoRoot();
         var used = new HashSet<string>();
         foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
-                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml") || f.EndsWith(".razor")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                                  && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests")))
         {
             var text = File.ReadAllText(file);

@@ -1,0 +1,226 @@
+@page "/add"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject UserQueue Queue
+@inject AlbumSearch Search
+@inject Toasts Toasts
+@inject IJSRuntime JS
+
+<PageTitle>@Loc.T("pane.title") - Queueify</PageTitle>
+
+<header class="q-head">
+    <span class="q-head-ico"><Ico Name="add" /></span>
+    <div>
+        <h1>@Loc.T("pane.title")</h1>
+        <p class="q-sub">@Loc.T("web.add.summary")</p>
+    </div>
+</header>
+
+<div class="q-add">
+    @if (_needsKeys)
+    {
+        <div class="q-alert warn" role="status">
+            <Ico Name="info" />
+            <div>
+                <p>@Loc.T("search.no_service")</p>
+                <p><a href="settings">@Loc.T("web.add.keys_link")</a></p>
+            </div>
+        </div>
+    }
+
+    <div class="q-field">
+        <label for="q-magazine">@Loc.T("pane.magazine")</label>
+        <input id="q-magazine" class="q-input" maxlength="120" autocomplete="off" @bind="_magazine" @bind:event="oninput"
+               placeholder="@Loc.T("pane.magazine.placeholder")" />
+        <span class="q-hint">@Loc.T("pane.magazine.help")</span>
+    </div>
+
+    <div class="q-field">
+        <label for="q-search">@Loc.T("pane.search")</label>
+        <div class="q-searchbox">
+            <Ico Name="search" />
+            <input id="q-search" class="q-input big" type="search" data-q-search maxlength="200" autocomplete="off" autocapitalize="words" enterkeyhint="search"
+                   placeholder="@Loc.T("pane.search.placeholder")" value="@_query" @oninput="OnInput" @onkeydown="OnKey" />
+        </div>
+    </div>
+
+    <p class="q-status @(_errors.Count > 0 ? "err" : "")" role="status" aria-live="polite">
+        @if (_searching) { @Loc.T("search.searching") }
+        else { @_status }
+        @foreach (var e in _errors) { <text>
+@e</text> }
+    </p>
+
+    @if (_results.Count > 0)
+    {
+        <ul class="q-list" role="listbox" aria-label="@Loc.T("pane.search")">
+            @for (int i = 0; i < _results.Count; i++)
+            {
+                var r = _results[i];
+                var index = i;
+                <li class="q-result @(r.Score >= Matcher.ConfidentScore && i == _selected ? "best" : "")" role="option" aria-selected="@(i == _selected ? "true" : "false")">
+                    <Cover Url="@r.CoverUrl" Artist="@r.Artist" Album="@r.Title" />
+                    <div>
+                        <div class="q-title">@r.Title</div>
+                        <div class="q-meta">@r.Details</div>
+                    </div>
+                    <div class="q-foot">
+                        <div class="q-pills">
+                            <span class="q-pill spotify @(r.Spotify == null ? "off" : "")">Spotify</span>
+                            <span class="q-pill tidal @(r.Tidal == null ? "off" : "")">Tidal</span>
+                            @if (r.ScoreText.Length > 0) { <span class="q-pill score">@r.ScoreText (@((int)Math.Round(r.Score * 100))%)</span> }
+                            @if (r.QueueState != null) { <span class="q-pill state">@r.QueueState</span> }
+                        </div>
+                        @if (r.CanAdd)
+                        {
+                            <button type="button" class="q-btn primary" aria-label="@Loc.T("result.add.name") - @r.Title" title="@Loc.T("result.add.tip")" @onclick="() => AddResult(r)"><Ico Name="add" />@Loc.T("result.add")</button>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (_offerNoLink && _query.Trim().Length > 0)
+    {
+        <button type="button" class="q-btn wide" @onclick="AddWithoutLink">@Loc.F("search.add_without_link", _query.Trim())</button>
+    }
+
+    <details class="q-quick" open="@_needsKeys">
+        <summary>@Loc.T("web.add.quick")</summary>
+        <form class="q-quick-body" @onsubmit="QuickAdd" @onsubmit:preventDefault>
+            <div class="q-field"><label for="qa-artist">@Loc.T("web.add.artist")</label><input id="qa-artist" class="q-input" maxlength="200" @bind="_qArtist" @bind:event="oninput" /></div>
+            <div class="q-field"><label for="qa-album">@Loc.T("web.add.album")</label><input id="qa-album" class="q-input" maxlength="200" @bind="_qAlbum" @bind:event="oninput" /></div>
+            <div class="q-field"><label for="qa-year">@Loc.T("web.add.year")</label><input id="qa-year" class="q-input" inputmode="numeric" maxlength="4" @bind="_qYear" @bind:event="oninput" /></div>
+            <button type="submit" class="q-btn primary" disabled="@(_qAlbum.Trim().Length == 0)">@Loc.T("result.add")</button>
+        </form>
+    </details>
+</div>
+
+@code {
+    private string _magazine = "";
+    private string _query = "";
+    private string _status = "";
+    private string? _resultsFor;
+    private bool _searching, _needsKeys, _offerNoLink;
+    private int _selected = -1;
+    private List<AlbumResult> _results = [];
+    private List<string> _errors = [];
+    private CancellationTokenSource? _cts;
+    private string _qArtist = "", _qAlbum = "", _qYear = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Queue.LoadAsync();
+        _magazine = Queue.Settings.LastSource;
+        _needsKeys = !Queue.Settings.SpotifyConfigured && !Queue.Settings.TidalConfigured;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { await JS.InvokeAsync<bool>("queueify.focus", "[data-q-search]"); }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        _query = e.Value?.ToString() ?? "";
+        _cts?.Cancel();
+        if (_query.Trim().Length == 0)
+        {
+            _results = []; _errors = []; _status = ""; _resultsFor = null; _searching = false; _offerNoLink = false;
+            return;
+        }
+        if (_query.Trim().Length < 3) return;
+
+        // Wait for a pause in typing; a newer keystroke cancels this wait.
+        var cts = _cts = new CancellationTokenSource();
+        try { await Task.Delay(550, cts.Token); }
+        catch (OperationCanceledException) { return; }
+        await RunSearch(cts);
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowDown": Move(+1); break;
+            case "ArrowUp": Move(-1); break;
+            case "Escape": _query = ""; _results = []; _errors = []; _status = ""; _resultsFor = null; _offerNoLink = false; _cts?.Cancel(); break;
+            case "Enter":
+                if (_resultsFor == _query.Trim() && _selected >= 0 && _selected < _results.Count) AddResult(_results[_selected]);
+                else { _cts?.Cancel(); await RunSearch(_cts = new CancellationTokenSource()); }
+                break;
+        }
+    }
+
+    private void Move(int delta)
+    {
+        if (_results.Count > 0) _selected = Math.Clamp(_selected + delta, 0, _results.Count - 1);
+    }
+
+    private async Task RunSearch(CancellationTokenSource cts)
+    {
+        var raw = _query.Trim();
+        if (raw.Length == 0) return;
+        _searching = true; _offerNoLink = false; _errors = []; _resultsFor = null;
+        StateHasChanged();
+
+        SearchOutcome? outcome;
+        try { outcome = await Search.RunAsync(raw, Queue.UserId!, Queue.Settings, cts.Token); }
+        finally { if (!cts.IsCancellationRequested) _searching = false; }
+        if (outcome == null || cts.IsCancellationRequested) return;
+
+        _needsKeys = outcome.NeedsKeys;
+        _results = outcome.Results.ToList();
+        foreach (var r in _results)
+            r.QueueState = QueueView.FindSaved(r, Queue.All) is { } saved ? (saved.IsListened ? Loc.T("search.state.listened") : Loc.T("search.state.queued")) : null;
+        _errors = outcome.Errors.ToList();
+        _resultsFor = raw;
+        _selected = outcome.Confident ? 0 : -1;
+        _status = outcome.NeedsKeys ? "" : _results.Count == 0 ? Loc.T("search.none")
+            : outcome.Confident ? (_results[0].CanAdd ? Loc.T("search.press_enter") : Loc.T("search.already")) : Loc.T("search.no_close");
+        _offerNoLink = outcome.NeedsKeys || !outcome.Confident;
+    }
+
+    private void AddResult(AlbumResult r)
+    {
+        if (!r.CanAdd)
+        {
+            _status = Loc.F("search.already_saved", r.Title, r.QueueState!);
+            return;
+        }
+        Added(new BacklogItem
+        {
+            Artist = r.Artist, Album = r.Title, Year = r.Year, CoverUrl = r.CoverUrl,
+            SpotifyId = r.Spotify?.Id, TidalId = r.Tidal?.Id,
+        });
+    }
+
+    private void AddWithoutLink()
+    {
+        if (QueueView.ParseTyped(_query) is not { } typed) return;
+        Added(new BacklogItem { Artist = typed.Artist, Album = typed.Album, Year = typed.Year });
+    }
+
+    private void QuickAdd()
+    {
+        var album = _qAlbum.Trim();
+        if (album.Length == 0) return;
+        int? year = int.TryParse(_qYear.Trim(), out var y) && y is >= 1900 and <= 2100 ? y : null;
+        Added(new BacklogItem { Artist = _qArtist.Trim(), Album = album, Year = year });
+        _qArtist = _qAlbum = _qYear = "";
+    }
+
+    private void Added(BacklogItem item)
+    {
+        item = Queue.Add(item, _magazine);
+        _query = ""; _results = []; _errors = []; _status = ""; _resultsFor = null; _offerNoLink = false; _selected = -1;
+        Toasts.Show(new Toast(Loc.F("toast.added", item.Album), Loc.T("toast.undo"), () => Queue.Remove(item)));
+        _ = JS.InvokeVoidAsync("queueify.focus", "[data-q-search]").AsTask().ContinueWith(_ => { }, TaskScheduler.Default);
+    }
+
+    public void Dispose() => _cts?.Cancel();
+}

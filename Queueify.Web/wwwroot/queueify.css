@@ -122,7 +122,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
   content: ""; position: absolute; inset-inline-start: -8px; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--q-violet);
 }
 .q-navitem .q-ico { position: relative; display: grid; place-items: center; width: 28px; height: 28px; }
-.q-navitem svg { width: 22px; height: 22px; fill: currentColor; }
+.q-navitem svg { width: 22px; height: 22px; }
 
 .q-badge {
   position: absolute; top: -5px; inset-inline-start: 14px;
@@ -145,7 +145,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px;
   background: var(--q-violet-wash); color: var(--q-violet-text);
 }
-.q-head-ico svg { width: 24px; height: 24px; fill: currentColor; }
+.q-head-ico svg { width: 24px; height: 24px; }
 .q-sub { color: var(--q-muted); margin-top: 2px; }
 
 .q-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -165,7 +165,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 .q-input.big { height: 52px; font-size: 17px; padding-inline-start: 44px; }
 .q-searchbox { position: relative; }
 .q-searchbox > svg {
-  position: absolute; inset-inline-start: 14px; top: 50%; translate: 0 -50%; width: 20px; height: 20px; fill: var(--q-muted); pointer-events: none;
+  position: absolute; inset-inline-start: 14px; top: 50%; translate: 0 -50%; width: 20px; height: 20px; color: var(--q-muted); pointer-events: none;
 }
 
 /* Buttons: one shape, three weights. */
@@ -180,7 +180,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
   transition: background-color .12s ease, border-color .12s ease;
 }
 .q-btn:hover { background: var(--q-sleeve-2); color: var(--q-ink); }
-.q-btn svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+.q-btn svg { width: 18px; height: 18px; flex: none; }
 .q-btn.primary { background: var(--q-violet); border-color: var(--q-violet); color: #fff; }
 .q-btn.primary:hover { background: var(--q-violet-hover); border-color: var(--q-violet-hover); color: #fff; }
 .q-btn.danger { background: var(--q-danger); border-color: var(--q-danger); color: light-dark(#fff, #14111B); }
@@ -225,7 +225,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
   border: 2px solid var(--q-muted); background: transparent; color: var(--q-muted); cursor: pointer; padding: 0;
 }
 .q-check:hover { border-color: var(--q-violet); color: var(--q-violet-text); background: var(--q-violet-wash); }
-.q-check svg { width: 20px; height: 20px; fill: currentColor; }
+.q-check svg { width: 20px; height: 20px; }
 .q-check.done { background: var(--q-violet); border-color: var(--q-violet); color: #fff; }
 
 .q-menu { position: relative; }
@@ -242,7 +242,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 
 .q-stars { display: inline-flex; gap: 2px; }
 .q-star { display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: none; color: var(--q-muted); cursor: pointer; padding: 0; border-radius: 6px; }
-.q-star svg { width: 22px; height: 22px; fill: currentColor; }
+.q-star svg { width: 22px; height: 22px; }
 .q-star.on { color: var(--q-rose); }
 .q-star:hover { color: var(--q-rose); }
 
@@ -255,7 +255,7 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 
 .q-empty { display: grid; justify-items: center; gap: 6px; text-align: center; padding: 56px 16px; color: var(--q-muted); }
 .q-empty h2 { color: var(--q-ink); }
-.q-empty svg { width: 40px; height: 40px; fill: var(--q-violet-text); margin-bottom: 8px; }
+.q-empty svg { width: 40px; height: 40px; color: var(--q-violet-text); margin-bottom: 8px; }
 
 /* ───────── Add page ───────── */
 
@@ -298,13 +298,13 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
   padding: 12px 14px; border-radius: var(--q-radius);
   background: var(--q-sleeve); border: 1px solid var(--q-hair); border-inline-start: 4px solid var(--q-violet);
 }
-.q-alert svg { flex: none; width: 20px; height: 20px; fill: var(--q-violet-text); margin-top: 1px; }
+.q-alert svg { flex: none; width: 20px; height: 20px; color: var(--q-violet-text); margin-top: 1px; }
 .q-alert.warn { border-inline-start-color: var(--q-warn); }
-.q-alert.warn svg { fill: var(--q-warn); }
+.q-alert.warn svg { color: var(--q-warn); }
 .q-alert.bad { border-inline-start-color: var(--q-danger); }
-.q-alert.bad svg { fill: var(--q-danger); }
+.q-alert.bad svg { color: var(--q-danger); }
 .q-alert.ok { border-inline-start-color: var(--q-ok); }
-.q-alert.ok svg { fill: var(--q-ok); }
+.q-alert.ok svg { color: var(--q-ok); }
 .q-alert p + p { margin-top: 4px; }
 
 .q-snack {
@@ -436,3 +436,5 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 @media (min-width: 760px) {
   .q-more-sheet { display: none; }
 }
+
+.q-star.on svg { fill: currentColor; }

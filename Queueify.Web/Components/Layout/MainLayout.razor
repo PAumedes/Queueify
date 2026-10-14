@@ -1,23 +1,36 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<a class="q-skip" href="@(Nav.Uri)#main">@Loc.T("web.nav.skip")</a>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+<AuthorizeView>
+    <Authorized>
+        <div class="q-shell">
+            <NavMenu />
+            <main id="main" class="q-main" tabindex="-1">
+                <div class="q-page">@Body</div>
+            </main>
         </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <Snackbar />
+    </Authorized>
+    <NotAuthorized>
+        <div class="q-bare">
+            <main id="main" class="q-auth">
+                <div class="q-auth-brand">
+                    <img src="icons/icon-192.png" alt="" width="44" height="44" />
+                    <h2>Queueify</h2>
+                </div>
+                @Body
+            </main>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    @Loc.T("web.error.unhandled")
+    <a href="." class="reload">@Loc.T("web.error.reload")</a>
+    <span class="dismiss" role="button" aria-label="@Loc.T("web.toast.dismiss")">🗙</span>
 </div>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+}

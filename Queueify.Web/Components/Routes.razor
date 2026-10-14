@@ -1,4 +1,6 @@
-﻿@using Queueify.Web.Components.Account.Shared
+@using Queueify.Web.Components.Account.Shared
+@inject LanguageState State
+
 <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
@@ -9,3 +11,18 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    /// <summary>From the page's cookie; the circuit speaks it from here on (see LocCircuitHandler).</summary>
+    [Parameter] public string? Language { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Language is "en" or "es")
+        {
+            State.Value = Language;
+            // Set for the render that follows this call as well; later calls are wrapped by the circuit handler.
+            Loc.Override(Language);
+        }
+    }
+}

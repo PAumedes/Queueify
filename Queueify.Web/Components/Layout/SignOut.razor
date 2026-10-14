@@ -1,0 +1,12 @@
+@* Signing out changes state, so it is a POST with the antiforgery token, never a link. *@
+<form action="Account/Logout" method="post">
+    <AntiforgeryToken />
+    <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+    <button type="submit" class="q-navitem" title="@Loc.T("web.nav.signout")">
+        <span class="q-ico"><Ico Name="signout" /></span>@Loc.T("web.nav.signout")
+    </button>
+</form>
+
+@code {
+    [Parameter] public string ReturnUrl { get; set; } = "";
+}

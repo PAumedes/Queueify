@@ -1,4 +1,4 @@
-namespace Queueify.Services;
+﻿namespace Queueify.Services;
 
 // Español rioplatense (vos), para quien lee las revistas.
 public static partial class Loc
@@ -354,5 +354,35 @@ public static partial class Loc
         ["tour.3"] = "Sacale una foto a una página de revista con el celular y soltala en esta ventana. Después hacé clic en el artista y el álbum.",
         ["tour.4.title"] = "Todas tus PC",
         ["tour.4"] = "Conectá Sincronizar una vez para tener la misma lista en todas tus PC. La Ayuda (F1) explica todo lo demás.",
+
+        // ── Web: estructura, lista y agregar ──
+        ["web.nav.skip"] = "Saltar al contenido",
+        ["web.nav.main"] = "Navegación principal",
+        ["web.nav.more"] = "Más",
+        ["web.nav.add"] = "Agregar",
+        ["web.nav.add.tip"] = "Agregar un álbum a tu lista (Ctrl+K)",
+        ["web.nav.connect"] = "Conectar una PC",
+        ["web.nav.connect.tip"] = "Conectar una PC: sincronizar la app de escritorio con esta lista",
+        ["web.nav.signout"] = "Salir",
+        ["web.pref.title"] = "Idioma y tema",
+        ["web.pref.language"] = "Idioma",
+        ["web.pref.theme"] = "Tema",
+        ["web.pref.system"] = "Automático",
+        ["web.error.unhandled"] = "Algo salió mal.",
+        ["web.error.reload"] = "Recargar",
+        ["web.toast.dismiss"] = "Cerrar",
+        ["web.reconnect.first"] = "Reconectando con el servidor…",
+        ["web.reconnect.repeat"] = "Seguimos intentando. Próximo intento en (segundos):",
+        ["web.reconnect.failed"] = "No se pudo reconectar. Probá de nuevo o recargá la página.",
+        ["web.reconnect.retry"] = "Reintentar",
+        ["web.reconnect.paused"] = "El servidor pausó la sesión.",
+        ["web.reconnect.resume"] = "Reanudar",
+        ["web.queue.stars"] = "{0} estrellas",
+        ["web.add.summary"] = "¿Te recomendaron un álbum? Escribilo como lo oíste.",
+        ["web.add.keys_link"] = "Abrir Configuración",
+        ["web.add.quick"] = "Agregar a mano",
+        ["web.add.artist"] = "Artista",
+        ["web.add.album"] = "Álbum",
+        ["web.add.year"] = "Año",
     };
 }
