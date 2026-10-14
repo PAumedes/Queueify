@@ -6,7 +6,7 @@ using Queueify.Services;
 using Queueify.Web.Services;
 using Queueify.Web.Storage;
 
-namespace Queueify.Web.Tests.Settings;
+namespace Queueify.Web.Tests.MusicSettings;
 
 public sealed class SettingsServiceTests : IDisposable
 {

@@ -359,6 +359,7 @@ public static partial class Loc
         ["webSettings.title"] = "Ajustes",
         ["webSettings.summary"] = "Servicios de música, país, tema, idioma, reconocimiento de texto y tus datos. Cada sección se guarda por separado.",
         ["webSettings.keys.note"] = "Las claves son de solo escritura: una vez guardadas no se vuelven a mostrar. Dejá un campo vacío para conservar la guardada.",
+        ["webSettings.steps"] = "Cómo conseguir las claves",
         ["webSettings.keys.on"] = "Configurada",
         ["webSettings.keys.off"] = "Sin configurar",
         ["webSettings.client_id"] = "Client ID",

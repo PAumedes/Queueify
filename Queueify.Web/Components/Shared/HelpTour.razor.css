@@ -1,0 +1,31 @@
+.tour {
+    position: fixed;
+    inset-inline: 16px;
+    bottom: 16px;
+    margin-inline: auto;
+    max-width: 28rem;
+    z-index: 1000;
+    padding: 16px 20px;
+    border-radius: var(--borderRadiusXLarge, 8px);
+    border: 1px solid var(--colorNeutralStroke1, #d1d1d1);
+    background: var(--colorNeutralBackground1, #fff);
+    color: var(--colorNeutralForeground1, #242424);
+    box-shadow: var(--shadow16, 0 8px 16px rgba(0, 0, 0, 0.28));
+}
+.tour:focus-visible { outline: 2px solid var(--colorStrokeFocus2, #000); outline-offset: 2px; }
+.counter { margin: 0 0 4px; font-size: 0.8125rem; color: var(--colorNeutralForeground2, #424242); }
+h2 { font-size: 1.125rem; margin: 0 0 6px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.actions button {
+    min-height: 44px;
+    padding: 0 16px;
+    font: inherit;
+    border-radius: var(--borderRadiusMedium, 4px);
+    border: 1px solid var(--colorNeutralStroke1, #d1d1d1);
+    background: var(--colorNeutralBackground1, #fff);
+    color: inherit;
+}
+.actions .next { background: var(--colorBrandBackground, #0f6cbd); border-color: transparent; color: var(--colorNeutralForegroundOnBrand, #fff); font-weight: 600; }
+.actions button:focus-visible { outline: 2px solid var(--colorStrokeFocus2, #000); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .tour { animation: rise 160ms ease-out; } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }

@@ -358,6 +358,7 @@ public static partial class Loc
         ["webSettings.title"] = "Settings",
         ["webSettings.summary"] = "Music services, country, theme, language, text recognition and your data. Each section saves on its own.",
         ["webSettings.keys.note"] = "Keys are write-only: once saved they are never shown again. Leave a field empty to keep the saved one.",
+        ["webSettings.steps"] = "How to get the keys",
         ["webSettings.keys.on"] = "Configured",
         ["webSettings.keys.off"] = "Not configured",
         ["webSettings.client_id"] = "Client ID",
