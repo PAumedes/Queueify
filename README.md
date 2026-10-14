@@ -30,8 +30,8 @@ version takes a moment longer: the exe unpacks the app into `%LOCALAPPDATA%\Queu
 and runs it from there. The copy of the previous version is removed by itself.
 
 Your queue, keys and layout live in `%LOCALAPPDATA%\Queueify` (Help → *Open data folder*). To move to a new
-version, replace the exe. Pinned to the taskbar, Queueify starts the exe you downloaded, so the pin keeps
-working after updates.
+version, replace the exe. Pinned to the taskbar, Queueify starts the exe you downloaded rather than its
+unpacked copy; give the exe one name (say `Queueify.exe`) and keep it when you update, so the pin keeps working.
 
 **Portable mode**: if there's a `Data` folder next to the exe that is empty or has Queueify's files in it,
 Queueify keeps everything there instead, so a copy on a USB stick carries its queue along. To switch an

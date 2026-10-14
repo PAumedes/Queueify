@@ -10,7 +10,7 @@ namespace Queueify.Services;
 public static class AppData
 {
     public static string Folder { get; } = FolderFor(
-        StartedExe(Environment.GetEnvironmentVariable("QUEUEIFY_EXE"), Environment.ProcessPath),
+        Started.Exe ?? Environment.ProcessPath,
         LocalAppDataRoot(Environment.GetEnvironmentVariable("LOCALAPPDATA"), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)),
         EntriesOf);
 
@@ -26,12 +26,30 @@ public static class AppData
         }
     }
 
+    /// <summary>The download's starter this copy was started by, or null when it was started directly.</summary>
+    public static string? StarterExe => Started.Exe;
+
+    // Its own class, so it's set on first use whatever the order of AppData's other statics.
+    private static class Started
+    {
+        public static readonly string? Exe = Take();
+
+        private static string? Take()
+        {
+            var starter = Environment.GetEnvironmentVariable("QUEUEIFY_EXE");
+            // Read once and cleared: programs Queueify opens (a browser, say) must not inherit it.
+            Environment.SetEnvironmentVariable("QUEUEIFY_EXE", null);
+            var exe = StartedExe(starter, null, File.Exists);
+            return exe;
+        }
+    }
+
     /// <summary>
     /// The exe the user opened: the download's starter (QUEUEIFY_EXE, set when it runs the app from its
-    /// unpacked copy) when there is one, so a Data folder next to it still makes the app portable.
+    /// unpacked copy) when there is one and it exists, so a Data folder next to it still makes the app portable.
     /// </summary>
-    public static string? StartedExe(string? starter, string? processPath) =>
-        starter is { Length: > 0 } s && s.IndexOfAny(NeverInAPath) < 0 && Path.IsPathFullyQualified(s) ? s : processPath;
+    public static string? StartedExe(string? starter, string? processPath, Func<string, bool> fileExists) =>
+        starter is { Length: > 0 } s && s.IndexOfAny(NeverInAPath) < 0 && Path.IsPathFullyQualified(s) && fileExists(s) ? s : processPath;
 
     /// <summary>What a taskbar pin runs: the exe the user opened, quoted (its path may have spaces).</summary>
     public static string RelaunchCommand(string startedExe) => $"\"{startedExe}\"";
@@ -54,9 +72,9 @@ public static class AppData
     /// <summary>
     /// A "Data" folder next to the exe the user started is used when it's Queueify's (it holds Queueify's
     /// files, or is empty to start a portable copy); someone's own Documents\Data is left alone. Next to
-    /// the exe, not <see cref="AppContext.BaseDirectory"/>: the single-file app runs from a copy unpacked
-    /// into a temporary folder. <paramref name="dataFolderEntries"/> lists a folder's entries, or null
-    /// when it isn't a folder.
+    /// the exe the user opened, not <see cref="AppContext.BaseDirectory"/>: the download's starter runs the
+    /// app from a copy unpacked into %LOCALAPPDATA%\Queueify\app. <paramref name="dataFolderEntries"/> lists
+    /// a folder's entries, or null when it isn't a folder.
     /// </summary>
     public static string FolderFor(string? exePath, string localAppData, Func<string, string[]?> dataFolderEntries) =>
         Path.GetDirectoryName(exePath) is { Length: > 0 } dir

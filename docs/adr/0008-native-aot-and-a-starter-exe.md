@@ -32,9 +32,13 @@ into the exe and which a PC without the runtime must get from the download.
   - `{x:Bind}` templates instead of `DisplayMemberPath` (property lookup at run time).
 - **A starter exe** (`Queueify.Launcher`, itself Native AOT, ~2.4 MB) with the published app appended as one
   Brotli-compressed tar (quality 11, 16 MB window) and a trailer with the archive's length and a hash id.
-  It unpacks once per version into `%LOCALAPPDATA%\Queueify\app\<id>` (beside, then renamed into place, so a
-  crash or a second copy never leaves half an app), starts it with `QUEUEIFY_EXE` set to itself, and
-  removes other versions' folders when nothing runs from them.
+  It unpacks once per version into `%LOCALAPPDATA%\Queueify\app\<id>`, starts it with `QUEUEIFY_EXE` set to
+  itself, and removes other versions' folders when nothing runs from them. Unpacking:
+  - checks the archive against its id (a SHA-256) while reading it; Brotli has no checksum, and a damaged
+    copy would otherwise install a broken version for good. A mismatch says "download it again".
+  - goes into a folder of its own and is renamed into place; a complete folder already there is never
+    touched (a second copy started at the same moment may be running from it), and another version's
+    unpacking in progress is left alone by the clean-up.
 - The app treats `QUEUEIFY_EXE` as the exe the user started: a portable `Data` folder next to the download
   still counts, and the window's taskbar relaunch command points at the download, so a pin survives updates.
 - The starter resolves its imports from System32 only (`/DEPENDENTLOADFLAG:0x800`): `bcrypt.dll` isn't a
@@ -50,7 +54,11 @@ into the exe and which a PC without the runtime must get from the download.
 - Code that needs run-time reflection or WinRT interop the generator didn't see fails only at run time. The
   UI tests run the download itself (lists, settings, sync, the language restart, reading a pasted photo), and
   `tools\package.ps1` checks the start, the data location, the taskbar pin and the starter's dll loading.
-- Self-unpacking exes are sometimes flagged by antivirus heuristics; none was seen with Windows Defender.
+- Self-unpacking exes are sometimes flagged by antivirus heuristics; Windows Defender found nothing.
+- Signing the exe (Authenticode) would put the signature after the trailer: `Bundle.Read` would then have to
+  find the trailer before the signature.
+- The app reads `QUEUEIFY_EXE` once (it must name an existing file) and clears it, so programs it opens
+  don't inherit it; a language restart goes back through the starter.
 
 ## Alternatives considered
 

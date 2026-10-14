@@ -66,7 +66,14 @@ public sealed class AppDataTests : IDisposable
     [InlineData("Queueify.exe", @"E:\Queueify\Queueify.exe", @"E:\Queueify\Queueify.exe")]
     public void The_exe_the_user_started_is_the_starter_when_there_is_one(string? starter, string processPath, string expected)
     {
-        Assert.Equal(expected, AppData.StartedExe(starter, processPath));
+        Assert.Equal(expected, AppData.StartedExe(starter, processPath, _ => true));
+    }
+
+    [Fact]
+    public void A_starter_that_isnt_there_is_ignored()
+    {
+        // A leftover QUEUEIFY_EXE (say, inherited through a program Queueify opened) naming a file that's gone.
+        Assert.Equal(@"E:\Queueify\Queueify.exe", AppData.StartedExe(@"D:\Old\Queueify.exe", @"E:\Queueify\Queueify.exe", _ => false));
     }
 
     [Theory]

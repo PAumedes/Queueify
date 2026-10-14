@@ -56,7 +56,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Queueify.ico"));
-        if (AppData.StartedExe(Environment.GetEnvironmentVariable("QUEUEIFY_EXE"), null) is { } starter)
+        if (AppData.StarterExe is { } starter)
             TaskbarIdentity.PinTo(WinRT.Interop.WindowNative.GetWindowHandle(this), starter);
 
         _ui = UiState.Load();
@@ -1087,7 +1087,8 @@ public sealed partial class MainWindow : Window
         SaveWindow();
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false });
+            // Through the download's starter when there is one, so the new copy knows it too.
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppData.StarterExe ?? Environment.ProcessPath!) { UseShellExecute = false });
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {

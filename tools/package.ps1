@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 # Fails the build when the download grows past this. 1.1.0 was a 93 MB zip; 1.2.0 a 35 MB exe (ADR-0007);
-# compiled ahead of time and packed with Brotli it is about 19 MB (ADR-0008).
+# compiled ahead of time and packed with Brotli it is about 21 MB (ADR-0008).
 $maxMB = 24
 
 # Native AOT links with the C++ build tools and finds them through vswhere, which isn't on PATH by default.
@@ -106,6 +106,8 @@ try {
 }
 finally {
     if ($app) { $app.Kill(); $app.WaitForExit(10000) | Out-Null }
+    # A starter showing an error box would hold the scratch folder.
+    if ($starter -and -not $starter.HasExited) { $starter.Kill(); $starter.WaitForExit(10000) | Out-Null }
     $env:LOCALAPPDATA = $realLocal
     Start-Sleep 1
     Remove-Item $smoke -Recurse -Force -ErrorAction SilentlyContinue

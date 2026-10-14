@@ -115,6 +115,80 @@ public sealed class BundleTests : IDisposable
     }
 
     [Fact]
+    public void A_damaged_download_is_refused_and_leaves_nothing_behind()
+    {
+        var output = Path.Combine(_dir, "Queueify.exe");
+        Bundle.Write(Starter(), App("app"), output);
+        BundleInfo info;
+        using (var exe = File.OpenRead(output)) info = Bundle.Read(exe)!;
+        // One flipped byte in the middle of the app, as a flaky USB stick or a broken download leaves it.
+        var bytes = File.ReadAllBytes(output);
+        bytes[info.Offset + info.Length / 2] ^= 0x40;
+        File.WriteAllBytes(output, bytes);
+        var cache = Path.Combine(_dir, "cache");
+
+        using (var exe = File.OpenRead(output))
+            Assert.Throws<BundleDamagedException>(() => Bundle.Unpack(exe, info, cache));
+
+        Assert.Empty(Directory.Exists(cache) ? Directory.GetFileSystemEntries(cache) : []);
+    }
+
+    [Fact]
+    public void A_second_copy_finishing_later_keeps_the_running_one()
+    {
+        // Two starts at once on the first run: the first copy is already running from the folder.
+        var cache = Path.Combine(_dir, "cache");
+        var target = Path.Combine(cache, "v1");
+        Directory.CreateDirectory(Path.Combine(target, "Assets"));
+        File.WriteAllText(Path.Combine(target, "Assets", "Queueify.ico"), "icon");
+        File.WriteAllText(Path.Combine(target, ".complete"), "");
+        using var running = File.Open(Path.Combine(target, "Queueify.exe"), FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
+        var mine = Path.Combine(cache, "v1.tmp-mine");
+        Directory.CreateDirectory(mine);
+        File.WriteAllText(Path.Combine(mine, ".complete"), "");
+
+        var used = Bundle.PlaceUnpacked(mine, target);
+
+        Assert.Equal(target, used);
+        Assert.True(File.Exists(Path.Combine(target, "Assets", "Queueify.ico")));
+        Assert.False(Directory.Exists(mine));
+    }
+
+    [Fact]
+    public void A_broken_folder_that_cant_be_replaced_still_leaves_a_working_copy()
+    {
+        // An older starter crashed mid-unpack and something still holds a file in that folder.
+        var cache = Path.Combine(_dir, "cache");
+        var target = Path.Combine(cache, "v1");
+        Directory.CreateDirectory(target);
+        using var held = File.Open(Path.Combine(target, "Queueify.exe"), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+        var mine = Path.Combine(cache, "v1.tmp-mine");
+        Directory.CreateDirectory(mine);
+        File.WriteAllText(Path.Combine(mine, ".complete"), "");
+
+        var used = Bundle.PlaceUnpacked(mine, target);
+
+        Assert.True(File.Exists(Path.Combine(used, ".complete")));
+    }
+
+    [Fact]
+    public void Another_version_still_unpacking_is_left_alone()
+    {
+        var cache = Path.Combine(_dir, "cache");
+        var unpacking = Path.Combine(cache, "other.tmp-abc");
+        Directory.CreateDirectory(unpacking);
+        var abandoned = Path.Combine(cache, "older.tmp-def");
+        Directory.CreateDirectory(abandoned);
+        Directory.SetLastWriteTimeUtc(abandoned, DateTime.UtcNow.AddHours(-2));
+        Directory.CreateDirectory(Path.Combine(cache, "current"));
+
+        Bundle.RemoveOtherVersions(cache, "current");
+
+        Assert.True(Directory.Exists(unpacking));
+        Assert.False(Directory.Exists(abandoned));
+    }
+
+    [Fact]
     public void Older_versions_are_removed_and_the_current_one_kept()
     {
         var cache = Path.Combine(_dir, "cache");

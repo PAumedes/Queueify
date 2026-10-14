@@ -9,6 +9,9 @@ namespace Queueify.Launcher;
 /// <summary>Where the appended app is in the exe, and the name of its folder once unpacked.</summary>
 public sealed record BundleInfo(long Offset, long Length, string Id);
 
+/// <summary>The appended app doesn't match its id: a broken download or a damaged disk.</summary>
+public sealed class BundleDamagedException(string message, Exception? inner = null) : Exception(message, inner);
+
 /// <summary>
 /// The download is the starter exe followed by the app folder as one Brotli-compressed tar, then a
 /// trailer: the archive's length, its id (a hash of it, which names the unpacked folder) and a marker.
@@ -84,51 +87,89 @@ public static class Bundle
     }
 
     /// <summary>
-    /// The app's folder for this version, unpacked if it isn't yet. Unpacks beside it and renames into
-    /// place, so a crash halfway or a second copy starting at the same time never leaves half an app.
+    /// The app's folder for this version, unpacked if it isn't yet. Unpacks into a folder of its own,
+    /// checks the archive against its id, then renames it into place (see <see cref="PlaceUnpacked"/>).
     /// </summary>
     public static string Unpack(Stream exe, BundleInfo info, string cacheFolder)
     {
         var target = Path.Combine(cacheFolder, info.Id);
-        if (File.Exists(Path.Combine(target, Complete))) return target;
+        if (IsComplete(target)) return target;
 
         var temp = Path.Combine(cacheFolder, $"{info.Id}.tmp-{Guid.NewGuid():N}");
         Directory.CreateDirectory(temp);
         try
         {
-            exe.Seek(info.Offset, SeekOrigin.Begin);
-            using (var brotli = new BrotliStream(new Slice(exe, info.Length), CompressionMode.Decompress))
-            using (var tar = new TarReader(brotli))
-            {
-                var root = Path.GetFullPath(temp) + Path.DirectorySeparatorChar;
-                while (tar.GetNextEntry() is { } entry)
-                {
-                    var path = Path.GetFullPath(Path.Combine(root, entry.Name));
-                    if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || entry.EntryType != TarEntryType.RegularFile) continue;
-                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                    entry.ExtractToFile(path, overwrite: false);
-                }
-            }
+            Extract(exe, info, temp);
             File.WriteAllText(Path.Combine(temp, Complete), "");
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
+        return PlaceUnpacked(temp, target);
+    }
 
-            // What a crash mid-unpack by an older starter left behind.
-            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
-            Directory.Move(temp, target);
-        }
-        catch (IOException) when (File.Exists(Path.Combine(target, Complete)))
+    private static void Extract(Stream exe, BundleInfo info, string folder)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        exe.Seek(info.Offset, SeekOrigin.Begin);
+        var archive = new Slice(exe, info.Length, hash);
+        try
         {
-            // Another copy of Queueify starting at the same moment finished first.
+            using var brotli = new BrotliStream(archive, CompressionMode.Decompress, leaveOpen: true);
+            using var tar = new TarReader(brotli);
+            var root = Path.GetFullPath(folder) + Path.DirectorySeparatorChar;
+            while (tar.GetNextEntry() is { } entry)
+            {
+                var path = Path.GetFullPath(Path.Combine(root, entry.Name));
+                if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || entry.EntryType != TarEntryType.RegularFile) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                entry.ExtractToFile(path, overwrite: false);
+            }
         }
-        finally
+        catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or EndOfStreamException or FormatException)
         {
-            if (Directory.Exists(temp)) TryDelete(temp);
+            throw new BundleDamagedException("The appended app can't be read.", ex);
         }
-        return target;
+        // Brotli has no checksum of its own: the id is the archive's hash, so every byte is checked.
+        archive.ReadToEnd();
+        if (Convert.ToHexStringLower(hash.GetHashAndReset())[..IdLength] != info.Id)
+            throw new BundleDamagedException("The appended app doesn't match its id.");
     }
 
     /// <summary>
+    /// Moves a freshly unpacked, complete folder into place and says which folder to run. A complete folder
+    /// already there is never touched (another copy started at the same moment may be running from it);
+    /// a broken leftover that can't be replaced is left, and the fresh copy runs from where it is.
+    /// </summary>
+    public static string PlaceUnpacked(string unpacked, string target)
+    {
+        if (IsComplete(target))
+        {
+            TryDelete(unpacked);
+            return target;
+        }
+        try
+        {
+            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+            Directory.Move(unpacked, target);
+            return target;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!IsComplete(target)) return unpacked;
+            TryDelete(unpacked);
+            return target;
+        }
+    }
+
+    private static bool IsComplete(string folder) => File.Exists(Path.Combine(folder, Complete));
+
+    /// <summary>
     /// Deletes the folders of other versions. One still running is left whole for next time: renaming a
-    /// folder fails while a program runs from it, so each is renamed first and only then deleted.
+    /// folder fails while a program runs from it, so each is renamed first and only then deleted. Another
+    /// version's unpacking in progress (".tmp-") is left alone unless it was abandoned long ago.
     /// </summary>
     public static void RemoveOtherVersions(string cacheFolder, string keepId)
     {
@@ -137,6 +178,7 @@ public static class Bundle
         {
             var name = Path.GetFileName(dir);
             if (name == keepId || name.StartsWith(keepId + ".tmp-", StringComparison.Ordinal)) continue;
+            if (name.Contains(".tmp-") && Directory.GetLastWriteTimeUtc(dir) > DateTime.UtcNow.AddHours(-1)) continue;
             var doomed = name.Contains(".old-") ? dir : Path.Combine(cacheFolder, $"{name}.old-{Guid.NewGuid():N}");
             try
             {
@@ -149,7 +191,6 @@ public static class Bundle
             TryDelete(doomed);
         }
     }
-
     private static void TryDelete(string dir)
     {
         try { Directory.Delete(dir, recursive: true); }
@@ -200,8 +241,8 @@ public static class Bundle
         public override void SetLength(long value) => throw new NotSupportedException();
     }
 
-    /// <summary>The archive's bytes only, so decompression can't run into the trailer.</summary>
-    private sealed class Slice(Stream inner, long length) : Stream
+    /// <summary>The archive's bytes only, so decompression can't run into the trailer; hashed as they're read.</summary>
+    private sealed class Slice(Stream inner, long length, IncrementalHash hash) : Stream
     {
         private readonly long _length = length;
         private long _left = length;
@@ -212,8 +253,17 @@ public static class Bundle
         {
             if (_left == 0) return 0;
             int n = inner.Read(buffer[..(int)Math.Min(buffer.Length, _left)]);
+            if (n == 0) throw new EndOfStreamException();
+            hash.AppendData(buffer[..n]);
             _left -= n;
             return n;
+        }
+
+        /// <summary>Whatever the decompressor didn't need still counts for the hash.</summary>
+        public void ReadToEnd()
+        {
+            var buffer = new byte[1 << 16];
+            while (Read(buffer) > 0) { }
         }
 
         public override bool CanRead => true;
