@@ -7,7 +7,10 @@
         <div class="q-shell">
             <NavMenu />
             <main id="main" class="q-main" tabindex="-1">
-                <div class="q-page">@Body</div>
+                @* Account pages other than Manage (which has its own card) are narrow forms: give them a card too. *@
+                <div class="q-page @(PlainAccountPage ? "q-narrow" : "")">
+                    @if (PlainAccountPage) { <div class="q-card stack">@Body</div> } else { @Body }
+                </div>
             </main>
         </div>
         <Snackbar />
@@ -33,6 +36,15 @@
 
 @code {
     [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private bool PlainAccountPage
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri);
+            return path.StartsWith("Account", StringComparison.OrdinalIgnoreCase) && !path.StartsWith("Account/Manage", StringComparison.OrdinalIgnoreCase);
+        }
+    }
     [Inject] private IThemeService Themes { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 

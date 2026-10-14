@@ -465,3 +465,9 @@ h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
   .q-more-sheet .q-prefs { padding: 8px 12px 4px; border-top: 1px solid var(--q-hair); margin-top: 4px; }
 }
 
+
+.q-tile .q-actions { flex-wrap: wrap; justify-content: space-between; }
+.q-tile .q-actions .q-btn.primary { flex: 1 1 100%; min-width: 0; }
+
+.q-page.q-narrow { max-width: 520px; margin-inline: 0; }
+
