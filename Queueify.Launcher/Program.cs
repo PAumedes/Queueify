@@ -6,14 +6,16 @@ namespace Queueify.Launcher;
 /// <summary>
 /// The download's entry point: unpacks the app appended to this exe (once per version) into
 /// %LOCALAPPDATA%\Queueify\app and starts it, passing its own path so the app finds a portable Data
-/// folder next to it and pins itself to the taskbar through it.
+/// folder next to it and pins itself to the taskbar through it. A loading screen covers the wait.
 /// </summary>
 internal static partial class Program
 {
     private static int Main(string[] args)
     {
+        var spanish = (GetUserDefaultUILanguage() & 0x3FF) == 0x0A;
         string cache;
         BundleInfo info;
+        LoadingScreen? loading = null;
         try
         {
             var self = Environment.ProcessPath ?? throw new InvalidOperationException("No path for this exe.");
@@ -22,6 +24,8 @@ internal static partial class Program
             using (var exe = new FileStream(self, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
             {
                 info = Bundle.Read(exe) ?? throw new BundleDamagedException("No app appended.");
+                var unpacking = !Bundle.IsUnpacked(cache, info);
+                loading = LoadingScreen.Show(StarterMessage.Loading(unpacking, spanish), StarterMessage.LoadingDelay(unpacking));
                 folder = Bundle.Unpack(exe, info, cache);
             }
 
@@ -29,13 +33,18 @@ internal static partial class Program
             var start = new ProcessStartInfo(Path.Combine(folder, "Queueify.exe")) { UseShellExecute = false, WorkingDirectory = folder };
             foreach (var arg in args) start.ArgumentList.Add(arg);
             start.Environment["QUEUEIFY_EXE"] = self;
-            Process.Start(start)?.Dispose();
+            // The loading screen has the foreground; the app's window takes it over when it opens.
+            AllowSetForegroundWindow(ASFW_ANY);
+            using var app = Process.Start(start);
+            WaitForWindow(app);
         }
         catch (Exception ex)
         {
-            MessageBox(0, StarterMessage.For(ex, (GetUserDefaultUILanguage() & 0x3FF) == 0x0A), "Queueify", 0x10 /* MB_ICONERROR */);
+            loading?.Dispose();
+            MessageBox(0, StarterMessage.For(ex, spanish), "Queueify", 0x10 /* MB_ICONERROR */);
             return 1;
         }
+        loading.Dispose();
 
         try
         {
@@ -48,10 +57,25 @@ internal static partial class Program
         return 0;
     }
 
+    /// <summary>Until the app's window is open (or it stopped), so the loading screen hands over to it.</summary>
+    private static void WaitForWindow(Process? app)
+    {
+        if (app == null) return;
+        var until = DateTime.UtcNow.AddSeconds(30);
+        while (DateTime.UtcNow < until)
+        {
+            app.Refresh();
+            if (app.HasExited || app.MainWindowHandle != 0) return;
+            Thread.Sleep(100);
+        }
+    }
+
     /// <summary>Same rule as the app (AppData.LocalAppDataRoot): the variable only when it's a full path.</summary>
     private static string LocalAppData() =>
         Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } v && v.IndexOfAny(['"', '<', '>', '*', '?', '|', '\0', '\t', '\r', '\n']) < 0 && Path.IsPathFullyQualified(v)
             ? v : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+    private const int ASFW_ANY = -1;
 
     // The starter has no culture data (InvariantGlobalization keeps it small), so it asks Windows directly.
     [LibraryImport("kernel32.dll")]
@@ -59,4 +83,8 @@ internal static partial class Program
 
     [LibraryImport("user32.dll", EntryPoint = "MessageBoxW", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int MessageBox(nint owner, string text, string caption, uint type);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AllowSetForegroundWindow(int processId);
 }

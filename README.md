@@ -26,10 +26,10 @@ you've heard it, rate it, move on.
 
 Windows 10 (version 2004 or later) or Windows 11, 64-bit. Nothing else to install. Windows SmartScreen may
 warn the first time because the app isn't signed: *More info → Run anyway*. The first start of each
-version takes a moment longer: the exe unpacks the app into `%LOCALAPPDATA%\Queueify\app` (about 70 MB)
+version takes a moment longer, behind a small loading screen: the exe unpacks the app into `%LOCALAPPDATA%\Queueify\app` (about 70 MB)
 and runs it from there. The copy of the previous version is removed by itself.
 
-**Updates**: when a new version is out, a bar under the page title offers it. *Update and restart*
+**Updates**: when a new version is out, a dot appears on Help, and Help → About offers it. *Update and restart*
 downloads it, checks it against the release and puts it in place of your exe, under the same name. Help →
 About → *Check for updates* asks right away; *Skip this version* stops one version from being offered at start; Settings → Updates turns off the check at start. (From 1.3.0 or
 earlier, download 1.4.0 by hand once.)

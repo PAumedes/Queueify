@@ -327,6 +327,10 @@
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE897;" />
                     </NavigationViewItem.Icon>
+                    <!-- A dot while a new version waits in Help → About, as Windows' own guidance suggests for updates -->
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="UpdateBadge" Visibility="Collapsed" />
+                    </NavigationViewItem.InfoBadge>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="SyncNav" Content="{l:Tr Key=nav.sync}" Tag="sync" SelectsOnInvoked="False">
                     <NavigationViewItem.Icon>
@@ -383,7 +387,8 @@
                                  PlaceholderText="{l:Tr Key=pane.search.placeholder}"
                                  TextChanged="OnSearchTextChanged" PreviewKeyDown="OnSearchKeyDown" />
 
-                        <StackPanel Grid.Row="3" Spacing="4">
+                        <!-- Collapsed while it has nothing to say, so the two fields sit together. -->
+                        <StackPanel x:Name="SearchStatusPanel" Grid.Row="3" Spacing="4" Visibility="Collapsed">
                             <ProgressBar x:Name="SearchProgress" IsIndeterminate="True" Visibility="Collapsed" />
                             <TextBlock x:Name="SearchStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -489,10 +494,6 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
                         <FontIcon x:Name="PageIcon" Glyph="&#xE8D6;" FontSize="30" VerticalAlignment="Center"
                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -502,10 +503,6 @@
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                        <!-- A newer version: offered here, under the title of every page, until it's installed or
-                             closed. A row of its own, so it never squeezes the title on a narrow window. -->
-                        <InfoBar x:Name="UpdateBar" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0"
-                                 AutomationProperties.AutomationId="UpdateBar" />
                     </Grid>
 
                     <!-- Toolbar for the queue pages: labeled commands, like UniGetUI -->
@@ -664,6 +661,8 @@
                                     <StackPanel Grid.Column="1" Spacing="6">
                                         <TextBlock Text="{l:Tr Key=help.about}" Style="{StaticResource SubtitleTextBlockStyle}" />
                                         <TextBlock x:Name="AboutVersion" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <!-- Updates: the offer, the download, and anything that went wrong, here and nowhere else -->
+                                        <InfoBar x:Name="UpdateBar" Margin="0,4" AutomationProperties.AutomationId="UpdateBar" />
                                         <TextBlock x:Name="AboutTagline" TextWrapping="Wrap" />
                                         <ItemsControl x:Name="AboutCredits" Margin="0,6,0,0">
                                             <ItemsControl.ItemTemplate>
@@ -839,7 +838,8 @@
                                 </Grid>
                             </Border>
                             <Border Style="{StaticResource SettingRow}">
-                                <Grid ColumnSpacing="16" RowSpacing="12">
+                                <!-- Row spacing only while the restart note shows (UpdateLanguageRestart): the row is as tall as the others. -->
+                                <Grid x:Name="LanguageRow" ColumnSpacing="16">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />

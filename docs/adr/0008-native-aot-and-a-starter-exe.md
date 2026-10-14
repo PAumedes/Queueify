@@ -51,7 +51,9 @@ into the exe and which a PC without the runtime must get from the download.
 
 - One 17.6 MB exe (from 35 MB, and 93 MB in 1.1.0), nothing to install. The first start of a version takes
   about 5 s (unpacking about 70 MB, held in memory with the 64 MB dictionary while it decompresses); later
-  starts skip it.
+  starts skip it. The starter shows a small loading screen meanwhile (`LoadingScreen`, plain Win32: icon, name,
+  "Getting Queueify ready…"), until the app's window opens; on a start that needs no unpacking, only if the
+  window takes over 0.6 s, so it never flashes.
 - Building needs Visual Studio's C++ build tools, and a release build takes about 4 minutes (AOT, and a
   minute of LZMA). GitHub's Windows runners have them.
 - `crash.log` stack traces name methods but have no file and line (the symbols would be a 50 MB file).

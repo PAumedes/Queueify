@@ -27,8 +27,10 @@ $realLocalAppData = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-local-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
 $appCache = Join-Path $env:LOCALAPPDATA 'Queueify\app'
+# The download (a starter) shows its own loading screen while it unpacks; only the app it starts counts.
+$isStarter = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($Exe), (Get-Item $Exe).Length - 8, 8) -like 'QFYAPP*'
 function Get-AppProcess {
-    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ($_.Path -eq $Exe -or $_.Path.StartsWith("$appCache\", [StringComparison]::OrdinalIgnoreCase)) }
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and (($_.Path -eq $Exe -and -not $isStarter) -or $_.Path.StartsWith("$appCache\", [StringComparison]::OrdinalIgnoreCase)) }
 }
 
 function Start-App {
@@ -153,7 +155,11 @@ Check ($null -ne (Find 'Saved with every album*' 'Text')) 'the magazine field sa
 Check ($null -ne $magazineTitle -and $null -ne $searchTitle -and
        $searchTitle.Current.BoundingRectangle.Top -lt $magazineTitle.Current.BoundingRectangle.Top) `
     'the search comes first; the optional magazine field is below it'
-
+# With nothing to report, the line for search results takes no room: the fields sit close together.
+$searchEdit = Find 'Find an album' 'Edit'
+$gap = if ($searchEdit -and $magazineTitle) { $magazineTitle.Current.BoundingRectangle.Top - $searchEdit.Current.BoundingRectangle.Bottom } else { 999 }
+# (What's left is the field title's own spacing: 25 px here at 150 %; an empty status line made it 45.)
+Check ($gap -lt 30) "no empty gap between the search and the magazine field ($gap px)"
 # ── Every button says what it does ──
 $unnamed = All | Where-Object {
     $_.Current.ControlType.ProgrammaticName -in 'ControlType.Button', 'ControlType.SplitButton' -and
@@ -298,6 +304,13 @@ Check ($installed.Length -gt 0) "installed text recognition languages are listed
 Check ($null -ne (FindId 'OcrInstallBox') -and $null -ne (FindId 'OcrInstallButton')) 'more languages can be installed'
 Check ($null -ne (Find 'Windows language settings' 'Hyperlink')) 'a way out to Windows language settings'
 
+# Every settings row is as tall as the next: the Theme, Language and Layout controls (each centred in its
+# row) are equally spaced. Scrolled to the end of the page, so all three are on screen.
+(FindId 'SettingsPanel').GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100); Start-Sleep 1
+$resetLayout = Find 'Reset layout' 'Button'
+$centres = (FindId 'ThemeBox'), (FindId 'LanguageBox'), $resetLayout | ForEach-Object { $r = $_.Current.BoundingRectangle; $r.Top + $r.Height / 2 }
+# (Layout's longer caption may wrap and add a few pixels; the spacing kept for a hidden note added 12 and more.)
+Check ([math]::Abs(($centres[1] - $centres[0]) - ($centres[2] - $centres[1])) -le 8) "settings rows are the same height ($($centres -join ', '))"
 $theme = FindId 'ThemeBox'
 $theme.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
 Start-Sleep 1
@@ -320,6 +333,8 @@ Start-App
 Select-Item (Find 'Settings*' 'ListItem')
 Check ($null -eq (Find 'Restart Queueify' 'Button')) 'no restart offered while the language is unchanged'
 $languageBox = FindId 'LanguageBox'
+# On screen first (focus scrolls to it): a dropdown below the window's edge doesn't open.
+$languageBox.SetFocus(); Start-Sleep -Milliseconds 500
 $languageBox.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
 Start-Sleep 1
 Select-Item (Find 'Español' 'ListItem')

@@ -105,7 +105,10 @@ public sealed partial class MainWindow : Window
         RefreshQueue();
         ShowResults([]);
         FillHelp();
-        // The bar keeps its height from state to state while open; a new window size starts it over.
+        // The line under the search box shows only while it has something to say.
+        SearchStatus.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) => UpdateSearchStatusPanel());
+        SearchProgress.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) => UpdateSearchStatusPanel());
+        AddWithoutLink.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) => UpdateSearchStatusPanel());        // The bar keeps its height from state to state while open; a new window size starts it over.
         UpdateBar.Closed += (_, _) => UpdateBar.MinHeight = 0;
         SizeChanged += (_, _) => UpdateBar.MinHeight = 0;
 
@@ -134,6 +137,10 @@ public sealed partial class MainWindow : Window
     }
 
     // ───────────────────────── Window & layout ─────────────────────────
+
+    private void UpdateSearchStatusPanel() =>
+        SearchStatusPanel.Visibility = SearchStatus.Text.Length > 0 || SearchProgress.Visibility == Visibility.Visible
+            || AddWithoutLink.Visibility == Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
 
     private void RestoreWindow()
     {
@@ -527,6 +534,12 @@ public sealed partial class MainWindow : Window
         QueuePanel.Visibility = QueueCommands.Visibility = queuePage ? Visibility.Visible : Visibility.Collapsed;
         PhotoPanel.Visibility = PhotoCommands.Visibility = _page == Page.Photo ? Visibility.Visible : Visibility.Collapsed;
         HelpPanel.Visibility = _page == Page.Help ? Visibility.Visible : Visibility.Collapsed;
+        // Opening Help clears the dot and goes straight to the update.
+        if (_page == Page.Help && UpdateBadge.Visibility == Visibility.Visible)
+        {
+            SetUpdateBadge(false);
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => UpdateBar.StartBringIntoView());
+        }
         SettingsPanel.Visibility = _page == Page.Settings ? Visibility.Visible : Visibility.Collapsed;
         ApplyPaneLayout();
 
@@ -542,6 +555,15 @@ public sealed partial class MainWindow : Window
         badge.Value = count;
         badge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, count > 0 ? Loc.F(count == 1 ? nameKey + ".one" : nameKey, label, count) : label);
+    }
+
+    /// <summary>The dot on Help while a new version waits there, named for screen readers ("Help, new version available").</summary>
+    private void SetUpdateBadge(bool shown)
+    {
+        UpdateBadge.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+        var name = shown ? Loc.F("nav.help.update", Loc.T("nav.help")) : Loc.T("nav.help");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(HelpNav, name);
+        if (shown) Announce(HelpNav, name);
     }
 
     private enum Page { Queue, Listened, Photo, Help, Settings }
@@ -1528,8 +1550,14 @@ public sealed partial class MainWindow : Window
         try
         {
             var release = await _updater.CheckAsync(AppInfo.Version, CancellationToken.None);
-            if (release != null && !_updating && Updater.IsWanted(release, _ui.SkippedVersion, asked: _reportCheck)) OfferUpdate(release);
-            if (_reportCheck) ShowUpdateStatus(release != null ? Loc.F("update.available", release.Version) : Loc.T("update.latest"));
+            if (release != null && !_updating && Updater.IsWanted(release, _ui.SkippedVersion, asked: _reportCheck))
+            {
+                OfferUpdate(release);
+                // Found at start: only the dot on Help says so; the offer itself waits in About.
+                if (_page != Page.Help) SetUpdateBadge(true);
+            }
+            // The offer, right above, already says what's new; the line under the button says the rest.
+            if (_reportCheck) ShowUpdateStatus(release != null ? "" : Loc.T("update.latest"));
         }
         catch (Exception ex)
         {
@@ -1546,6 +1574,7 @@ public sealed partial class MainWindow : Window
     private void ShowUpdateStatus(string text)
     {
         UpdateStatus.Text = text;
+        if (text.Length == 0) return;
         // At the bottom of Help, maybe below the window's edge; and said aloud for screen readers.
         UpdateStatus.StartBringIntoView();
         Announce(UpdateStatus, text);
@@ -1563,6 +1592,7 @@ public sealed partial class MainWindow : Window
             _ui.SkippedVersion = release.Version;
             _ui.Save();
             UpdateBar.IsOpen = false;
+            SetUpdateBadge(false);
         };
         var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20, Margin = new Thickness(0, 0, 0, 8), Children = { whatsNew, skip } };
         ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.available", release.Version), InstallButton(release, "update.install"), links, closable: true);
@@ -2126,6 +2156,7 @@ public sealed partial class MainWindow : Window
         bool pending = Loc.Resolve(_ui.Language, Loc.WindowsLanguage) != Loc.Language;
         LanguageRestartInfo.ActionButton = pending ? RestartButton() : null;
         LanguageRestartInfo.IsOpen = pending;
+        LanguageRow.RowSpacing = pending ? 12 : 0;
     }
 
     private void ApplyTheme()

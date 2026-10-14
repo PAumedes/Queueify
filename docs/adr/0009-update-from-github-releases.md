@@ -16,7 +16,10 @@ and while the app runs nothing has that exe open: the starter unpacks the app, s
   skips drafts and pre-releases). It's offered only when its version is higher and it has an asset named
   `Queueify-<version>-win-x64.exe` under `https://github.com/PAumedes/Queueify/releases/download/` with a
   `sha256:` digest (GitHub computes one for every release asset).
-- The offer is a bar under the page title, in a row of its own. Nothing is downloaded until the user clicks
+- Found at start, it shows as a dot on Help (an InfoBadge, as Windows' guidance suggests for updates;
+  Narrator reads "Help, new version available"); the offer itself, and everything that follows, is in Help →
+  About, never over the pages. (1.4.0's first design put a bar under every page title: too big, and in the
+  way.) Nothing is downloaded until the user clicks
   **Update and restart**. Then the exe is downloaded next to the one the user started, always into a new
   file (`<exe>.download`; a file already there is removed first, and if it can't be, nothing is updated; at
   most 256 MB; a download that sends nothing for 30 s gives up, a slow one doesn't, and **Cancel** stops
