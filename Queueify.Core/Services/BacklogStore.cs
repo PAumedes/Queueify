@@ -153,7 +153,7 @@ public sealed class BacklogStore
         foreach (var item in items)
         {
             if (item.Uid.Length == 0) item.Uid = Guid.NewGuid().ToString("N");
-            item.Dirty = false;
+            item.Dirty = true;   // queued for the server's sync stamp, so connected PCs receive the imported albums
             item.Deleted = false;
 
             using var find = db.CreateCommand();

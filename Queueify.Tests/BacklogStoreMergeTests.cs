@@ -24,7 +24,7 @@ public sealed class BacklogStoreMergeTests : IDisposable
 
         var stored = store.FindByUid("u1")!;
         Assert.Equal(Old, stored.UpdatedAt);
-        Assert.False(stored.Dirty);
+        Assert.True(stored.Dirty);   // still to be handed to the sync, which stamps it for the other PCs
     }
 
     [Fact]
