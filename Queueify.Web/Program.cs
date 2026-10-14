@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Queueify.Web.Components;
 using Queueify.Web.Components.Account;
 using Queueify.Web.Data;
+using Queueify.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.AddQueueifyUi();
 
 var app = builder.Build();
 
@@ -55,6 +57,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+app.MapQueueifyUi();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

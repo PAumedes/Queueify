@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Queueify.Models;
 using Windows.System;
 
 namespace Queueify.Services;
@@ -6,14 +7,13 @@ namespace Queueify.Services;
 /// <summary>Opens albums in the installed Spotify / Tidal app, falling back to the web player.</summary>
 public static class ExternalLinks
 {
-    public static Task OpenSpotifyAsync(string id) =>
-        OpenAsync(new Uri($"spotify:album:{id}"), new Uri($"https://open.spotify.com/album/{id}"));
+    public static Task OpenSpotifyAsync(string id) => OpenAsync(PlayLinks.For(MusicService.Spotify, id));
 
-    public static Task OpenTidalAsync(string id) =>
-        OpenAsync(new Uri($"tidal://album/{id}"), new Uri($"https://tidal.com/album/{id}"));
+    public static Task OpenTidalAsync(string id) => OpenAsync(PlayLinks.For(MusicService.Tidal, id));
 
-    private static async Task OpenAsync(Uri app, Uri web)
+    private static async Task OpenAsync(PlayLink link)
     {
+        var app = new Uri(link.App);
         try
         {
             var support = await Launcher.QueryUriSupportAsync(app, LaunchQuerySupportType.Uri);
@@ -24,6 +24,6 @@ public static class ExternalLinks
         {
             // Launcher can be unavailable in some unpackaged contexts; the browser fallback still works.
         }
-        Process.Start(new ProcessStartInfo(web.AbsoluteUri) { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo(new Uri(link.Web).AbsoluteUri) { UseShellExecute = true });
     }
 }
