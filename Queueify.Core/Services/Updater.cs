@@ -21,6 +21,9 @@ public sealed record UpdateSource(Uri Latest, string DownloadPrefix)
     /// <summary>The releases page, for when the app can't update itself.</summary>
     public static Uri Releases { get; } = new("https://github.com/PAumedes/Queueify/releases/latest");
 
+    /// <summary>Every version, for when the latest one doesn't work here.</summary>
+    public static Uri AllReleases { get; } = new("https://github.com/PAumedes/Queueify/releases");
+
     /// <summary>
     /// GitHub, unless QUEUEIFY_UPDATE_SERVER names a server on this PC: the UI tests serve a release from
     /// one. Anything else is ignored, so the variable can't point updates elsewhere.

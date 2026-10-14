@@ -105,7 +105,9 @@ public sealed partial class MainWindow : Window
         RefreshQueue();
         ShowResults([]);
         FillHelp();
+        // The bar keeps its height from state to state while open; a new window size starts it over.
         UpdateBar.Closed += (_, _) => UpdateBar.MinHeight = 0;
+        SizeChanged += (_, _) => UpdateBar.MinHeight = 0;
 
         // Pick up other PCs' changes when coming back to the window (at most every 20 s).
         Activated += (_, args) =>
@@ -1625,15 +1627,29 @@ public sealed partial class MainWindow : Window
         switch (await RestartAppAsync())
         {
             case Restart.StarterFailed:
-                // The new exe itself didn't start (its starter said why): downloading it again may help.
+            {
+                // The new exe itself didn't start (its starter said why), and it's the user's only Queueify
+                // exe now. What helps first is a version that works, maybe an older one if this release is
+                // broken: all of them are on the releases page. The same download again only helps when the
+                // cause was on this PC (disk space, an antivirus).
                 _updating = false;
-                ShowUpdateProblem(Loc.F("update.start_failed", release.Version), release, retry: true);
+                var releases = new Button { Content = Loc.T("update.releases"), Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
+                releases.Click += (_, _) => OpenInBrowser(UpdateSource.AllReleases);
+                var retry = new HyperlinkButton { Content = Loc.T("update.retry"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
+                AutomationProperties.SetAutomationId(retry, "InstallUpdateButton");
+                retry.Click += (_, _) => _ = InstallUpdateAsync(release);
+                ShowUpdateBar(InfoBarSeverity.Error, Loc.F("update.start_failed", release.Version), releases, retry, closable: false);
                 break;
+            }
             case Restart.NotStarted:
+            {
                 // The new exe is in place; the next start uses it. _updating stays set, so it isn't
-                // downloaded again.
-                ShowUpdateBar(InfoBarSeverity.Warning, Loc.F("update.restart_failed", release.Version), null, null, closable: true);
+                // downloaded again. OK closes the bar, and gives the keyboard somewhere to be meanwhile.
+                var ok = new Button { Content = Loc.T("update.ok") };
+                ok.Click += (_, _) => UpdateBar.IsOpen = false;
+                ShowUpdateBar(InfoBarSeverity.Warning, Loc.F("update.restart_failed", release.Version), ok, null, closable: true);
                 break;
+            }
         }
     }
 

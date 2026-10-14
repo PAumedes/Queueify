@@ -223,7 +223,8 @@ for ($i = 0; $i -lt 60 -and -not $box; $i++) {
 }
 Check ($null -ne $box) 'the new exe says it is damaged'
 if ($box) { Invoke ($box.FindAll($Tree::Descendants, $Cond::TrueCondition) | Where-Object { $_.Current.ControlType.ProgrammaticName -eq 'ControlType.Button' } | Select-Object -First 1) }
-Check ($null -ne (Wait-Find "*is in place but didn't start*")) 'this window stays and says the new version did not start'
+Check ($null -ne (Wait-Find "*is in place but didn't start, so your Queueify exe won't open*")) 'this window stays and says the new version did not start'
+Check ($null -ne (Find 'Releases page' 'Button')) 'the releases page comes first'
 Check ($null -ne (FindId 'InstallUpdateButton') -and (FindId 'InstallUpdateButton').Current.Name -eq 'Try again') 'and offers to download it again'
 Check (@(Get-AppProcess | Where-Object { $_.Id -notin $before }).Count -eq 0) 'no second Queueify started'}
 finally {
