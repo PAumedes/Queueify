@@ -295,7 +295,7 @@ public static partial class Loc
         ["help.trouble.2"] = "• No aparece un álbum: usá menos palabras (artista + título principal), revisá cómo está escrito o agregalo sin enlace.",
         ["help.trouble.3"] = "• El texto de una foto se lee mal: usá buena luz y sacá la página de frente. Instalá el reconocimiento de texto en español desde Foto de revista para los acentos y la ñ.",
         ["help.trouble.4"] = "• Sincronizar muestra una advertencia: pasá el mouse por el ícono para ver el motivo. Casi siempre es falta de internet, o que no se publicaron las reglas de seguridad en Firebase.",
-        ["help.trouble.5"] = "• Una actualización falla: hacé clic en “Probar de nuevo” en la barra (o en Buscar actualizaciones, en Acerca de), o descargá el exe nuevo de github.com/PAumedes/Queueify/releases y ponelo en lugar del tuyo, con el mismo nombre. Si tu exe desapareció después de actualizar, el archivo que está al lado y termina en “.old” es el anterior: sacale “.old” al nombre. Si no ves “.old”, en el Explorador activá Vista → Mostrar → Extensiones de nombre de archivo.",
+        ["help.trouble.5"] = "• Una actualización falla: hacé clic en “Probar de nuevo” en la barra (o en Buscar actualizaciones, en Acerca de), o descargá el exe nuevo de github.com/PAumedes/Queueify/releases y ponelo en lugar del tuyo, con el mismo nombre.",
         ["help.about"] = "Acerca de Queueify",
         ["help.data"] = "Abrir la carpeta de datos",
         ["help.data.tip"] = "Acá viven tu lista, la configuración y el diseño. Para llevarlos en un pendrive, ponelos en una carpeta Data al lado del exe de Queueify.",

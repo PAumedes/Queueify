@@ -165,6 +165,8 @@ public sealed class Updater(HttpClient http, UpdateSource source, TimeSpan? stal
                     if (length > 0) progress?.Report(Math.Min(1.0, (double)received / length.Value));
                 }
             }
+            // Cancel pressed after the last read still counts: nothing is put in place.
+            ct.ThrowIfCancellationRequested();
             if (Convert.ToHexStringLower(hash.GetHashAndReset()) != release.Sha256)
                 throw new UpdateException(Loc.T("update.damaged"));
             progress?.Report(1.0);
@@ -200,46 +202,33 @@ public sealed class Updater(HttpClient http, UpdateSource source, TimeSpan? stal
         }
     }
     /// <summary>
-    /// Puts the downloaded exe in place of the old one, which is kept as "&lt;exe&gt;.old" until
-    /// <see cref="RemoveLeftovers"/>. The name is never free, not even for a moment: the old exe is copied
-    /// aside and the new one replaces it in one step, so a file someone else drops in the folder can't take
-    /// its place. If anything fails, the exe is as it was.
+    /// Puts the downloaded exe in place of the old one, in one step: the name is never free, not even for a
+    /// moment, so a file someone else drops in the folder can't take it, and no other name next to the exe
+    /// is ever written (one could be a link to the user's own files). If it fails, the exe is as it was.
     /// </summary>
     public static void Replace(string exe, string downloaded)
     {
-        var old = exe + ".old";
         var readOnly = File.Exists(exe) && File.GetAttributes(exe).HasFlag(FileAttributes.ReadOnly);
         try
         {
-            // A read-only exe (copied from a CD or a locked-down share) couldn't be replaced, and its copy
-            // couldn't be overwritten or removed later.
-            ClearReadOnly(old);
-            File.Copy(exe, old, overwrite: true);
-            ClearReadOnly(old);
+            // A read-only exe (copied from a CD or a locked-down share) couldn't be replaced.
             ClearReadOnly(exe);
             File.Move(downloaded, exe, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // The exe was never touched; its copy and the download go.
             if (readOnly) TrySetReadOnly(exe);
-            TryDelete(old);
             TryDelete(downloaded);
             throw new UpdateException(Loc.T("update.locked"), ex);
         }
     }
-
     private static void TrySetReadOnly(string path)
     {
         try { File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
-    /// <summary>Removes the exe an update replaced and a download that never finished; in use, they wait.</summary>
-    public static void RemoveLeftovers(string exe)
-    {
-        TryDelete(exe + ".old");
-        TryDelete(exe + ".download");
-    }
+    /// <summary>Removes a download that never finished; one in use (another window downloading) waits.</summary>
+    public static void RemoveLeftovers(string exe) => TryDelete(exe + ".download");
 
     private static void TryDelete(string path)
     {

@@ -294,7 +294,7 @@ public static partial class Loc
         ["help.trouble.2"] = "• An album isn't found: use fewer words (artist + main title), check the spelling, or add it without a link.",
         ["help.trouble.3"] = "• Text on a photo is read wrong: use good light and shoot the page straight on. Install Spanish text recognition from the Magazine photo page for accents and ñ.",
         ["help.trouble.4"] = "• Sync shows a warning: point at the Sync icon for the reason. Usually it's no internet, or the security rules weren't published in Firebase.",
-        ["help.trouble.5"] = "• An update fails: click “Try again” in the bar (or Check for updates in About), or download the new exe from github.com/PAumedes/Queueify/releases and put it in place of yours, with the same name. If your exe is gone after an update, the file next to it ending in “.old” is the previous one: remove “.old” from its name. If you don't see “.old”, turn on View → Show → File name extensions in File Explorer.",
+        ["help.trouble.5"] = "• An update fails: click “Try again” in the bar (or Check for updates in About), or download the new exe from github.com/PAumedes/Queueify/releases and put it in place of yours, with the same name.",
         ["help.about"] = "About Queueify",
         ["help.data"] = "Open data folder",
         ["help.data.tip"] = "Your queue, settings and layout live here. To carry them on a USB stick, put them in a Data folder next to the Queueify exe.",

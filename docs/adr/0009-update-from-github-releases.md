@@ -20,9 +20,11 @@ and while the app runs nothing has that exe open: the starter unpacks the app, s
   **Update and restart**. Then the exe is downloaded next to the one the user started, always into a new
   file (`<exe>.download`; a file already there is removed first, and if it can't be, nothing is updated; at
   most 256 MB; a download that sends nothing for 30 s gives up, a slow one doesn't, and **Cancel** stops
-  either), and its SHA-256 compared with GitHub's. The old exe is copied to `<exe>.old` (removed at the next
-  start) and the new one replaces it in one step, so the name is never free for a file someone else drops
-  in the folder; if that fails, the exe is as it was. A read-only exe is updated too.
+  either), and its SHA-256 compared with GitHub's. The new exe then replaces the old one in one step
+  (MoveFileEx with REPLACE_EXISTING): the name is never free for a file someone else drops in the folder,
+  no other name next to the exe is written (one could be a link to the user's files), and if it fails the
+  exe is as it was. There's no backup copy: the old version is always on the releases page. A read-only exe
+  is updated too.
 - The app then restarts through the new exe, and its window stays (saying so) until the new version's
   window is open: the first start of a version unpacks for a few seconds.
 - A failed update says why in plain words and offers **Try again** and the release page.

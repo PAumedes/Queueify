@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Queueify.Services;
@@ -368,10 +369,8 @@ public sealed class UpdaterTests : IDisposable
         Updater.Replace(exe, Downloaded());
 
         Assert.Equal(NewExe, File.ReadAllBytes(exe));
-        Assert.Equal("MZ the old Queueify", File.ReadAllText(exe + ".old"));
-        Assert.False(File.Exists(exe + ".download"));
+        Assert.Equal([exe], Directory.GetFiles(_dir));
     }
-
     [Fact]
     public void The_exe_name_is_never_free_during_an_update()
     {
@@ -410,15 +409,25 @@ public sealed class UpdaterTests : IDisposable
         Assert.Equal(0, taken);
         Assert.Equal(NewExe, File.ReadAllBytes(exe));
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool CreateHardLink(string link, string existing, IntPtr security);
+
     [Fact]
-    public void An_old_exe_left_from_the_last_update_is_replaced()
+    public void A_file_left_next_to_the_exe_is_never_written_into()
     {
+        // In a folder others can add files to, a name like Queueify.exe.old could be a link to one of the
+        // user's own files: nothing writes through such a name.
         var exe = Exe();
-        File.WriteAllText(exe + ".old", "MZ an even older Queueify");
+        var victim = Path.Combine(_dir, "queueify.db");
+        File.WriteAllText(victim, "keep");
+        Assert.True(CreateHardLink(exe + ".old", victim, IntPtr.Zero));
 
         Updater.Replace(exe, Downloaded());
+        Updater.RemoveLeftovers(exe);
 
-        Assert.Equal("MZ the old Queueify", File.ReadAllText(exe + ".old"));
+        Assert.Equal("keep", File.ReadAllText(victim));
+        Assert.False(File.GetAttributes(victim).HasFlag(FileAttributes.ReadOnly));
     }
 
     [Fact]
@@ -432,11 +441,10 @@ public sealed class UpdaterTests : IDisposable
         Assert.Throws<UpdateException>(() => Updater.Replace(exe, downloaded));
 
         Assert.Equal("MZ the old Queueify", File.ReadAllText(exe));
-        Assert.False(File.Exists(exe + ".old"));
     }
 
     [Fact]
-    public void When_the_old_exe_cant_be_moved_nothing_changes()
+    public void When_the_old_exe_is_in_use_nothing_changes()
     {
         var exe = Exe();
         var downloaded = Downloaded();
@@ -445,29 +453,30 @@ public sealed class UpdaterTests : IDisposable
         Assert.Throws<UpdateException>(() => Updater.Replace(exe, downloaded));
 
         Assert.Equal("MZ the old Queueify", File.ReadAllText(exe));
+        Assert.False(File.Exists(downloaded));
     }
 
     [Fact]
-    public void A_read_only_exe_is_updated_and_its_old_copy_removed()
+    public void A_read_only_exe_is_updated_and_stays_read_only_if_it_cant_be()
     {
         var exe = Exe();
         File.SetAttributes(exe, FileAttributes.ReadOnly);
 
         Updater.Replace(exe, Downloaded());
-        Updater.RemoveLeftovers(exe);
-        File.WriteAllText(exe + ".download", "the next one");
-        Updater.Replace(exe, exe + ".download");
+        Assert.Equal(NewExe, File.ReadAllBytes(exe));
 
-        Assert.Equal("the next one", File.ReadAllText(exe));
-        Updater.RemoveLeftovers(exe);
-        Assert.Equal([exe], Directory.GetFiles(_dir));
+        File.SetAttributes(exe, FileAttributes.ReadOnly);
+        var downloaded = Downloaded();
+        using (File.Open(downloaded, FileMode.Open, FileAccess.Read, FileShare.Read))
+            Assert.Throws<UpdateException>(() => Updater.Replace(exe, downloaded));
+        Assert.True(File.GetAttributes(exe).HasFlag(FileAttributes.ReadOnly));
+        File.SetAttributes(exe, FileAttributes.Normal);
     }
 
     [Fact]
-    public void The_old_exe_and_a_stray_download_are_removed_next_time()
+    public void A_stray_download_is_removed_next_time()
     {
         var exe = Exe();
-        File.WriteAllText(exe + ".old", "old");
         File.WriteAllText(exe + ".download", "half");
 
         Updater.RemoveLeftovers(exe);
@@ -476,17 +485,16 @@ public sealed class UpdaterTests : IDisposable
     }
 
     [Fact]
-    public void A_leftover_still_in_use_waits_for_another_time()
+    public void A_download_still_in_use_waits_for_another_time()
     {
+        // Another Queueify window is downloading it.
         var exe = Exe();
-        File.WriteAllText(exe + ".old", "old");
-        using var held = File.Open(exe + ".old", FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var other = File.Open(exe + ".download", FileMode.CreateNew, FileAccess.Write, FileShare.None);
 
         Updater.RemoveLeftovers(exe);
 
-        Assert.True(File.Exists(exe + ".old"));
+        Assert.True(File.Exists(exe + ".download"));
     }
-
     // ── Where updates come from ──
 
     [Theory]
