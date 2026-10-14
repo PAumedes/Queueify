@@ -372,7 +372,7 @@ public static partial class Loc
         ["web.error.reload"] = "Recargar",
         ["web.toast.dismiss"] = "Cerrar",
         ["web.reconnect.first"] = "Reconectando con el servidor…",
-        ["web.reconnect.repeat"] = "Seguimos intentando. Próximo intento en (segundos):",
+        ["web.reconnect.repeat"] = "Seguimos intentando. Próximo intento en segundos:",
         ["web.reconnect.failed"] = "No se pudo reconectar. Probá de nuevo o recargá la página.",
         ["web.reconnect.retry"] = "Reintentar",
         ["web.reconnect.paused"] = "El servidor pausó la sesión.",
@@ -411,5 +411,9 @@ public static partial class Loc
         ["web.auth.register_link"] = "Crear una cuenta",
         ["web.auth.invalid"] = "Ese correo y esa contraseña no coinciden.",
         ["web.auth.external_using"] = "Entrar con tu cuenta de {0}",
+
+        ["web.queue.star.one"] = "1 estrella",
+        ["web.add.throttled"] = "Demasiadas búsquedas en un minuto. Esperá un momento y probá de nuevo.",
+        ["web.add.not_on"] = "no está ahí",
     };
 }

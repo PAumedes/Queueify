@@ -77,6 +77,16 @@
         }
     }
 
+    // The return address may be absolute (the login redirect sends the full address); only this site's own are kept.
+    private string? SameSitePath(string? url)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+        var absolute = NavigationManager.ToAbsoluteUri(url);
+        return string.Equals(absolute.GetLeftPart(UriPartial.Authority), NavigationManager.BaseUri.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
+            ? NavigationManager.ToBaseRelativePath(absolute.ToString())
+            : null;
+    }
+
     public async Task LoginUser()
     {
         if (!string.IsNullOrEmpty(Input.Passkey?.Error))
@@ -99,16 +109,16 @@
                 return;
             }
 
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+
+            // Failures count towards lockout: the accounts hold the catalog keys of the user.
+            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
         }
 
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
             // A phone lands on Add; anywhere that was asked for wins.
-            RedirectManager.RedirectTo(Prefs.AfterLogin(ReturnUrl, HttpContext.Request.Headers.UserAgent.ToString()));
+            RedirectManager.RedirectTo(Prefs.AfterLogin(SameSitePath(ReturnUrl), HttpContext.Request.Headers.UserAgent.ToString()));
         }
         else if (result.RequiresTwoFactor)
         {

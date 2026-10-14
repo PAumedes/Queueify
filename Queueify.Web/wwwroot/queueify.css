@@ -448,3 +448,12 @@ html body a.q-navitem.active { color: var(--q-violet-text); }
 
 h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
 .q-row .q-actions { justify-content: flex-end; }
+
+@media (pointer: coarse) {
+  .q-btn, .q-star, .q-check, .q-seg button, .q-switch { min-height: 44px; }
+  .q-btn.icon, .q-star, .q-check { min-width: 44px; }
+}
+#blazor-error-ui .dismiss { background: none; border: 0; color: inherit; font-size: 18px; min-width: 44px; min-height: 44px; top: 0; }
+.q-pill.off { opacity: .7; }
+.q-switch, .q-switch span { color: var(--q-ink); }
+

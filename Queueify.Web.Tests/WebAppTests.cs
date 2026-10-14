@@ -221,6 +221,53 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task The_preferences_form_without_a_token_is_refused()
+    {
+        using var factory = Factory();
+        var response = await Client(factory).PostAsync("/prefs", new FormUrlEncodedContent(new Dictionary<string, string> { ["language"] = "es" }), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Repeated_wrong_passwords_lock_the_account()
+    {
+        using var factory = Factory();
+        await RegisterAsync(Client(factory), "owner@example.com");
+        var attacker = Client(factory);
+
+        async Task<string> TryAsync(string password)
+        {
+            var token = Token().Match(await attacker.GetStringAsync("/Account/Login", TestContext.Current.CancellationToken)).Groups[1].Value;
+            var r = await attacker.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = token, ["_handler"] = "login", ["Input.Email"] = "owner@example.com", ["Input.Password"] = password,
+            }), TestContext.Current.CancellationToken);
+            return r.Headers.Location?.ToString() ?? "";
+        }
+
+        for (int i = 0; i < 6; i++) await TryAsync("Wrong-pass1!");
+        Assert.Contains("Lockout", await TryAsync("Passw0rd!x"));
+    }
+
+    [Fact]
+    public async Task Signing_out_with_an_off_site_return_path_still_lands_on_the_site()
+    {
+        using var factory = Factory();
+        var client = Client(factory);
+        await RegisterAsync(client, "owner@example.com");
+        var token = Token().Match(await client.GetStringAsync("/", TestContext.Current.CancellationToken)).Groups[1].Value;
+
+        var post = await client.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["ReturnUrl"] = "/evil.example",
+        }), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, post.StatusCode);
+        Assert.StartsWith("/", post.Headers.Location!.ToString());
+        Assert.DoesNotContain("evil", post.Headers.Location!.ToString());
+    }
+
+    [Fact]
     public async Task The_app_is_installable()
     {
         using var factory = Factory();

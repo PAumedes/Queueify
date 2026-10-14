@@ -117,7 +117,7 @@ else
                 aria-label="@Loc.T(item.IsListened ? "item.move_back" : "item.mark_listened") - @item.Album"
                 title="@Loc.T(item.IsListened ? "item.move_back" : "item.mark_listened")"><Ico Name="check" /></button>
         <details class="q-menu">
-            <summary class="q-btn icon quiet" role="button" aria-label="@Loc.T("item.more") - @item.Album" title="@Loc.T("item.more.tip")"><Ico Name="more" /></summary>
+            <summary class="q-btn icon quiet" aria-label="@Loc.T("item.more") - @item.Album" title="@Loc.T("item.more.tip")"><Ico Name="more" /></summary>
             <div class="q-menu-list">
                 @if (item.HasTidal)
                 {

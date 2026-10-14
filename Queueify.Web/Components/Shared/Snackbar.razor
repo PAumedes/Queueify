@@ -1,18 +1,18 @@
 @implements IDisposable
 @inject Toasts Toasts
 
-<div class="q-snack" role="status" aria-live="polite">
+<div class="q-snack">
     @if (Toasts.Current is { } t)
     {
         <div class="q-snack-card">
-            <span class="q-snack-msg">@t.Message</span>
+            <span class="q-snack-msg" role="status" aria-live="polite">@t.Message</span>
             @if (t.Rate is { } rate)
             {
                 <span class="q-stars" role="group" aria-label="@Loc.T("item.rating")">
                     @for (int i = 1; i <= 5; i++)
                     {
                         var stars = i;
-                        <button type="button" class="q-star" aria-label="@Loc.F("web.queue.stars", stars)" title="@Loc.F("web.queue.stars", stars)"
+                        <button type="button" class="q-star" aria-label="@Stars.Label(stars)" title="@Stars.Label(stars)"
                                 @onclick="() => Rated(rate, stars)"><Ico Name="star" /></button>
                     }
                 </span>
@@ -37,7 +37,7 @@
         if (Toasts.Current != null)
         {
             var cts = _timer = new CancellationTokenSource();
-            _ = Task.Delay(TimeSpan.FromSeconds(9), cts.Token).ContinueWith(
+            _ = Task.Delay(TimeSpan.FromSeconds(Toasts.Current.Action != null ? 15 : 9), cts.Token).ContinueWith(
                 _ => InvokeAsync(Toasts.Dismiss), CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
         }
         _ = InvokeAsync(StateHasChanged);

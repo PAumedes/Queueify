@@ -53,12 +53,11 @@
 
     @if (_results.Count > 0)
     {
-        <ul class="q-list" role="listbox" aria-label="@Loc.T("pane.search")">
+        <ul class="q-list">
             @for (int i = 0; i < _results.Count; i++)
             {
                 var r = _results[i];
-                var index = i;
-                <li class="q-result @(r.Score >= Matcher.ConfidentScore && i == _selected ? "best" : "")" role="option" aria-selected="@(i == _selected ? "true" : "false")">
+                <li class="q-result @(r.Score >= Matcher.ConfidentScore && i == _selected ? "best" : "")">
                     <Cover Url="@r.CoverUrl" Artist="@r.Artist" Album="@r.Title" />
                     <div>
                         <div class="q-title">@r.Title</div>
@@ -66,8 +65,8 @@
                     </div>
                     <div class="q-foot">
                         <div class="q-pills">
-                            <span class="q-pill spotify @(r.Spotify == null ? "off" : "")">Spotify</span>
-                            <span class="q-pill tidal @(r.Tidal == null ? "off" : "")">Tidal</span>
+                            <span class="q-pill spotify @(r.Spotify == null ? "off" : "")">Spotify@if (r.Spotify == null) { <span class="q-sr"> (@Loc.T("web.add.not_on"))</span> }</span>
+                            <span class="q-pill tidal @(r.Tidal == null ? "off" : "")">Tidal@if (r.Tidal == null) { <span class="q-sr"> (@Loc.T("web.add.not_on"))</span> }</span>
                             @if (r.ScoreText.Length > 0) { <span class="q-pill score">@r.ScoreText (@((int)Math.Round(r.Score * 100))%)</span> }
                             @if (r.QueueState != null) { <span class="q-pill state">@r.QueueState</span> }
                         </div>

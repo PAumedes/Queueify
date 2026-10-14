@@ -410,5 +410,9 @@ public static partial class Loc
         ["web.auth.register_link"] = "Create an account",
         ["web.auth.invalid"] = "That email and password don't match.",
         ["web.auth.external_using"] = "Sign in with your {0} account",
+
+        ["web.queue.star.one"] = "1 star",
+        ["web.add.throttled"] = "Too many searches in a minute. Wait a moment and try again.",
+        ["web.add.not_on"] = "not found there",
     };
 }

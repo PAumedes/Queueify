@@ -52,7 +52,11 @@
     });
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') document.querySelectorAll('details.q-more[open], details.q-menu[open]').forEach(function (d) { d.removeAttribute('open'); });
+    if (e.key === 'Escape') document.querySelectorAll('details.q-more[open], details.q-menu[open]').forEach(function (d) { d.removeAttribute('open'); const s = d.querySelector('summary'); if (s) s.focus(); });
+  });
+  document.addEventListener('focusout', function (e) {
+    const d = e.target.closest && e.target.closest('details.q-more[open], details.q-menu[open]');
+    if (d && e.relatedTarget && !d.contains(e.relatedTarget)) d.removeAttribute('open');
   });
 
   window.queueify = {

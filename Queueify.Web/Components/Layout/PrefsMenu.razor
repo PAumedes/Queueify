@@ -1,3 +1,4 @@
+@inject IJSRuntime JS
 @* Language and theme are cookies set by a plain form POST (see QueueifyUi.MapQueueifyUi), so they work before any script runs. *@
 <div class="q-prefs">
     <span class="q-label" id="pref-lang">@Loc.T("web.pref.language")</span>
@@ -11,12 +12,29 @@
     <form action="prefs" method="post" class="q-seg" aria-labelledby="pref-theme">
         <AntiforgeryToken />
         <input type="hidden" name="returnUrl" value="/@ReturnUrl" />
-        <button type="submit" name="theme" value="system">@Loc.T("web.pref.system")</button>
-        <button type="submit" name="theme" value="light">@Loc.T("settings.theme.light")</button>
-        <button type="submit" name="theme" value="dark">@Loc.T("settings.theme.dark")</button>
+        <button type="submit" name="theme" value="system" aria-pressed="@Pressed("system")">@Loc.T("web.pref.system")</button>
+        <button type="submit" name="theme" value="light" aria-pressed="@Pressed("light")">@Loc.T("settings.theme.light")</button>
+        <button type="submit" name="theme" value="dark" aria-pressed="@Pressed("dark")">@Loc.T("settings.theme.dark")</button>
     </form>
 </div>
 
 @code {
     [Parameter] public string ReturnUrl { get; set; } = "";
+
+    private string _theme = "system";
+
+    private string Pressed(string theme) => _theme == theme ? "true" : "false";
+
+    // The theme lives in a cookie the page already turned into an attribute; read it from there.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _theme = await JS.InvokeAsync<string?>("queueify.theme") ?? "system";
+            StateHasChanged();
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
 }

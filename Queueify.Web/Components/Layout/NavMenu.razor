@@ -13,8 +13,8 @@
     </ul>
     <div class="q-spacer"></div>
     <details class="q-menu">
-        <summary class="q-navitem" aria-label="@Loc.T("web.pref.title")" title="@Loc.T("web.pref.title")">
-            <span class="q-ico"><Ico Name="globe" /></span>@Loc.Language.ToUpperInvariant()
+        <summary class="q-navitem" title="@Loc.T("web.pref.title")">
+            <span class="q-ico"><Ico Name="globe" /></span><span class="q-sr">@Loc.T("web.pref.title"): </span>@Loc.Language.ToUpperInvariant()
         </summary>
         <div class="q-menu-list"><PrefsMenu ReturnUrl="@ReturnUrl" /></div>
     </details>
@@ -30,7 +30,7 @@
     @Tab(Pages[1], "add")
     @Tab(Pages[3])
     <details class="q-more">
-        <summary class="q-navitem" aria-label="@Loc.T("web.nav.more")">
+        <summary class="q-navitem">
             <span class="q-ico"><Ico Name="more" /></span>@Loc.T("web.nav.more")
         </summary>
         <div class="q-more-sheet">

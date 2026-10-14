@@ -253,6 +253,13 @@ public sealed class QueuePageTests : WebComponentTests
     }
 
     [Fact]
+    public void One_star_is_not_called_stars()
+    {
+        Assert.Equal("1 star", Stars.Label(1));
+        Assert.Equal("3 stars", Stars.Label(3));
+    }
+
+    [Fact]
     public void Nobody_elses_albums_are_listed()
     {
         var bobs = new UserQueue(Stores, new FixedUser("bob"));
@@ -360,7 +367,7 @@ public sealed class AddPageTests : WebComponentTests
         cut.Find("#q-search").Input("soda stereo signos");
         cut.Find("#q-search").KeyDown("Enter");
 
-        cut.WaitForAssertion(() => Assert.Equal("Spotify", cut.Find(".q-pill.off").TextContent.Trim()));
+        cut.WaitForAssertion(() => Assert.StartsWith("Spotify", cut.Find(".q-pill.off").TextContent.Trim()));
     }
 
     [Fact]

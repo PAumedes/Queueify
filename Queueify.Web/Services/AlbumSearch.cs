@@ -42,16 +42,36 @@ public sealed class HttpCatalogs(IHttpClientFactory http) : ICatalogs
 }
 
 /// <summary>What one search found: the merged rows, what went wrong per service, and whether the best row is a confident match.</summary>
-public sealed record SearchOutcome(IReadOnlyList<AlbumResult> Results, IReadOnlyList<string> Errors, bool Confident, bool NeedsKeys = false);
+public sealed record SearchOutcome(IReadOnlyList<AlbumResult> Results, IReadOnlyList<string> Errors, bool Confident, bool NeedsKeys = false, bool Throttled = false);
 
 /// <summary>The Add box's search: both services at once, then the year retry, mirroring the desktop app.</summary>
 public sealed class AlbumSearch(ICatalogs catalogs)
 {
     /// <summary>Null when <paramref name="ct"/> was cancelled because a newer search replaced this one.</summary>
+    // One server IP talks to Spotify and Tidal for everybody, so a user (or a script driving their circuit)
+    // gets a fixed number of searches per minute; the rest wait for the window to pass.
+    private const int SearchesPerMinute = 30;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Queue<DateTime>> Recent = new();
+
+    private static bool Allowed(string userId)
+    {
+        var window = Recent.GetOrAdd(userId, _ => new Queue<DateTime>());
+        lock (window)
+        {
+            var now = DateTime.UtcNow;
+            while (window.Count > 0 && now - window.Peek() > TimeSpan.FromMinutes(1)) window.Dequeue();
+            if (window.Count >= SearchesPerMinute) return false;
+            window.Enqueue(now);
+            return true;
+        }
+    }
+
     public async Task<SearchOutcome?> RunAsync(string raw, string userId, AppSettings settings, CancellationToken ct)
     {
         if (!settings.SpotifyConfigured && !settings.TidalConfigured)
             return new SearchOutcome([], [], false, NeedsKeys: true);
+        if (!Allowed(userId))
+            return new SearchOutcome([], [Loc.T("web.add.throttled")], false, Throttled: true);
 
         var errors = new List<string>();
         var found = new List<AlbumMatch>();

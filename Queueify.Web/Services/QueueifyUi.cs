@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -56,15 +57,13 @@ public static class QueueifyUi
             using (Loc.Override(language)) await next();
         });
 
-        app.MapPost("/prefs", (HttpContext context) =>
+        // [FromForm] parameters make the endpoint require the antiforgery token, like every other form post.
+        app.MapPost("/prefs", (HttpContext context, [FromForm] string? language, [FromForm] string? theme, [FromForm] string? returnUrl) =>
         {
-            var form = context.Request.Form;
             var options = new CookieOptions { MaxAge = TimeSpan.FromDays(365), SameSite = SameSiteMode.Lax, IsEssential = true, Secure = context.Request.IsHttps, HttpOnly = true };
-            if (form["language"] is { Count: > 0 } language && language[0] is "en" or "es")
-                context.Response.Cookies.Append(Prefs.LanguageCookie, language[0]!, options);
-            if (form["theme"] is { Count: > 0 } theme && theme[0] is "light" or "dark" or "system")
-                context.Response.Cookies.Append(Prefs.ThemeCookie, theme[0]!, options);
-            return Results.LocalRedirect(Prefs.LocalReturn(form["returnUrl"]));
+            if (language is "en" or "es") context.Response.Cookies.Append(Prefs.LanguageCookie, language, options);
+            if (theme is "light" or "dark" or "system") context.Response.Cookies.Append(Prefs.ThemeCookie, theme, options);
+            return Results.LocalRedirect(Prefs.LocalReturn(returnUrl));
         }).AllowAnonymous();
 
         return app;
