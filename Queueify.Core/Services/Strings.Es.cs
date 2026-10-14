@@ -354,5 +354,21 @@ public static partial class Loc
         ["tour.3"] = "Sacale una foto a una página de revista con el celular y soltala en esta ventana. Después hacé clic en el artista y el álbum.",
         ["tour.4.title"] = "Todas tus PC",
         ["tour.4"] = "Conectá Sincronizar una vez para tener la misma lista en todas tus PC. La Ayuda (F1) explica todo lo demás.",
+
+        // ── Conectar una PC (web) ──
+        ["connect.title"] = "Conectar una PC",
+        ["connect.intro"] = "Dale a cada PC su propia ficha de acceso. Pegá el texto de conexión en los ajustes de Sincronizar de Queueify en esa PC.",
+        ["connect.name"] = "Nombre de la PC",
+        ["connect.create"] = "Crear ficha",
+        ["connect.once"] = "Copialo ahora: se muestra una sola vez.",
+        ["connect.text"] = "Texto de conexión",
+        ["connect.tokens"] = "Tus fichas",
+        ["connect.empty"] = "Todavía no hay fichas.",
+        ["connect.created"] = "Creada",
+        ["connect.last_used"] = "Último uso",
+        ["connect.never"] = "Nunca",
+        ["connect.revoked"] = "Revocada",
+        ["connect.revoke"] = "Revocar",
+        ["connect.limit"] = "Llegaste al límite de fichas. Revocá una para crear otra.",
     };
 }

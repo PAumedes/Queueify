@@ -353,5 +353,21 @@ public static partial class Loc
         ["tour.3"] = "Photograph a magazine page with your phone and drop the photo into this window. Then click the artist and the album on it.",
         ["tour.4.title"] = "All your PCs",
         ["tour.4"] = "Connect Sync once to keep the same queue on every PC. Help (F1) explains everything else.",
+
+        // ── Connect a PC (web) ──
+        ["connect.title"] = "Connect a PC",
+        ["connect.intro"] = "Give each PC its own access token. Paste the connect text into Queueify's Sync settings on that PC.",
+        ["connect.name"] = "Name of the PC",
+        ["connect.create"] = "Create token",
+        ["connect.once"] = "Copy this now: it is shown only once.",
+        ["connect.text"] = "Connect text",
+        ["connect.tokens"] = "Your tokens",
+        ["connect.empty"] = "No tokens yet.",
+        ["connect.created"] = "Created",
+        ["connect.last_used"] = "Last used",
+        ["connect.never"] = "Never",
+        ["connect.revoked"] = "Revoked",
+        ["connect.revoke"] = "Revoke",
+        ["connect.limit"] = "You have reached the limit of tokens. Revoke one to create another.",
     };
 }

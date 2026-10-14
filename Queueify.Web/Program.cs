@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Queueify.Web.Components;
 using Queueify.Web.Components.Account;
 using Queueify.Web.Data;
+using Queueify.Web.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddQueueifySync();
 
 var app = builder.Build();
 
@@ -62,6 +64,8 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+app.MapQueueifySync();
 
 app.MapGet("/healthz", () => Results.Ok("ok")).AllowAnonymous();
 

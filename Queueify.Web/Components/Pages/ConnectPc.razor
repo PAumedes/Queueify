@@ -1,0 +1,114 @@
+@page "/connect"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Queueify.Services
+@using Queueify.Web.Sync
+@inject PersonalAccessTokens Tokens
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Navigation
+
+<PageTitle>@Loc.T("connect.title")</PageTitle>
+
+<h1>@Loc.T("connect.title")</h1>
+<p>@Loc.T("connect.intro")</p>
+
+@if (_connectText != null)
+{
+    <div class="alert alert-warning" role="alert">
+        <p>@Loc.T("connect.once")</p>
+        <label for="connect-text">@Loc.T("connect.text")</label>
+        <input id="connect-text" class="form-control" readonly value="@_connectText" onfocus="this.select()" />
+    </div>
+}
+
+@if (_limitReached)
+{
+    <p role="alert">@Loc.T("connect.limit")</p>
+}
+
+<form @onsubmit="CreateAsync">
+    <label for="token-name">@Loc.T("connect.name")</label>
+    <input id="token-name" class="form-control" maxlength="@PersonalAccessTokens.MaxNameLength" @bind="_name" @bind:event="oninput" />
+    <button type="submit" class="btn btn-primary mt-2" disabled="@(string.IsNullOrWhiteSpace(_name))">@Loc.T("connect.create")</button>
+</form>
+
+<h2 class="mt-4">@Loc.T("connect.tokens")</h2>
+@if (_tokens.Count == 0)
+{
+    <p>@Loc.T("connect.empty")</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>@Loc.T("connect.name")</th>
+                <th>@Loc.T("connect.created")</th>
+                <th>@Loc.T("connect.last_used")</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var token in _tokens)
+            {
+                <tr>
+                    <td>@token.Name</td>
+                    <td>@token.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                    <td>@(token.LastUsedAt is DateTime used ? used.ToString("yyyy-MM-dd HH:mm") + " UTC" : Loc.T("connect.never"))</td>
+                    <td>
+                        @if (token.RevokedAt != null)
+                        {
+                            <span>@Loc.T("connect.revoked")</span>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => RevokeAsync(token.Id)">@Loc.T("connect.revoke")</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<PersonalAccessToken> _tokens = [];
+    private string _name = "";
+    private string? _connectText;
+    private bool _limitReached;
+    private string? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _userId = (await Auth.GetAuthenticationStateAsync()).User.UserId();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _tokens = _userId == null ? [] : await Tokens.ListAsync(_userId);
+
+    private async Task CreateAsync()
+    {
+        if (_userId == null || string.IsNullOrWhiteSpace(_name)) return;
+        _limitReached = false;
+        try
+        {
+            var created = await Tokens.CreateAsync(_userId, _name);
+            _connectText = SyncConnect.Format(Navigation.BaseUri, created.Token);
+            _name = "";
+        }
+        catch (InvalidOperationException)
+        {
+            _limitReached = true;
+        }
+        await LoadAsync();
+    }
+
+    private async Task RevokeAsync(Guid id)
+    {
+        if (_userId == null) return;
+        await Tokens.RevokeAsync(_userId, id);
+        _connectText = null;
+        await LoadAsync();
+    }
+}
