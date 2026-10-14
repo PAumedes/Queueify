@@ -112,9 +112,18 @@ public static class Bundle
 
     private static void Extract(Stream exe, BundleInfo info, string folder)
     {
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        // Checked before anything is written: Brotli has no checksum of its own, and the id is the
+        // archive's hash. About 20 MB, read in a moment.
+        using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+        {
+            exe.Seek(info.Offset, SeekOrigin.Begin);
+            new Slice(exe, info.Length, hash).ReadToEnd();
+            if (Convert.ToHexStringLower(hash.GetHashAndReset())[..IdLength] != info.Id)
+                throw new BundleDamagedException("The appended app doesn't match its id.");
+        }
+
         exe.Seek(info.Offset, SeekOrigin.Begin);
-        var archive = new Slice(exe, info.Length, hash);
+        var archive = new Slice(exe, info.Length, null);
         try
         {
             using var brotli = new BrotliStream(archive, CompressionMode.Decompress, leaveOpen: true);
@@ -132,10 +141,6 @@ public static class Bundle
         {
             throw new BundleDamagedException("The appended app can't be read.", ex);
         }
-        // Brotli has no checksum of its own: the id is the archive's hash, so every byte is checked.
-        archive.ReadToEnd();
-        if (Convert.ToHexStringLower(hash.GetHashAndReset())[..IdLength] != info.Id)
-            throw new BundleDamagedException("The appended app doesn't match its id.");
     }
 
     /// <summary>
@@ -169,7 +174,7 @@ public static class Bundle
     /// <summary>
     /// Deletes the folders of other versions. One still running is left whole for next time: renaming a
     /// folder fails while a program runs from it, so each is renamed first and only then deleted. Another
-    /// version's unpacking in progress (".tmp-") is left alone unless it was abandoned long ago.
+    /// unpacking in progress (".tmp-", this version's or another's) is left alone unless it was abandoned long ago.
     /// </summary>
     public static void RemoveOtherVersions(string cacheFolder, string keepId)
     {
@@ -177,7 +182,9 @@ public static class Bundle
         foreach (var dir in Directory.GetDirectories(cacheFolder))
         {
             var name = Path.GetFileName(dir);
-            if (name == keepId || name.StartsWith(keepId + ".tmp-", StringComparison.Ordinal)) continue;
+            if (name == keepId) continue;
+            // Any version's unpacking from the last hour may still be under way (or running, which the
+            // rename below would refuse anyway).
             if (name.Contains(".tmp-") && Directory.GetLastWriteTimeUtc(dir) > DateTime.UtcNow.AddHours(-1)) continue;
             var doomed = name.Contains(".old-") ? dir : Path.Combine(cacheFolder, $"{name}.old-{Guid.NewGuid():N}");
             try
@@ -242,7 +249,7 @@ public static class Bundle
     }
 
     /// <summary>The archive's bytes only, so decompression can't run into the trailer; hashed as they're read.</summary>
-    private sealed class Slice(Stream inner, long length, IncrementalHash hash) : Stream
+    private sealed class Slice(Stream inner, long length, IncrementalHash? hash) : Stream
     {
         private readonly long _length = length;
         private long _left = length;
@@ -254,12 +261,12 @@ public static class Bundle
             if (_left == 0) return 0;
             int n = inner.Read(buffer[..(int)Math.Min(buffer.Length, _left)]);
             if (n == 0) throw new EndOfStreamException();
-            hash.AppendData(buffer[..n]);
+            hash?.AppendData(buffer[..n]);
             _left -= n;
             return n;
         }
 
-        /// <summary>Whatever the decompressor didn't need still counts for the hash.</summary>
+        /// <summary>Reads (and hashes) the whole archive.</summary>
         public void ReadToEnd()
         {
             var buffer = new byte[1 << 16];

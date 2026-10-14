@@ -189,6 +189,23 @@ public sealed class BundleTests : IDisposable
     }
 
     [Fact]
+    public void This_versions_own_abandoned_copies_are_removed_too()
+    {
+        // Left by starts that couldn't replace a broken folder and ran from a copy of their own.
+        var cache = Path.Combine(_dir, "cache");
+        var old = Path.Combine(cache, "current.tmp-old");
+        Directory.CreateDirectory(old);
+        Directory.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddHours(-2));
+        var fresh = Path.Combine(cache, "current.tmp-fresh");
+        Directory.CreateDirectory(fresh);
+
+        Bundle.RemoveOtherVersions(cache, "current");
+
+        Assert.False(Directory.Exists(old));
+        Assert.True(Directory.Exists(fresh));
+    }
+
+    [Fact]
     public void Older_versions_are_removed_and_the_current_one_kept()
     {
         var cache = Path.Combine(_dir, "cache");

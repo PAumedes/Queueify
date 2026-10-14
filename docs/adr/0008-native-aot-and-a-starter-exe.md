@@ -34,7 +34,7 @@ into the exe and which a PC without the runtime must get from the download.
   Brotli-compressed tar (quality 11, 16 MB window) and a trailer with the archive's length and a hash id.
   It unpacks once per version into `%LOCALAPPDATA%\Queueify\app\<id>`, starts it with `QUEUEIFY_EXE` set to
   itself, and removes other versions' folders when nothing runs from them. Unpacking:
-  - checks the archive against its id (a SHA-256) while reading it; Brotli has no checksum, and a damaged
+  - first checks the archive against its id (a SHA-256), before writing anything; Brotli has no checksum, and a damaged
     copy would otherwise install a broken version for good. A mismatch says "download it again".
   - goes into a folder of its own and is renamed into place; a complete folder already there is never
     touched (a second copy started at the same moment may be running from it), and another version's
