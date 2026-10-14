@@ -650,7 +650,7 @@
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.2}" />
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.3}" />
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.4}" />
-                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.5}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.trouble.5}" IsTextSelectionEnabled="True" />
                                 </StackPanel>
                             </Border>
 

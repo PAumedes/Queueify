@@ -339,7 +339,7 @@ public sealed class UpdaterTests : IDisposable
         var ex = await Assert.ThrowsAsync<UpdateException>(() =>
             GitHub(new FakeGitHub(HttpStatusCode.OK, NewExe)).DownloadAsync(Release(), exe, null, CancellationToken.None));
 
-        Assert.NotEqual(Loc.F("update.no_write", _dir), ex.Message);
+        Assert.Equal(Loc.T("update.locked"), ex.Message);
     }
 
     [Fact]
@@ -372,6 +372,44 @@ public sealed class UpdaterTests : IDisposable
         Assert.False(File.Exists(exe + ".download"));
     }
 
+    [Fact]
+    public void The_exe_name_is_never_free_during_an_update()
+    {
+        // In a folder others can add files to, a moment without Queueify.exe would let theirs take the name.
+        // Someone tries to, nonstop, through many updates.
+        var exe = Exe();
+        var stop = false;
+        var taken = 0;
+        var squatter = new Thread(() =>
+        {
+            while (!Volatile.Read(ref stop))
+            {
+                try { using var planted = new FileStream(exe, FileMode.CreateNew); taken++; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        });
+        squatter.Start();
+        try
+        {
+            for (int i = 0; i < 200 && taken == 0; i++)
+            {
+                if (!File.Exists(exe)) break;
+                Updater.Replace(exe, Downloaded());
+            }
+        }
+        catch (UpdateException)
+        {
+            // The old code's rollback failing is the same story.
+        }
+        finally
+        {
+            Volatile.Write(ref stop, true);
+            squatter.Join();
+        }
+
+        Assert.Equal(0, taken);
+        Assert.Equal(NewExe, File.ReadAllBytes(exe));
+    }
     [Fact]
     public void An_old_exe_left_from_the_last_update_is_replaced()
     {

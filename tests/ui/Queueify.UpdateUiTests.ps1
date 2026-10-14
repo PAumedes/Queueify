@@ -79,7 +79,8 @@ $serve.AddScript({
             $path = ($reader.ReadLine() -split ' ')[1]
             while ($reader.ReadLine()) { }
             $r = $routes[$path]
-            $status = if ($r) { '200 OK' } else { '404 Not Found' }
+            if ($r -and $r.Delay) { Start-Sleep -Milliseconds $r.Delay }
+            $status = if ($r -and $r.Status) { $r.Status } elseif ($r) { '200 OK' } else { '404 Not Found' }
             $body = if ($r) { $r.Body } else { [byte[]]@() }
             $type = if ($r) { $r.Type } else { 'text/plain' }
             $head = [System.Text.Encoding]::ASCII.GetBytes("HTTP/1.1 $status`r`nContent-Type: $type`r`nContent-Length: $($body.Length)`r`nConnection: close`r`n`r`n")
@@ -121,6 +122,8 @@ Check ((Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'the offer leaves
 
 # ── A download that doesn't match the release is refused, the exe stays, and it can be tried again ──
 $stamp = (Get-Item $copy).LastWriteTimeUtc
+# From the keyboard: focus on the button, so it can follow to the bar's next one.
+(FindId 'InstallUpdateButton').SetFocus()
 Invoke (FindId 'InstallUpdateButton')
 Check ($null -ne (Wait-Find "*doesn't match the release*")) 'a download that does not match is refused'
 Check (((Get-Item $copy).LastWriteTimeUtc -eq $stamp) -and -not (Test-Path "$copy.download") -and -not (Test-Path "$copy.old")) 'the exe is left as it was'
@@ -133,10 +136,13 @@ Stop-App
 # ── A download that fails can be tried again; then the new exe takes the old one's place, and Queueify
 #    restarts through it without a moment with no window ──
 Offer '99.0.0' $sha256
-$routes.Remove('/Queueify-99.0.0-win-x64.exe')
+# Slow to fail, so there's time to go back to adding albums meanwhile.
+$routes['/Queueify-99.0.0-win-x64.exe'] = @{ Status = '404 Not Found'; Delay = 3000; Type = 'text/plain'; Body = [byte[]]@() }
 Start-App
 Invoke (FindId 'InstallUpdateButton')
+(Find 'Find an album' 'Edit').SetFocus()
 Check ($null -ne (Wait-Find '*GitHub answered with an error (404)*')) 'a failed download says so'
+Check ((Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'a failure doesn''t take the keyboard from the search box'
 Offer '99.0.0' $sha256
 [System.IO.File]::SetLastWriteTimeUtc($copy, [datetime]'2001-01-01')
 $before = @(Get-AppProcess | ForEach-Object Id)

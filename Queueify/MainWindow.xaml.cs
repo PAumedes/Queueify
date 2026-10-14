@@ -1094,9 +1094,13 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async Task<bool> RestartAppAsync()
     {
+        // A second click while the new copy starts would start another one.
+        if (_restarting) return true;
+        _restarting = true;
         // Saved first, so the new copy opens where this one was.
         SaveWindow();
         System.Diagnostics.Process? started;
+        var running = QueueifyProcesses();
         try
         {
             // Through the download's starter when there is one, so the new copy knows it too.
@@ -1105,6 +1109,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             ShowToast(Loc.F("app.restart_failed", ex.Message), severity: InfoBarSeverity.Warning);
+            _restarting = false;
             return false;
         }
         using (started)
@@ -1116,20 +1121,28 @@ public sealed partial class MainWindow : Window
                     using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(2));
                     await started.WaitForExitAsync(limit.Token);
                     // The starter showed its own message about what went wrong.
-                    if (started.ExitCode != 0) return false;
+                    if (started.ExitCode != 0)
+                    {
+                        _restarting = false;
+                        return false;
+                    }
                     // The starter is done once the new copy runs; its window takes a moment more.
-                    while (!limit.IsCancellationRequested && !AnotherQueueifyWindow())
+                    while (!NewQueueifyWindow(running))
                         await Task.Delay(200, limit.Token);
                 }
                 catch (OperationCanceledException)
                 {
-                    // Still unpacking after two minutes: close anyway, it'll open when it's done.
+                    // Two minutes without a new window (the starter may be showing an error): this one stays.
+                    _restarting = false;
+                    return false;
                 }
             }
         }
         Close();
         return true;
     }
+
+    private bool _restarting;
 
     // ───────────────────────── Sync between PCs ─────────────────────────
 
@@ -1495,6 +1508,9 @@ public sealed partial class MainWindow : Window
     // ───────────────────────── Updates ─────────────────────────
 
     private bool _checkingUpdates;
+    /// <summary>Asked from About: the running check shows its result there.</summary>
+    private bool _reportCheck;
+    private CancellationTokenSource? _download;
 
     private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(quiet: false);
 
@@ -1504,24 +1520,30 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async Task CheckForUpdatesAsync(bool quiet)
     {
-        // A second click while checking does nothing; the button stays enabled so keyboard focus stays on it.
+        // One check at a time. Asked from About while the quiet one at start runs, that one reports there
+        // when it's done. The button stays enabled, so keyboard focus stays on it.
+        if (!quiet)
+        {
+            _reportCheck = true;
+            ShowUpdateStatus(Loc.T("update.checking"));
+        }
         if (_checkingUpdates) return;
         _checkingUpdates = true;
-        if (!quiet) ShowUpdateStatus(Loc.T("update.checking"));
         try
         {
             var release = await _updater.CheckAsync(AppInfo.Version, CancellationToken.None);
             if (release != null && !_updating) OfferUpdate(release);
-            if (!quiet) ShowUpdateStatus(release != null ? Loc.F("update.available", release.Version) : Loc.T("update.latest"));
+            if (_reportCheck) ShowUpdateStatus(release != null ? Loc.F("update.available", release.Version) : Loc.T("update.latest"));
         }
         catch (Exception ex)
         {
             // UpdateException carries its own message; anything else is a bug, still not worth a crash.
-            if (!quiet) ShowUpdateStatus(ex is UpdateException ? ex.Message : Loc.F("update.failed", ex.Message));
+            if (_reportCheck) ShowUpdateStatus(ex is UpdateException ? ex.Message : Loc.F("update.failed", ex.Message));
         }
         finally
         {
             _checkingUpdates = false;
+            _reportCheck = false;
         }
     }
 
@@ -1562,18 +1584,33 @@ public sealed partial class MainWindow : Window
         var message = Loc.F("update.downloading", release.Version);
         var bar = new ProgressBar { Maximum = 1, Margin = new Thickness(0, 0, 0, 12) };
         AutomationProperties.SetName(bar, message);
-        ShowUpdateBar(InfoBarSeverity.Informational, message, null, bar, closable: false);
+        // No overall time limit: a slow download that keeps coming is fine, a stalled one gives up, and
+        // Cancel stops either.
+        var cancel = new Button { Content = Loc.T("update.cancel") };
+        cancel.Click += (_, _) => _download?.Cancel();
+        ShowUpdateBar(InfoBarSeverity.Informational, message, cancel, bar, closable: false);
+        _download = new CancellationTokenSource();
         try
         {
-            // No overall time limit: a slow download that keeps coming is fine, a stalled one gives up.
-            var downloaded = await _updater.DownloadAsync(release, exe, new Progress<double>(v => bar.Value = v), CancellationToken.None);
+            var downloaded = await _updater.DownloadAsync(release, exe, new Progress<double>(v => bar.Value = v), _download.Token);
             Updater.Replace(exe, downloaded);
+        }
+        catch (OperationCanceledException) when (_download.IsCancellationRequested)
+        {
+            _updating = false;
+            OfferUpdate(release);
+            return;
         }
         catch (Exception ex)
         {
             _updating = false;
             ShowUpdateProblem(ex is UpdateException ? ex.Message : Loc.F("update.failed", ex.Message), release, retry: true);
             return;
+        }
+        finally
+        {
+            _download.Dispose();
+            _download = null;
         }
         // The new version unpacks before its window opens: this one says so and stays until then.
         ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.restarting", release.Version), null,
@@ -1584,35 +1621,54 @@ public sealed partial class MainWindow : Window
             ShowUpdateBar(InfoBarSeverity.Warning, Loc.F("update.restart_failed", release.Version), null, null, closable: true);
     }
 
-    private static bool AnotherQueueifyWindow()
+    private static HashSet<int> QueueifyProcesses()
     {
-        var self = Environment.ProcessId;
+        var ids = new HashSet<int>();
+        foreach (var p in System.Diagnostics.Process.GetProcessesByName("Queueify"))
+            using (p) ids.Add(p.Id);
+        return ids;
+    }
+
+    /// <summary>A Queueify window from a process that wasn't running before (another copy open already doesn't count).</summary>
+    private static bool NewQueueifyWindow(HashSet<int> before)
+    {
+        var found = false;
         foreach (var p in System.Diagnostics.Process.GetProcessesByName("Queueify"))
             using (p)
-                if (p.Id != self && p.MainWindowHandle != 0) return true;
-        return false;
+                found |= !before.Contains(p.Id) && p.MainWindowHandle != 0;
+        return found;
     }
 
     private void ShowUpdateProblem(string message, AppRelease release, bool retry)
     {
         var page = new HyperlinkButton { Content = Loc.T("update.page"), Padding = new Thickness(0, 2, 0, 2), Margin = new Thickness(0, 0, 0, 8) };
         page.Click += (_, _) => OpenInBrowser(release.Page);
-        ShowUpdateBar(InfoBarSeverity.Warning, message, retry ? InstallButton(release, "update.retry") : null, page, closable: true, focus: true);
+        ShowUpdateBar(InfoBarSeverity.Warning, message, retry ? InstallButton(release, "update.retry") : null, page, closable: true);
     }
 
-    private void ShowUpdateBar(InfoBarSeverity severity, string message, Microsoft.UI.Xaml.Controls.Primitives.ButtonBase? action, UIElement? content, bool closable, bool focus = false)
+    private void ShowUpdateBar(InfoBarSeverity severity, string message, Microsoft.UI.Xaml.Controls.Primitives.ButtonBase? action, UIElement? content, bool closable)
     {
+        // Keyboard focus in the bar (on the button just pressed) moves to the new button (Cancel, Try again)
+        // instead of falling into the page when that button goes away. Anywhere else, it stays: someone
+        // typing in the search box keeps typing there, and a key never presses Try again by surprise.
+        var focusInBar = IsInside(FocusManager.GetFocusedElement(Root.XamlRoot) as DependencyObject, UpdateBar);
+        var wasOpen = UpdateBar.IsOpen;
         UpdateBar.Severity = severity;
         UpdateBar.Message = message;
         UpdateBar.ActionButton = action;
         UpdateBar.Content = content;
         UpdateBar.IsClosable = closable;
         UpdateBar.IsOpen = true;
-        // The bar only announces itself when it opens; later states are said here. After a failed update,
-        // focus goes to Try again rather than falling into the page when the clicked button went away;
-        // an offer at start leaves it in the search box.
-        Announce(UpdateBar, message);
-        if (focus && action != null) action.Loaded += (_, _) => action.Focus(FocusState.Programmatic);
+        // Opening, the bar announces itself; later states are said here.
+        if (wasOpen) Announce(UpdateBar, message);
+        if (focusInBar && action != null) action.Loaded += (_, _) => action.Focus(FocusState.Keyboard);
+    }
+
+    private static bool IsInside(DependencyObject? element, DependencyObject container)
+    {
+        for (; element != null; element = VisualTreeHelper.GetParent(element))
+            if (element == container) return true;
+        return false;
     }
 
     private static void Announce(UIElement element, string text) =>

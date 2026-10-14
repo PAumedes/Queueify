@@ -19,9 +19,10 @@ and while the app runs nothing has that exe open: the starter unpacks the app, s
 - The offer is a bar under the page title, in a row of its own. Nothing is downloaded until the user clicks
   **Update and restart**. Then the exe is downloaded next to the one the user started, always into a new
   file (`<exe>.download`; a file already there is removed first, and if it can't be, nothing is updated; at
-  most 256 MB; a download that sends nothing for 30 s gives up, a slow one doesn't), its SHA-256 compared
-  with GitHub's, and the two swapped by renaming: the old one becomes `<exe>.old`, removed at the next start;
-  if the new one can't be moved in, the old one goes back. A read-only exe is updated too.
+  most 256 MB; a download that sends nothing for 30 s gives up, a slow one doesn't, and **Cancel** stops
+  either), and its SHA-256 compared with GitHub's. The old exe is copied to `<exe>.old` (removed at the next
+  start) and the new one replaces it in one step, so the name is never free for a file someone else drops
+  in the folder; if that fails, the exe is as it was. A read-only exe is updated too.
 - The app then restarts through the new exe, and its window stays (saying so) until the new version's
   window is open: the first start of a version unpacks for a few seconds.
 - A failed update says why in plain words and offers **Try again** and the release page.
