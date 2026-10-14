@@ -57,7 +57,7 @@ public sealed class SyncLimits : IDisposable
     public SyncLimits(IConfiguration configuration)
     {
         var section = configuration.GetSection("Queueify:Sync");
-        MaxBodyBytes = Math.Max(1, section.GetValue("MaxBodyBytes", 8 * 1024 * 1024));
+        MaxBodyBytes = Math.Max(1, section.GetValue("MaxBodyBytes", 4 * 1024 * 1024));
         var perMinute = Math.Max(1, section.GetValue("RequestsPerMinute", 120));
         Limiter = PartitionedRateLimiter.Create<HttpContext, string>(c =>
             RateLimitPartition.GetFixedWindowLimiter(c.Connection.RemoteIpAddress?.ToString() ?? "", _ => new FixedWindowRateLimiterOptions

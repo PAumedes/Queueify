@@ -15,7 +15,9 @@ public sealed class UserStores(string root, IDataProtector? protector = null)
 {
     private string FolderOf(string userId)
     {
-        if (userId.Length == 0 || userId.IndexOfAny(['/', '\\', ':']) >= 0 || userId.Contains(".."))
+        // An allowlist: "." or a name the server keeps for itself must never become a user folder.
+        if (userId.Length is 0 or > 64 || userId.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+            || userId.Equals("keys", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Not a valid user id.", nameof(userId));
         return Path.Combine(root, userId);
     }
@@ -38,7 +40,7 @@ public sealed class UserStores(string root, IDataProtector? protector = null)
                 settings.SpotifyClientSecret = secrets.GetValueOrDefault(nameof(AppSettings.SpotifyClientSecret), "");
                 settings.TidalClientSecret = secrets.GetValueOrDefault(nameof(AppSettings.TidalClientSecret), "");
             }
-            catch (Exception ex) when (ex is CryptographicException or JsonException or IOException)
+            catch (Exception ex) when (ex is CryptographicException or JsonException)
             {
                 // Lost keys or a damaged file: the user enters the secrets again.
                 settings.SpotifyClientSecret = settings.TidalClientSecret = "";

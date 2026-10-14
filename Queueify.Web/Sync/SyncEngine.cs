@@ -8,14 +8,18 @@ using Queueify.Web.Storage;
 
 namespace Queueify.Web.Sync;
 
+/// <summary>The user's queue would hold more rows than the server allows.</summary>
+public sealed class SyncQuotaException : Exception;
+
 /// <summary>
 /// The server side of <c>POST /api/sync</c> (ADR-0010) on one user's queue. The queue is the same SQLite file
 /// <see cref="BacklogStore"/> writes, plus a <c>server_time</c> column and a <c>sync_meta</c> table that desktop
 /// databases never have. Rows changed through <see cref="BacklogStore"/> by the web pages are flagged dirty;
 /// each sync stamps them, so they reach the PCs without the pages knowing about sync.
 /// </summary>
-public sealed partial class SyncEngine(UserStores stores, TimeProvider clock)
+public sealed partial class SyncEngine(UserStores stores, TimeProvider clock, int maxRowsPerUser = SyncEngine.DefaultMaxRowsPerUser)
 {
+    public const int DefaultMaxRowsPerUser = 50_000;
     public const int MaxAlbums = 1000;
     public const int MaxText = 500;
     public static readonly TimeSpan TombstoneLifetime = TimeSpan.FromDays(90);
@@ -110,7 +114,8 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock)
         }
 
         // Newest wins; on a tie the server keeps its row. A row the server refuses is stamped again, so it
-        // goes back to the sender in this very response and the PC converges.
+        // goes back to the sender in this very response. (On an exact tie the PC keeps its own row, because
+        // BacklogStore.ApplyRemote only takes strictly newer ones; microsecond ties are rare.)
         var accepted = new HashSet<string>();
         foreach (var incoming in request.Albums)
         {
@@ -122,6 +127,13 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock)
             }
             else if (existing != incoming)
                 Execute(db, "UPDATE items SET server_time = $t WHERE uid = $uid", ("$t", Next()), ("$uid", incoming.Uid));
+        }
+
+        // Disposing the transaction without a commit undoes the whole request.
+        using (var count = db.CreateCommand())
+        {
+            count.CommandText = "SELECT COUNT(*) FROM items";
+            if ((long)count.ExecuteScalar()! > maxRowsPerUser) throw new SyncQuotaException();
         }
 
         bool settingsAccepted = false;

@@ -78,6 +78,14 @@ public sealed class SyncEndpointTests(SyncFactory app) : IClassFixture<SyncFacto
     // ── Basics and isolation ──
 
     [Fact]
+    public async Task Answers_carry_secrets_so_they_are_never_cached()
+    {
+        var (_, token) = await app.NewUserAsync("nostore");
+        using var response = await app.CreateClient().SendAsync(SyncFactory.Post(token, "{}"));
+        Assert.True(response.Headers.CacheControl?.NoStore);
+    }
+
+    [Fact]
     public async Task A_first_sync_with_nothing_answers_an_empty_response()
     {
         var (_, token) = await app.NewUserAsync("empty");

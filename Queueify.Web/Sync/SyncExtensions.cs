@@ -31,7 +31,8 @@ public static class SyncExtensions
         services.AddSingleton(sp => new UserStores(sp.GetRequiredService<DataLocation>().Root,
             sp.GetRequiredService<IDataProtectionProvider>().CreateProtector("Queueify.UserSecrets.v1")));
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<SyncEngine>();
+        services.AddSingleton(sp => new SyncEngine(sp.GetRequiredService<UserStores>(), sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<IConfiguration>().GetValue("Queueify:Sync:MaxAlbumsPerUser", SyncEngine.DefaultMaxRowsPerUser)));
         services.AddSingleton<SyncLimits>();
         services.AddScoped<PersonalAccessTokens>();
         services.AddHostedService<IdentityMigrator>();
@@ -60,6 +61,7 @@ public static class SyncExtensions
     private static async Task<IResult> SyncAsync(HttpContext http, SyncEngine engine, SyncLimits limits)
     {
         Quiet(http);
+        http.Response.Headers.CacheControl = "no-store";
         if (http.User.UserId() is not { } userId) return Results.StatusCode(StatusCodes.Status401Unauthorized);
         if (http.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } cap)
             cap.MaxRequestBodySize = limits.MaxBodyBytes;
@@ -69,10 +71,18 @@ public static class SyncExtensions
         using var body = new MemoryStream();
         var buffer = new byte[16 * 1024];
         int read;
-        while ((read = await http.Request.Body.ReadAsync(buffer)) > 0)
+        try
         {
-            body.Write(buffer, 0, read);
-            if (body.Length > limits.MaxBodyBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            while ((read = await http.Request.Body.ReadAsync(buffer)) > 0)
+            {
+                body.Write(buffer, 0, read);
+                if (body.Length > limits.MaxBodyBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            }
+        }
+        catch (BadHttpRequestException e)
+        {
+            // Kestrel enforces the cap itself on chunked bodies; its answer must not reach the error page.
+            return Results.StatusCode(e.StatusCode);
         }
 
         SyncRequest? request;
@@ -80,7 +90,9 @@ public static class SyncExtensions
         catch (JsonException) { return Results.StatusCode(StatusCodes.Status400BadRequest); }
         if (request == null) return Results.StatusCode(StatusCodes.Status400BadRequest);
 
-        var response = await engine.RunAsync(userId, request);
+        SyncResponse? response;
+        try { response = await engine.RunAsync(userId, request); }
+        catch (SyncQuotaException) { return Results.StatusCode(StatusCodes.Status413PayloadTooLarge); }
         return response == null
             ? Results.StatusCode(StatusCodes.Status400BadRequest)
             : Results.Text(JsonSerializer.Serialize(response, SyncJson.Default.SyncResponse), "application/json");

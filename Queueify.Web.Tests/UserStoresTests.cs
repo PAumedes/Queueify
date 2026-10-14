@@ -33,6 +33,9 @@ public sealed class UserStoresTests : IDisposable
     [InlineData("a/b")]
     [InlineData("")]
     [InlineData("a\\b")]
+    [InlineData(".")]
+    [InlineData("keys")]
+    [InlineData("a b")]
     public void A_user_id_can_never_leave_the_data_folder(string id) =>
         Assert.Throws<ArgumentException>(() => new UserStores(_root).QueueOf(id));
 }
