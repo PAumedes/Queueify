@@ -177,16 +177,16 @@ public partial class LocTests
     [GeneratedRegex(@"\{(\d+)(:[^}]*)?\}")]
     private static partial Regex Placeholder();
 
-    [GeneratedRegex(@"Loc\.[TF]\(""([a-z0-9_.]+)""")]
+    [GeneratedRegex(@"Loc\.[TF]\(""([A-Za-z0-9_.]+)""")]
     private static partial Regex CodeKey();
 
-    [GeneratedRegex(@"\{l:Tr Key=([a-z0-9_.]+)\}")]
+    [GeneratedRegex(@"\{l:Tr Key=([A-Za-z0-9_.]+)\}")]
     private static partial Regex XamlKey();
 
-    [GeneratedRegex(@"""([a-z]+\.[a-z0-9_.]+)""")]
+    [GeneratedRegex(@"""([a-zA-Z]+\.[A-Za-z0-9_.]+)""")]
     private static partial Regex KeyLike();
 
-    [GeneratedRegex(@"\[""([a-z0-9_.]+)""\] =")]
+    [GeneratedRegex(@"\[""([A-Za-z0-9_.]+)""\] =")]
     private static partial Regex TableKey();
 
     [GeneratedRegex(@"\.(json|db|rules|log|tmp|exe|ico|svg|png|pri|xbf)$")]

@@ -15,13 +15,15 @@ flowchart LR
         M[Matcher]
         CAT[SpotifyCatalog<br/>TidalCatalog]
         CS[CloudSync]
+        WS[ServerSync]
         O[OcrService<br/>OcrLanguages]
         L[Loc + string tables]
         ST[AppData, UiState]
     end
-    MW --> S & M & CAT & CS & O & L & ST
+    MW --> S & M & CAT & CS & WS & O & L & ST
     CAT -->|HTTPS| SP[(Spotify Web API)] & TI[(Tidal Open API)]
     CS -->|HTTPS REST| FS[(Your Firestore)]
+    WS -->|HTTPS POST /api/sync| WEB[(Queueify web server)]
     MW --> U[Updater] -->|HTTPS| GH[(GitHub releases)]
     O --> WOCR[(Windows.Media.Ocr)]
 ```
@@ -46,6 +48,8 @@ flowchart LR
 | `Matcher` | Splits a typed line into text and year, merges Spotify and Tidal results, scores them. |
 | `SpotifyCatalog`, `TidalCatalog` | Album search with the Client Credentials flow; tokens cached per ID and secret. |
 | `CloudSync` | Firestore REST: uploads dirty rows, downloads rows newer than the last server time, shared settings. |
+| `ServerSync` | The second provider ([ADR-0010](adr/0010-web-app-and-shared-queue.md)): one `POST /api/sync` round trip with a personal access token, repeated until nothing more comes. Same rules as `CloudSync` (newest `UpdatedAt` wins, soft deletions); HTTPS only, no redirects, 20 s per request, errors never carry the token. |
+| `ISyncProvider`, `SyncProviders` | What `CloudSync` and `ServerSync` share: `SyncAsync(store, settings, ct)`. `AppSettings.ActiveSync` picks one; a PC uses one at a time and the web server wins if a hand-edited `settings.json` sets both. |
 | `OcrService`, `OcrLanguages` | Windows OCR on a photo; which language reads it; installing languages (elevated, allow-listed). |
 | `Loc`, `Strings.En/Es` | All texts, the app language and the formats that go with it. |
 | `AppData`, `UiState` | Where the data folder is; `settings.json` (synced settings, keys) and `ui.json` (per-PC layout, theme, language). |
@@ -60,7 +64,8 @@ kept it). Copying the folder copies the queue, the keys and the sync connection.
 
 Sync: each PC keeps its own database. Online, a queue is `queues/{key}` in the user's Firestore, where the
 40-hex-character key is the capability (the sync code is `queueify:{project}:{key}`). See
-[ADR-0003](adr/0003-firestore-rest-sync.md).
+[ADR-0003](adr/0003-firestore-rest-sync.md). Or the PC syncs with a Queueify web server instead, using
+`WebServerUrl`, `WebToken` (per PC, never shared) and `WebLastServerTime` in `settings.json`.
 
 ## Startup
 

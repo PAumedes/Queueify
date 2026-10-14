@@ -77,6 +77,14 @@ Keep the sync code private: anyone who has it can see and change your queue. Som
 Firebase project ID can't read your queue, but could use up its free daily quota; see [SECURITY.md](SECURITY.md). If you published security
 rules from an earlier version, copy them again from the Sync dialog and publish them in Firebase.
 
+**Or a Queueify web server.** If you run the web app ([ADR-0010](docs/adr/0010-web-app-and-shared-queue.md)),
+make a token in its Settings → Connect a PC, click **Sync**, choose *Connect to a Queueify web server* and
+paste the connect text (`queueify-web|https://…|token`). The server is then the shared queue, also for your
+phone. A PC syncs with one place at a time: to switch between Firebase and a web server, disconnect first
+(the queue stays on the PC and the other copy isn't touched). The token stays on that PC; revoke it in the web
+app to cut that PC off. The address must be https (plain http only for `localhost`), and the app never follows a
+redirect to another host.
+
 ## Magazine photos
 
 Take the photo with your phone, get it onto the PC (Phone Link, WhatsApp Web, OneDrive…) and drop it into

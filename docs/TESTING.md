@@ -5,6 +5,7 @@
 | Suite | Runs | Where |
 | --- | --- | --- |
 | Unit (`Queueify.Tests`) | Core logic: matching, store, sync, catalogs (fake HTTP), OCR, texts, settings | `dotnet test --project Queueify.Tests`; CI |
+| Web sync client (inside the unit suite) | `ServerSync` against an in-memory server over a fake `HttpMessageHandler`: round trips, pagination, 401, timeout, redirects, token never in messages | always on |
 | Sync (inside the unit suite) | Two simulated PCs against the Firestore emulator, and the security rules | with `QUEUEIFY_FIRESTORE_EMULATOR`; CI |
 | UI (`tests\ui\Queueify.UiTests.ps1`) | The published app through UI Automation: tour, pages, panel, settings, language restart | locally, before merging UI changes |
 | Sync UI (`tests\ui\Queueify.SyncUiTests.ps1`) | Connecting Sync from the dialog, an album reaching Firestore | locally, with the emulator |

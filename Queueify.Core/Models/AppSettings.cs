@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using Queueify.Services;
+
 namespace Queueify.Models;
 
 public sealed class AppSettings
@@ -29,6 +32,20 @@ public sealed class AppSettings
 
     /// <summary>Server time of the newest change already downloaded; the next sync asks only for newer ones.</summary>
     public DateTime? CloudLastServerTime { get; set; }
+
+    // ── Online sync (a Queueify web server, ADR-0010). Per PC, never shared between PCs. ──
+
+    /// <summary>The server's address (https, or http on loopback), from the connect text.</summary>
+    public string WebServerUrl { get; set; } = "";
+
+    /// <summary>This PC's personal access token. It lives only here and in the sync request's Authorization header.</summary>
+    public string WebToken { get; set; } = "";
+
+    /// <summary>The server's time of the last answer; the next sync asks only for newer changes.</summary>
+    public DateTime? WebLastServerTime { get; set; }
+
+    /// <summary>The shared-settings stamp already in step with the server, so unchanged keys aren't sent again.</summary>
+    public DateTime? WebSettingsSyncedAt { get; set; }
 
     /// <summary>A copy to try changes on (e.g. a sync connection) without touching the live settings.</summary>
     public AppSettings Clone() => (AppSettings)MemberwiseClone();
@@ -100,4 +117,57 @@ public sealed class AppSettings
 
     public bool CloudConfigured =>
         !string.IsNullOrWhiteSpace(CloudProjectId) && !string.IsNullOrWhiteSpace(CloudQueueKey);
+
+    [JsonIgnore]
+    public bool WebConfigured =>
+        !string.IsNullOrWhiteSpace(WebServerUrl) && !string.IsNullOrWhiteSpace(WebToken);
+
+    [JsonIgnore]
+    public bool SyncConfigured => WebConfigured || CloudConfigured;
+
+    /// <summary>The provider that syncs this PC. A PC uses one; the web server wins if a hand-edited file sets both.</summary>
+    [JsonIgnore]
+    public SyncKind ActiveSync => WebConfigured ? SyncKind.Web : CloudConfigured ? SyncKind.Cloud : SyncKind.None;
+
+    /// <summary>
+    /// Names the online queue in use, to tell whether a sync that was running still applies. Not saved: it
+    /// would write the token a second time.
+    /// </summary>
+    [JsonIgnore]
+    public string SyncIdentity => ActiveSync switch
+    {
+        SyncKind.Web => $"web|{WebServerUrl}|{WebToken}",
+        SyncKind.Cloud => $"cloud|{CloudProjectId}|{CloudQueueKey}",
+        _ => "",
+    };
+
+    /// <summary>Starts using this Firestore queue; a PC syncs with one place, so a web connection is dropped.</summary>
+    public void ConnectCloud(string projectId, string queueKey)
+    {
+        DisconnectWeb();
+        CloudProjectId = projectId;
+        CloudQueueKey = queueKey;
+        CloudLastServerTime = null;
+    }
+
+    /// <summary>Starts using this web server; a Firestore connection is dropped.</summary>
+    public void ConnectWeb(string serverUrl, string token)
+    {
+        DisconnectCloud();
+        WebServerUrl = serverUrl;
+        WebToken = token;
+        WebLastServerTime = WebSettingsSyncedAt = null;
+    }
+
+    public void DisconnectWeb()
+    {
+        WebServerUrl = WebToken = "";
+        WebLastServerTime = WebSettingsSyncedAt = null;
+    }
+
+    public void DisconnectCloud()
+    {
+        CloudProjectId = CloudQueueKey = "";
+        CloudLastServerTime = null;
+    }
 }

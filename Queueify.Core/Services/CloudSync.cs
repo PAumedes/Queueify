@@ -20,7 +20,7 @@ public sealed record SyncResult(int Downloaded, int Uploaded, bool SettingsChang
 /// don't matter for that), then uploads this PC's pending changes. When both sides changed the same
 /// album, the most recent change wins.
 /// </summary>
-public sealed partial class CloudSync(HttpClient http)
+public sealed partial class CloudSync(HttpClient http) : ISyncProvider
 {
     /// <summary>The Firestore security rules to publish (tools/firestore.rules, embedded at build time).</summary>
     public static string SecurityRules { get; } = LoadRules();
