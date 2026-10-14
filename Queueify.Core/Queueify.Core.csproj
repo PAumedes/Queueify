@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup Condition="!$(TargetFramework.Contains('windows'))">
-    <Compile Remove="Services\OcrService.cs;Services\ExternalLinks.cs" />
+    <Compile Remove="Services\OcrService.cs;Services\WindowsOcr.cs;Services\ExternalLinks.cs" />
   </ItemGroup>
 
   <ItemGroup>
