@@ -41,6 +41,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddQueueifyStorage(builder.Configuration, builder.Environment);
 builder.Services.AddQueueifyOcr(builder.Configuration, builder.Environment);
+builder.Services.AddQueueifyData();
 
 var app = builder.Build();
 
@@ -68,6 +69,7 @@ app.MapRazorComponents<App>()
 app.MapAdditionalIdentityEndpoints();
 
 app.MapQueueifyPhoto();
+app.MapQueueifyData();
 
 app.MapGet("/healthz", () => Results.Ok("ok")).AllowAnonymous();
 
