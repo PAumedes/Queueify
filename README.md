@@ -31,7 +31,7 @@ and runs it from there. The copy of the previous version is removed by itself.
 
 **Updates**: when a new version is out, a bar at the top of the window offers it. *Update and restart*
 downloads it, checks it against the release and puts it in place of your exe, under the same name. Help →
-About → *Check for updates* asks right away; Settings → Updates turns off the check at start. (From 1.3.0 or
+About → *Check for updates* asks right away; *Skip this version* stops one version from being offered at start; Settings → Updates turns off the check at start. (From 1.3.0 or
 earlier, download 1.4.0 by hand once.)
 
 Your queue, keys and layout live in `%LOCALAPPDATA%\Queueify` (Help → *Open data folder*). To move to a new
