@@ -33,6 +33,8 @@ public sealed partial class MainWindow : Window
     private readonly SpotifyCatalog _spotify;
     private readonly TidalCatalog _tidal;
     private readonly CloudSync _cloud;
+    private readonly Updater _updater = new(Http, UpdateSource.For(Environment.GetEnvironmentVariable("QUEUEIFY_UPDATE_SERVER")));
+    private bool _updating;
 
     private readonly DispatcherQueueTimer _searchDebounce;
     private readonly DispatcherQueueTimer _toastTimer;
@@ -57,7 +59,10 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Queueify.ico"));
         if (AppData.StarterExe is { } starter)
+        {
             TaskbarIdentity.PinTo(WinRT.Interop.WindowNative.GetWindowHandle(this), starter);
+            Updater.RemoveLeftovers(starter);
+        }
 
         _ui = UiState.Load();
         RestoreWindow();
@@ -112,6 +117,7 @@ public sealed partial class MainWindow : Window
         {
             SearchBox.Focus(FocusState.Programmatic);
             _ = SyncNowAsync();
+            if (_ui.CheckForUpdates) _ = CheckForUpdatesAsync(quiet: true);
             if (!_ui.TourSeen) DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => ShowTourStep(0));
         };
     }
@@ -1459,6 +1465,96 @@ public sealed partial class MainWindow : Window
         AboutDataPath.Text = AppData.Folder;
     }
 
+    // ───────────────────────── Updates ─────────────────────────
+
+    private async void OnCheckForUpdates(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(quiet: false);
+
+    /// <summary>
+    /// Asks GitHub for a newer version and offers it at the top of the window. Quiet (at start) shows nothing
+    /// unless there is one; from About, the result shows under the button.
+    /// </summary>
+    private async Task CheckForUpdatesAsync(bool quiet)
+    {
+        if (!quiet)
+        {
+            CheckUpdatesButton.IsEnabled = false;
+            UpdateStatus.Text = Loc.T("update.checking");
+        }
+        try
+        {
+            var release = await _updater.CheckAsync(AppInfo.Version, CancellationToken.None);
+            if (release != null && !_updating) OfferUpdate(release);
+            if (!quiet) UpdateStatus.Text = release != null ? Loc.F("update.available", release.Version) : Loc.T("update.latest");
+        }
+        catch (UpdateException ex)
+        {
+            if (!quiet) UpdateStatus.Text = ex.Message;
+        }
+        finally
+        {
+            CheckUpdatesButton.IsEnabled = true;
+        }
+    }
+
+    private void OfferUpdate(AppRelease release)
+    {
+        var install = new Button { Content = Loc.T("update.install"), Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
+        AutomationProperties.SetAutomationId(install, "InstallUpdateButton");
+        install.Click += (_, _) => _ = InstallUpdateAsync(release);
+        var whatsNew = new HyperlinkButton { Content = Loc.T("update.whats_new"), Padding = new Thickness(0, 2, 0, 2) };
+        whatsNew.Click += (_, _) => OpenInBrowser(release.Page);
+        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.available", release.Version), install, whatsNew, closable: true);
+    }
+
+    /// <summary>Downloads the new exe, checks it, puts it in place of this one and restarts through it.</summary>
+    private async Task InstallUpdateAsync(AppRelease release)
+    {
+        if (_updating) return;
+        if (AppData.StarterExe is not { } exe)
+        {
+            // Running from a build folder, not a download: nothing to replace.
+            ShowUpdateProblem(Loc.T("update.manual"), release.Page);
+            return;
+        }
+        _updating = true;
+        var bar = new ProgressBar { Maximum = 1, Margin = new Thickness(0, 0, 0, 12) };
+        ShowUpdateBar(InfoBarSeverity.Informational, Loc.F("update.downloading", release.Version), null, bar, closable: false);
+        try
+        {
+            // Long enough for a slow connection, but a stalled download doesn't hang forever.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            var downloaded = await _updater.DownloadAsync(release, exe, new Progress<double>(v => bar.Value = v), timeout.Token);
+            Updater.Replace(exe, downloaded);
+        }
+        catch (Exception ex) when (ex is UpdateException or OperationCanceledException)
+        {
+            _updating = false;
+            ShowUpdateProblem(ex is UpdateException ? ex.Message : Loc.T("update.timeout"), release.Page);
+            return;
+        }
+        RestartApp();
+    }
+
+    private void ShowUpdateProblem(string message, Uri page)
+    {
+        var open = new Button { Content = Loc.T("update.page") };
+        open.Click += (_, _) => OpenInBrowser(page);
+        ShowUpdateBar(InfoBarSeverity.Warning, message, open, null, closable: true);
+    }
+
+    private void ShowUpdateBar(InfoBarSeverity severity, string message, Microsoft.UI.Xaml.Controls.Primitives.ButtonBase? action, UIElement? content, bool closable)
+    {
+        UpdateBar.Severity = severity;
+        UpdateBar.Message = message;
+        UpdateBar.ActionButton = action;
+        UpdateBar.Content = content;
+        UpdateBar.IsClosable = closable;
+        UpdateBar.IsOpen = true;
+    }
+
+    private static void OpenInBrowser(Uri page) =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(page.AbsoluteUri) { UseShellExecute = true });
+
     private void OnOpenDataFolder(object sender, RoutedEventArgs e)
     {
         Directory.CreateDirectory(AppData.Folder);
@@ -1605,6 +1701,7 @@ public sealed partial class MainWindow : Window
             LanguageBox.SelectedItem = LanguageBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _ui.Language)
                                        ?? LanguageBox.Items[0];
             UpdateLanguageRestart();
+            UpdateCheckToggle.IsOn = _ui.CheckForUpdates;
             SettingsDataPath.Text = AppData.Folder;
             FillOcrSettings();
             UpdateServiceCards();
@@ -1774,6 +1871,13 @@ public sealed partial class MainWindow : Window
         var edited = _settingsShown.Clone();
         edited.CountryCode = country.Code;
         CommitSettingsEdit(edited);
+    }
+
+    private void OnUpdateCheckToggled(object sender, RoutedEventArgs e)
+    {
+        if (_fillingSettings) return;
+        _ui.CheckForUpdates = UpdateCheckToggle.IsOn;
+        _ui.Save();
     }
 
     private void OnThemeChanged(object sender, SelectionChangedEventArgs e)

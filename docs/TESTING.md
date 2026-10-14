@@ -8,6 +8,7 @@
 | Sync (inside the unit suite) | Two simulated PCs against the Firestore emulator, and the security rules | with `QUEUEIFY_FIRESTORE_EMULATOR`; CI |
 | UI (`tests\ui\Queueify.UiTests.ps1`) | The published app through UI Automation: tour, pages, panel, settings, language restart | locally, before merging UI changes |
 | Sync UI (`tests\ui\Queueify.SyncUiTests.ps1`) | Connecting Sync from the dialog, an album reaching Firestore | locally, with the emulator |
+| Update UI (`tests\ui\Queueify.UpdateUiTests.ps1`) | A copy of the download updating itself from a release served on this PC: offer, refusing a bad download, the setting, the swap and restart | locally |
 | Release tool (`tests\tools\Release.Tests.ps1`) | Version bump, changelog and notes | locally; CI |
 
 The OCR test reads `Queueify.Tests\TestData\magazine-page.png`. It's skipped on machines with no text
@@ -25,6 +26,7 @@ dotnet test --project Queueify.Tests               # now with the sync tests
 tools\package.ps1                                  # dist\Queueify\Queueify.exe (the download, ~5 min)
 powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UiTests.ps1 -Exe dist\Queueify\Queueify.exe
 powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.SyncUiTests.ps1 -Exe dist\Queueify\Queueify.exe
+powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UpdateUiTests.ps1 -Exe dist\Queueify\Queueify.exe
 ```
 
 The UI tests run the download itself, in portable mode: they move the `Data` folder next to the exe aside

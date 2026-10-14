@@ -29,8 +29,13 @@ warn the first time because the app isn't signed: *More info → Run anyway*. Th
 version takes a moment longer: the exe unpacks the app into `%LOCALAPPDATA%\Queueify\app` (about 70 MB)
 and runs it from there. The copy of the previous version is removed by itself.
 
+**Updates**: when a new version is out, a bar at the top of the window offers it. *Update and restart*
+downloads it, checks it against the release and puts it in place of your exe, under the same name. Help →
+About → *Check for updates* asks right away; Settings → Updates turns off the check at start. (From 1.3.0 or
+earlier, download 1.4.0 by hand once.)
+
 Your queue, keys and layout live in `%LOCALAPPDATA%\Queueify` (Help → *Open data folder*). To move to a new
-version, replace the exe. Pinned to the taskbar, Queueify starts the exe you downloaded rather than its
+version by hand, replace the exe. Pinned to the taskbar, Queueify starts the exe you downloaded rather than its
 unpacked copy; give the exe one name (say `Queueify.exe`) and keep it when you update, so the pin keeps working.
 
 **Portable mode**: if there's a `Data` folder next to the exe that is empty or has Queueify's files in it,
