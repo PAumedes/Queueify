@@ -64,6 +64,7 @@ namespace QueueifySmoke {
     [StructLayout(LayoutKind.Sequential)] struct PropertyKey { public Guid FormatId; public uint Pid; }
     [StructLayout(LayoutKind.Explicit, Size = 24)] struct PropVariant { [FieldOffset(0)] public ushort Type; [FieldOffset(8)] public IntPtr Pointer; }
     public static class Window {
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string className, string title);
         [DllImport("shell32.dll")] static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out IPropertyStore store);
         public static string RelaunchCommand(IntPtr hwnd) {
             var iid = typeof(IPropertyStore).GUID; IPropertyStore store;
@@ -85,8 +86,11 @@ try {
     $starter = Start-Process "$smoke\app\Queueify (1).exe" -PassThru
     $cache = "$smoke\local\Queueify\app\"
     # Up means a window: a crash before .NET starts writes no crash log and may linger in error reporting.
-    for ($i = 0; $i -lt 60 -and -not $app; $i++) {
-        Start-Sleep -Milliseconds 500
+    # A first start unpacks for a few seconds behind the starter's loading screen.
+    $sawLoading = $false
+    for ($i = 0; $i -lt 300 -and -not $app; $i++) {
+        Start-Sleep -Milliseconds 100
+        if ([QueueifySmoke.Window]::FindWindow('QueueifyLoading', [NullString]::Value) -ne [IntPtr]::Zero) { $sawLoading = $true }
         $app = Get-Process Queueify -ErrorAction SilentlyContinue |
             Where-Object { $_.Path -and $_.Path.StartsWith($cache, [StringComparison]::OrdinalIgnoreCase) -and $_.MainWindowHandle -ne 0 } |
             Select-Object -First 1
@@ -97,6 +101,8 @@ try {
         $why = if (Test-Path $crash) { Get-Content -Raw $crash } elseif ($starterExit -ne 0) { "the starter ended with $starterExit" } else { 'no window after 30 s' }
         throw "The downloadable exe doesn't start: $why"
     }
+    if (-not $sawLoading) { throw "No loading screen while the first start unpacked the app." }
+    if ([QueueifySmoke.Window]::FindWindow('QueueifyLoading', [NullString]::Value) -ne [IntPtr]::Zero) { throw "The loading screen stayed after the app's window opened." }
     if ((Test-Path "$smoke\app\Data") -or -not (Test-Path "$smoke\local\Queueify\queueify.db")) {
         throw "The downloadable exe should keep its data in %LOCALAPPDATA%\Queueify, not next to itself."
     }

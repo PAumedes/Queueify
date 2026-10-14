@@ -43,8 +43,10 @@ $realLocalAppData = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = Join-Path ([System.IO.Path]::GetTempPath()) ("queueify-uitest-local-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
 $appCache = Join-Path $env:LOCALAPPDATA 'Queueify\app'
+# The download (a starter) shows its own loading screen while it unpacks; only the app it starts counts.
+$isStarter = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($Exe), (Get-Item $Exe).Length - 8, 8) -like 'QFYAPP*'
 function Get-AppProcess {
-    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and ($_.Path -eq $Exe -or $_.Path.StartsWith("$appCache\", [StringComparison]::OrdinalIgnoreCase)) }
+    Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and (($_.Path -eq $Exe -and -not $isStarter) -or $_.Path.StartsWith("$appCache\", [StringComparison]::OrdinalIgnoreCase)) }
 }
 function Stop-TestApp {
     Get-AppProcess | ForEach-Object { $_.Kill(); $_.WaitForExit(10000) | Out-Null }

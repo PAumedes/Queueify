@@ -183,6 +183,9 @@ public static class Bundle
         }
     }
 
+    /// <summary>Whether this version is already unpacked, so starting it is quick.</summary>
+    public static bool IsUnpacked(string cacheFolder, BundleInfo info) => IsComplete(Path.Combine(cacheFolder, info.Id));
+
     private static bool IsComplete(string folder) => File.Exists(Path.Combine(folder, Complete));
 
     /// <summary>

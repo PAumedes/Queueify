@@ -114,6 +114,22 @@ public sealed class BundleTests : IDisposable
     }
 
     [Fact]
+    public void A_version_is_known_to_be_unpacked_only_when_complete()
+    {
+        var output = Path.Combine(_dir, "Queueify.exe");
+        Bundle.Write(Starter(), App("app"), output);
+        var cache = Path.Combine(_dir, "cache");
+        using var exe = File.OpenRead(output);
+        var info = Bundle.Read(exe)!;
+        Assert.False(Bundle.IsUnpacked(cache, info));
+        Directory.CreateDirectory(Path.Combine(cache, info.Id));
+        Assert.False(Bundle.IsUnpacked(cache, info));   // half done
+
+        Bundle.Unpack(exe, info, cache);
+
+        Assert.True(Bundle.IsUnpacked(cache, info));
+    }
+    [Fact]
     public void A_half_finished_unpack_is_done_again()
     {
         var output = Path.Combine(_dir, "Queueify.exe");

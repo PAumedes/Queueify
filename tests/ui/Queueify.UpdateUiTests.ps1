@@ -1,4 +1,4 @@
-# UI tests for updating Queueify from inside the app, driven through Windows UI Automation.
+﻿# UI tests for updating Queueify from inside the app, driven through Windows UI Automation.
 #
 #   powershell -ExecutionPolicy Bypass -File tests\ui\Queueify.UpdateUiTests.ps1 -Exe <path to Queueify.exe>
 #
@@ -109,16 +109,21 @@ function Offer([string]$version, [string]$digest) {
 
 try {
 
-# ── The offer never squeezes the page: a narrow window with the panel open (1.4.0's first try put the bar
-#    beside the title, which then wrapped a letter per line) ──
+# ── Found at the start: a dot on Help, and the offer itself in Help → About, nowhere else ──
+function Open-Help { Select-Item (Find 'Help*' 'ListItem'); Start-Sleep 1 }
+function Badge { Find 'Help, new version available' 'ListItem' }
 '{ "Language": "en", "TourSeen": true, "PaneVisible": true, "WindowBounds": [50, 50, 1100, 700] }' | Set-Content -Encoding UTF8 (Join-Path $env:LOCALAPPDATA 'Queueify\ui.json')
 Offer '99.0.0' ('0' * 64)
 Start-App
 Check ($null -ne $script:root) 'Queueify starts from the copy'
-Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'a newer release is offered at the start'
-$title = (FindId 'PageTitle').Current.BoundingRectangle
-Check (-not $title.IsEmpty -and $title.Height -lt 60 -and $title.Width -gt 100) "the page title keeps its line beside the offer ($($title.Width) x $($title.Height))"
-Check ((Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'the offer leaves the keyboard in the search box'
+$badge = $null
+for ($i = 0; $i -lt 30 -and -not $badge; $i++) { Start-Sleep -Milliseconds 500; $badge = Badge }
+Check ($null -ne $badge) 'a newer release shows as a dot on Help'
+Check ($null -ne (Find '*new version is out: Queueify 99.0.0*') -and $null -ne (Find 'Show' 'Button')) 'and a short note at the bottom, with Show'
+Check ((Find 'Find an album' 'Edit').Current.HasKeyboardFocus) 'the keyboard stays in the search box'
+Open-Help
+Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'Help → About offers it'
+Check ($null -eq (Badge) -and $null -ne (Find 'Help' 'ListItem')) 'opening Help clears the dot'
 
 # ── A download that doesn't match the release is refused, the exe stays, and it can be tried again ──
 $stamp = (Get-Item $copy).LastWriteTimeUtc
@@ -133,12 +138,28 @@ Check ($null -ne $retry -and $retry.Current.Name -eq 'Try again' -and $retry.Cur
 
 Stop-App
 
+# ── A result that comes while the user is elsewhere still reaches them: the dot comes back, and a note ──
+Offer '99.0.0' ('0' * 64)
+$routes['/Queueify-99.0.0-win-x64.exe'].Delay = 3000
+Start-App
+Open-Help
+Invoke (FindId 'InstallUpdateButton')
+Select-Item (Find 'To listen*' 'ListItem')
+$problem = $null
+for ($i = 0; $i -lt 40 -and -not $problem; $i++) { Start-Sleep -Milliseconds 500; $problem = Find 'Help, there''s a problem with the update' 'ListItem' }
+Check ($null -ne $problem) 'a failure found on another page puts the dot back on Help'
+Check ($null -ne (Find "*doesn't match the release*")) 'and a note says what happened'
+Open-Help
+Check ($null -ne (Find "*doesn't match the release*") -and $null -ne (FindId 'InstallUpdateButton')) 'Help shows it, with Try again'
+Stop-App
+
 # ── A download that fails can be tried again; then the new exe takes the old one's place, and Queueify
 #    restarts through it without a moment with no window ──
 Offer '99.0.0' $sha256
 # Slow to fail, so there's time to go back to adding albums meanwhile.
 $routes['/Queueify-99.0.0-win-x64.exe'] = @{ Status = '404 Not Found'; Delay = 3000; Type = 'text/plain'; Body = [byte[]]@() }
 Start-App
+Open-Help
 Invoke (FindId 'InstallUpdateButton')
 (Find 'Find an album' 'Edit').SetFocus()
 Check ($null -ne (Wait-Find '*GitHub answered with an error (404)*')) 'a failed download says so'
@@ -167,8 +188,8 @@ Stop-App
 $version = (Get-Item $Exe).VersionInfo.FileVersion -replace '^(\d+\.\d+\.\d+).*', '$1'
 Offer $version $sha256
 Start-App
-Check ($null -eq (Find '*new version is out*')) 'no offer when this is the latest version'
-Select-Item (Find 'Help*' 'ListItem')
+Check ($null -eq (Badge)) 'no dot on Help when this is the latest version'
+Open-Help
 Invoke (FindId 'CheckUpdatesButton')
 Check ($null -ne (Wait-Find 'You have the latest version.')) 'About: checking says this is the latest version'
 Stop-App
@@ -182,8 +203,8 @@ $toggle.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).To
 Stop-App
 Start-App
 Start-Sleep 3
-Check ($null -eq (Find '*new version is out*')) 'with checks turned off, nothing is offered at the start'
-Select-Item (Find 'Help*' 'ListItem')
+Check ($null -eq (Badge)) 'with checks turned off, nothing is offered at the start'
+Open-Help
 Invoke (FindId 'CheckUpdatesButton')
 Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'checking by hand still finds it'
 Stop-App
@@ -193,13 +214,14 @@ Stop-App
 # ── Skip this version: not offered at the next start, still found by Check for updates ──
 Offer '99.0.0' $sha256
 Start-App
+Open-Help
 Invoke (FindId 'SkipUpdateButton')
 Check ($null -eq (Find '*new version is out*')) 'Skip this version closes the offer'
 Stop-App
 Start-App
 Start-Sleep 3
-Check ($null -eq (Find '*new version is out*')) 'a skipped version is not offered at the next start'
-Select-Item (Find 'Help*' 'ListItem')
+Check ($null -eq (Badge)) 'a skipped version is not offered at the next start'
+Open-Help
 Invoke (FindId 'CheckUpdatesButton')
 Check ($null -ne (Wait-Find '*new version is out: Queueify 99.0.0*')) 'Check for updates still offers a skipped version'
 Stop-App
@@ -213,6 +235,7 @@ $broken[$broken.Length - 1] = $broken[$broken.Length - 1] -bxor 0x40
 $newExe = $broken
 Offer '99.0.0' ([System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($broken)).Replace('-', '').ToLowerInvariant())
 Start-App
+Open-Help
 $before = @(Get-AppProcess | ForEach-Object Id)
 Invoke (FindId 'InstallUpdateButton')
 # The starter's own message box: read it and press OK.
@@ -226,7 +249,8 @@ if ($box) { Invoke ($box.FindAll($Tree::Descendants, $Cond::TrueCondition) | Whe
 Check ($null -ne (Wait-Find "*is in place but didn't start, so your Queueify exe won't open*")) 'this window stays and says the new version did not start'
 Check ($null -ne (Find 'Releases page' 'Button')) 'the releases page comes first'
 Check ($null -ne (FindId 'InstallUpdateButton') -and (FindId 'InstallUpdateButton').Current.Name -eq 'Try again') 'and offers to download it again'
-Check (@(Get-AppProcess | Where-Object { $_.Id -notin $before }).Count -eq 0) 'no second Queueify started'}
+Check (@(Get-AppProcess | Where-Object { $_.Id -notin $before }).Count -eq 0) 'no second Queueify started'
+}
 finally {
     Stop-App
     $listener.Stop()
