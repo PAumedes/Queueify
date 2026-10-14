@@ -6,6 +6,22 @@ Each release section is written by `tools\release.ps1` from the
 [Conventional Commits](https://www.conventionalcommits.org/) since the previous tag. Don't edit released
 sections by hand; to change what the next release says, write better commit messages.
 
+## [1.3.0] - 2026-10-13
+
+### Features
+
+- download Queueify as a 21 MB exe compiled to native code (dd9d11f)
+- **ui:** reach a magazine photo's lines by keyboard and screen reader (ed28469)
+
+### Fixes
+
+- **build:** check the download before unpacking, and tidy old copies (f3d89b2)
+- **build:** check the unpacked app and survive two starts at once (0d45365)
+
+### Refactoring
+
+- show settings lists through compiled bindings (a29fdf4)
+
 ## [1.2.0] - 2026-10-13
 
 ### Features

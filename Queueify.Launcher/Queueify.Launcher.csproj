@@ -11,7 +11,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\Queueify\Assets\Queueify.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Product>Queueify</Product>
     <PublishAot>true</PublishAot>
     <OptimizationPreference>Size</OptimizationPreference>
