@@ -36,7 +36,7 @@ public partial class LocTests
         var root = RepoRoot();
         var used = new HashSet<string>();
         foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
-                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml") || f.EndsWith(".razor")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                                  && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests")))
         {
             var text = File.ReadAllText(file);
@@ -177,7 +177,7 @@ public partial class LocTests
     [GeneratedRegex(@"\{(\d+)(:[^}]*)?\}")]
     private static partial Regex Placeholder();
 
-    [GeneratedRegex(@"Loc\.[TF]\(""([a-z0-9_.]+)""")]
+    [GeneratedRegex(@"Loc\.[TF]\(""([A-Za-z0-9_.]+)""")]
     private static partial Regex CodeKey();
 
     [GeneratedRegex(@"\{l:Tr Key=([a-z0-9_.]+)\}")]
@@ -186,7 +186,7 @@ public partial class LocTests
     [GeneratedRegex(@"""([a-z]+\.[a-z0-9_.]+)""")]
     private static partial Regex KeyLike();
 
-    [GeneratedRegex(@"\[""([a-z0-9_.]+)""\] =")]
+    [GeneratedRegex(@"\[""([A-Za-z0-9_.]+)""\] =")]
     private static partial Regex TableKey();
 
     [GeneratedRegex(@"\.(json|db|rules|log|tmp|exe|ico|svg|png|pri|xbf)$")]
