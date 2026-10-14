@@ -29,19 +29,19 @@
     }
 
     <div class="q-field">
-        <label for="q-magazine">@Loc.T("pane.magazine")</label>
-        <input id="q-magazine" class="q-input" maxlength="120" autocomplete="off" @bind="_magazine" @bind:event="oninput"
-               placeholder="@Loc.T("pane.magazine.placeholder")" />
-        <span class="q-hint">@Loc.T("pane.magazine.help")</span>
-    </div>
-
-    <div class="q-field">
         <label for="q-search">@Loc.T("pane.search")</label>
         <div class="q-searchbox">
             <Ico Name="search" />
             <input id="q-search" class="q-input big" type="search" data-q-search maxlength="200" autocomplete="off" autocapitalize="words" enterkeyhint="search"
                    placeholder="@Loc.T("pane.search.placeholder")" value="@_query" @oninput="OnInput" @onkeydown="OnKey" />
         </div>
+    </div>
+
+    <div class="q-field">
+        <label for="q-magazine">@Loc.T("pane.magazine")</label>
+        <input id="q-magazine" class="q-input" maxlength="120" autocomplete="off" @bind="_magazine" @bind:event="oninput"
+               placeholder="@Loc.T("pane.magazine.placeholder")" />
+        <span class="q-hint">@Loc.T("pane.magazine.help")</span>
     </div>
 
     <p class="q-status @(_errors.Count > 0 ? "err" : "")" role="status" aria-live="polite">

@@ -52,6 +52,26 @@ flowchart LR
 | `Countries` | The countries where both services work, named in the app language. |
 | `Updater` | The latest GitHub release: whether it's newer, downloading and checking its exe, swapping it in ([ADR-0009](adr/0009-update-from-github-releases.md)). |
 
+## Web app (`Queueify.Web`)
+
+A Blazor Web App (.NET 10): static server rendering for the account pages, Interactive Server for the rest,
+referencing `Queueify.Core` for matching, catalogs, `BacklogStore`, `QueueText` and the string tables
+([ADR-0010](adr/0010-web-app-and-shared-queue.md), look and layout in [WEB_DESIGN.md](WEB_DESIGN.md)).
+
+| Part | Responsibility |
+| --- | --- |
+| `Services/QueueifyUi` | `AddQueueifyUi()` and `MapQueueifyUi()`: the only lines `Program.cs` needs. Registers the services, the 20 s catalog `HttpClient`, the per-request language and the `/prefs` form endpoint. |
+| `Services/UserQueue` | The signed-in user's queue for one circuit: every change is written at once to that user's `queueify.db` (`UserStores`), undo re-reads the stored album, `Changed` redraws the nav badges. |
+| `Services/AlbumSearch`, `HttpCatalogs` | Both catalogs at once with the user's own keys, the year retry, errors as readable messages; one catalog object per user so tokens are reused but never shared. |
+| `Services/Prefs` | Language (cookie, then `Accept-Language`), theme, same-site return paths, where a phone lands after sign-in. |
+| `LocCircuitHandler` | `Loc` keeps its language per async flow; each call into a circuit runs with the circuit's language, so two users never swap languages. |
+| `Components/Layout` | `NavMenu` is one list of every page drawn as the left rail and the phone tab bar; `MainLayout` is the shell, or a bare centred card when signed out. |
+| `Components/Shared`, `Pages` | `QueueBrowser` (To listen and Listened), `Add`, `Cover`, `Stars`, `Snackbar`. Decisions live in Core: `QueueView` (filter, order, the "Artist - Album" split, already-saved check) and `PlayLinks` (`spotify:` / `tidal:` with an https fallback; the desktop `ExternalLinks` uses it, and `MainWindow` can call `QueueView` instead of its own copy of the filter and order). |
+| `Components/Account` | The ASP.NET Core Identity pages, restyled; registration follows `RegistrationGate`. |
+
+Sign-in is required for every page except the account pages; the user id (never anything the browser sends)
+picks the data folder.
+
 ## Data
 
 Everything lives in `%LOCALAPPDATA%\Queueify`: `queueify.db`, `settings.json`, `ui.json` and, after a crash,

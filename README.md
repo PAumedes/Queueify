@@ -77,6 +77,24 @@ Keep the sync code private: anyone who has it can see and change your queue. Som
 Firebase project ID can't read your queue, but could use up its free daily quota; see [SECURITY.md](SECURITY.md). If you published security
 rules from an earlier version, copy them again from the Sync dialog and publish them in Firebase.
 
+## Web app (from your phone)
+
+`Queueify.Web` is the same queue as a website you can host yourself: sign in with a password or a passkey,
+add an album from your phone the moment someone recommends it, and see it on your PCs. On a phone the
+**Add** page is the first thing you see after signing in, and the site installs to the home screen (PWA).
+It has the same pages as the desktop app (To listen, Listened, Magazine photo, Help, Settings), English and
+Rioplatense Spanish (chosen with the language button, otherwise by the browser), and light, dark or system
+theme. The Spotify and Tidal keys stay on the server and are never sent to the browser.
+
+```powershell
+dotnet run --project Queueify.Web          # then open the address it prints
+```
+
+The first account that registers owns the server; after that registration is closed unless the server's
+configuration sets `Queueify:AllowRegistration` to `true`. Data lives under `Queueify:DataRoot`
+(default `Data/users`, one folder per user). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
+the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md).
+
 ## Magazine photos
 
 Take the photo with your phone, get it onto the PC (Phone Link, WhatsApp Web, OneDrive…) and drop it into

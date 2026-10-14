@@ -33,5 +33,21 @@
 
 @code {
     [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] private IThemeService Themes { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    // Fluent components keep their own theme tokens; give them the same mode and violet as the rest of the page.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var chosen = await JS.InvokeAsync<string?>("queueify.theme");
+            var mode = chosen switch { "light" => ThemeMode.Light, "dark" => ThemeMode.Dark, _ => ThemeMode.System };
+            await Themes.SetThemeAsync(new ThemeSettings { Color = "#6544E6", Mode = mode, IsExact = true });
+        }
+        catch (JSException) { }
+        catch (InvalidOperationException) { }
+    }
 }
 

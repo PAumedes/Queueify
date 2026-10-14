@@ -22,7 +22,7 @@
     {
         uint h = 2166136261;
         foreach (var c in s) h = (h ^ c) * 16777619;
-        return (int)(h % 300) + 230 > 360 ? (int)(h % 300) + 230 - 360 : (int)(h % 300) + 230;
+        return 250 + (int)(h % 100);   // violet to pink to red, the logo's range
     }
 
     public static string Initials(string artist, string album)

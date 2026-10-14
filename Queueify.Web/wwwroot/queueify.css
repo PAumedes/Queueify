@@ -42,7 +42,7 @@
 
 html { -webkit-text-size-adjust: 100%; }
 
-body {
+html body {
   margin: 0;
   background: var(--q-paper);
   color: var(--q-ink);
@@ -57,8 +57,8 @@ h1 { font: 600 28px/34px var(--q-font-display); letter-spacing: -.01em; }
 h2 { font: 600 18px/24px var(--q-font-display); }
 h3 { font: 600 16px/22px var(--q-font); }
 p { margin: 0; }
-a { color: var(--q-violet-text); text-decoration: underline; text-underline-offset: 2px; }
-a:hover { color: var(--q-violet-hover); }
+html body a { color: var(--q-violet-text); text-decoration: underline; text-underline-offset: 2px; }
+html body a:hover { color: var(--q-violet-hover); }
 img { max-width: 100%; }
 button { font: inherit; color: inherit; }
 hr { border: 0; border-top: 1px solid var(--q-hair); margin: 16px 0; opacity: 1; }
@@ -179,7 +179,12 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
   text-decoration: none; cursor: pointer; white-space: nowrap;
   transition: background-color .12s ease, border-color .12s ease;
 }
-.q-btn:hover { background: var(--q-sleeve-2); color: var(--q-ink); }
+html body a.q-btn, html body a.q-navitem { text-decoration: none; }
+html body a.q-btn { color: var(--q-ink); }
+html body a.q-btn.primary { color: #fff; }
+html body a.q-navitem { color: var(--q-muted); }
+html body a.q-navitem.active { color: var(--q-violet-text); }
+.q-btn:hover { background: var(--q-sleeve-2); }
 .q-btn svg { width: 18px; height: 18px; flex: none; }
 .q-btn.primary { background: var(--q-violet); border-color: var(--q-violet); color: #fff; }
 .q-btn.primary:hover { background: var(--q-violet-hover); border-color: var(--q-violet-hover); color: #fff; }
@@ -355,7 +360,6 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 .q-codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; }
 
 .q-prefs { display: grid; gap: 6px; }
-.q-prefs form { display: contents; }
 .q-seg { display: inline-flex; border: 1px solid var(--q-hair); border-radius: var(--q-radius); overflow: hidden; }
 .q-seg button { border: 0; background: var(--q-sleeve); min-height: 36px; padding: 0 12px; cursor: pointer; }
 .q-seg button + button { border-inline-start: 1px solid var(--q-hair); }
@@ -441,3 +445,6 @@ code, kbd { font-family: "Cascadia Mono", ui-monospace, Consolas, monospace; fon
 .q-field > label { order: -1; }
 .q-col { min-width: 0; }
 .q-check-row input { flex: none; }
+
+h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
+.q-row .q-actions { justify-content: flex-end; }

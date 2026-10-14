@@ -44,12 +44,24 @@
     }, 1100);
   });
 
+  // Menus built from <details> close when something else is clicked, or when a link inside them is used.
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('details.q-more[open], details.q-menu[open]').forEach(function (d) {
+      const insideLink = e.target.closest && d.contains(e.target) && e.target.closest('a');
+      if (!d.contains(e.target) || insideLink) d.removeAttribute('open');
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') document.querySelectorAll('details.q-more[open], details.q-menu[open]').forEach(function (d) { d.removeAttribute('open'); });
+  });
+
   window.queueify = {
     scrollTo: function (id) {
       const el = document.getElementById(id);
       if (el) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     },
     focus: function (selector) { return focusFirst(selector); },
+    theme: function () { return document.documentElement.dataset.qTheme || 'system'; },
     get: function (key) { try { return localStorage.getItem(key); } catch (_) { return null; } },
     set: function (key, value) { try { localStorage.setItem(key, value); } catch (_) { } },
   };
