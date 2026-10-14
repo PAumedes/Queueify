@@ -1687,6 +1687,7 @@ public sealed partial class MainWindow : Window
                 // Too important to wait behind a dot: the user mustn't close Queueify without reading it.
                 GoTo(Page.Help);
                 ShowUpdateBar(InfoBarSeverity.Error, Loc.F("update.start_failed", release.Version), releases, retry, closable: false);
+                DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => UpdateBar.StartBringIntoView());
                 break;
             }
             case Restart.NotStarted:

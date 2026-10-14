@@ -146,7 +146,7 @@ Open-Help
 Invoke (FindId 'InstallUpdateButton')
 Select-Item (Find 'To listen*' 'ListItem')
 $problem = $null
-for ($i = 0; $i -lt 40 -and -not $problem; $i++) { Start-Sleep -Milliseconds 500; $problem = Find 'Help, the update needs a look' 'ListItem' }
+for ($i = 0; $i -lt 40 -and -not $problem; $i++) { Start-Sleep -Milliseconds 500; $problem = Find 'Help, there''s a problem with the update' 'ListItem' }
 Check ($null -ne $problem) 'a failure found on another page puts the dot back on Help'
 Check ($null -ne (Find "*doesn't match the release*")) 'and a note says what happened'
 Open-Help

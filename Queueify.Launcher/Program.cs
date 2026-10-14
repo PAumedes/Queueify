@@ -40,14 +40,14 @@ internal static partial class Program
             if (WaitForWindow(app) is { } exitCode && exitCode != 0)
             {
                 loading.Dispose();
-                MessageBox(0, StarterMessage.ClosedWhileStarting(exitCode, spanish), "Queueify", 0x30 /* MB_ICONWARNING */);
+                MessageBox(0, StarterMessage.ClosedWhileStarting(exitCode, spanish), "Queueify", MB_ICONWARNING | OnTop);
                 return 1;
             }
         }
         catch (Exception ex)
         {
             loading?.Dispose();
-            MessageBox(0, StarterMessage.For(ex, spanish), "Queueify", 0x10 /* MB_ICONERROR */);
+            MessageBox(0, StarterMessage.For(ex, spanish), "Queueify", MB_ICONERROR | OnTop);
             return 1;
         }
         loading.Dispose();
@@ -82,6 +82,11 @@ internal static partial class Program
     private static string LocalAppData() =>
         Environment.GetEnvironmentVariable("LOCALAPPDATA") is { Length: > 0 } v && v.IndexOfAny(['"', '<', '>', '*', '?', '|', '\0', '\t', '\r', '\n']) < 0 && Path.IsPathFullyQualified(v)
             ? v : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+    private const uint MB_ICONERROR = 0x10, MB_ICONWARNING = 0x30;
+    /// <summary>MB_SETFOREGROUND | MB_TOPMOST: the loading screen that had the foreground is gone, and the message
+    /// mustn't open behind other windows (or, after an update, behind the old Queueify waiting for it).</summary>
+    private const uint OnTop = 0x10000 | 0x40000;
 
     // The starter has no culture data (InvariantGlobalization keeps it small), so it asks Windows directly.
     [LibraryImport("kernel32.dll")]
