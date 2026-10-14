@@ -1,0 +1,230 @@
+@page "/photo"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.AspNetCore.Authorization
+@using Queueify.Services
+@using Queueify.Web.Ocr
+@using Queueify.Web.Services
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider Auth
+@inject PreferencesStore Prefs
+@inject OcrOptions Limits
+
+<PageTitle>@Loc.T("webPhoto.title")</PageTitle>
+
+<h1>@Loc.T("webPhoto.title")</h1>
+<p class="summary">@Loc.T("webPhoto.summary")</p>
+
+<div class="zone" @ref="_zone">
+    <p class="hint">@Loc.T("webPhoto.drop")</p>
+    <div class="picks">
+        <div class="pick">
+            <label for="photo-choose">@Loc.T("webPhoto.choose")</label>
+            <input id="photo-choose" type="file" accept="image/*" @ref="_choose" disabled="@_reading" />
+        </div>
+        <div class="pick">
+            <label for="photo-take">@Loc.T("webPhoto.take")</label>
+            <input id="photo-take" type="file" accept="image/*" capture="environment" @ref="_take" disabled="@_reading" />
+        </div>
+        <div class="pick">
+            <label for="photo-lang">@Loc.T("webPhoto.language")</label>
+            <select id="photo-lang" value="@_language" @onchange="LanguageChanged" disabled="@_reading">
+                <option value="auto">@Loc.T("webSettings.ocr.auto")</option>
+                <option value="es">@Loc.T("webSettings.ocr.es")</option>
+                <option value="en">@Loc.T("webSettings.ocr.en")</option>
+            </select>
+        </div>
+    </div>
+    <p class="privacy">@Loc.T("webPhoto.privacy")</p>
+</div>
+
+<div role="status" aria-live="polite" class="status">
+    @if (_reading)
+    {
+        <p>@Loc.T("webPhoto.reading")</p>
+    }
+    else if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+    else if (_lines is { Count: 0 })
+    {
+        <p>@Loc.T("webPhoto.no_text")</p>
+    }
+</div>
+
+@if (_preview is not null && _lines is { Count: > 0 })
+{
+    <p>@Loc.T("webPhoto.tap")</p>
+
+    <div class="sheet" role="img" aria-label="@Loc.T("webPhoto.preview")">
+        <img src="@_preview" alt="" />
+        @for (var i = 0; i < _lines.Count; i++)
+        {
+            var index = i;
+            <span class="box @(_picked.Contains(index) ? "picked" : "")" aria-hidden="true"
+                  style="@Box(_lines[index])" @onclick="() => Toggle(index)"></span>
+        }
+    </div>
+
+    <ul class="lines">
+        @for (var i = 0; i < _lines.Count; i++)
+        {
+            var index = i;
+            var line = _lines[i];
+            <li>
+                <button type="button" class="line" aria-pressed="@(_picked.Contains(index) ? "true" : "false")" @onclick="() => Toggle(index)">
+                    @line.Text
+                </button>
+            </li>
+        }
+    </ul>
+
+    @if (_picked.Count > 0)
+    {
+        <div class="searchbar">
+            <a class="go" href="@SearchHref">@Loc.F("webPhoto.search", SearchText)</a>
+            <button type="button" class="plain" @onclick="() => _picked.Clear()">@Loc.T("webPhoto.clear")</button>
+        </div>
+    }
+}
+
+@code {
+    private sealed record Line(string Text, double X, double Y, double Width, double Height);
+    private sealed record Reading(int Width, int Height, List<Line>? Lines);
+
+    private ElementReference _zone, _choose, _take;
+    private IJSObjectReference? _module, _watcher;
+    private DotNetObjectReference<Photo>? _self;
+    private string? _userId, _fileId, _preview, _error;
+    private string _language = "auto";
+    private bool _reading;
+    private int _width = 1, _height = 1;
+    private List<Line>? _lines;
+    private readonly List<int> _picked = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _userId = await Auth.IdAsync();
+        if (_userId is not null) _language = Prefs.Load(_userId).OcrLanguage;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _self = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/queueify-upload.js");
+        _watcher = await _module.InvokeAsync<IJSObjectReference>("watch", new[] { _choose, _take }, _zone, _self);
+    }
+
+    /// <summary>Called from the browser when a photo is chosen, taken, dropped or pasted.</summary>
+    [JSInvokable]
+    public async Task OnFileChosen(string id, string name, long size, string? preview)
+    {
+        await ReleaseFileAsync();
+        (_fileId, _preview, _lines, _error) = (id, preview, null, null);
+        _picked.Clear();
+
+        if (size > Limits.MaxBytes)
+        {
+            _error = Loc.F("webPhoto.err.tooLarge", Limits.MaxBytes / (1024 * 1024));
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        _reading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var result = await _module!.InvokeAsync<UploadResult>("send", id, $"/api/photo?lang={_language}", null);
+            Apply(result);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            _error = Loc.T("webPhoto.err.network");
+        }
+        finally
+        {
+            _reading = false;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void Apply(UploadResult result)
+    {
+        if (result.Status == 200 && Parse<Reading>(result.Body) is { Lines: { } lines } reading)
+        {
+            (_lines, _width, _height) = (lines, Math.Max(1, reading.Width), Math.Max(1, reading.Height));
+            return;
+        }
+
+        var code = result.Status == 0 ? "network" : Parse<ErrorBody>(result.Body)?.Error ?? "engineMissing";
+        _error = code switch
+        {
+            "tooLarge" => Loc.F("webPhoto.err.tooLarge", Limits.MaxBytes / (1024 * 1024)),
+            "tooManyPixels" or "notAnImage" or "corrupt" or "busy" or "timeout" or "engineMissing" or "unauthorized" or "network" => Loc.T("webPhoto.err." + code),
+            "language" => Loc.T("webPhoto.err.language"),
+            _ => Loc.T("webPhoto.err.engineMissing"),
+        };
+    }
+
+    private sealed record ErrorBody(string? Error);
+
+    private static T? Parse<T>(string body)
+    {
+        try { return JsonSerializer.Deserialize<T>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
+        catch (JsonException) { return default; }
+    }
+
+    private async Task LanguageChanged(ChangeEventArgs e)
+    {
+        _language = e.Value?.ToString() is "es" or "en" ? e.Value!.ToString()! : "auto";
+        if (_userId is not null) Prefs.Save(_userId, Prefs.Load(_userId) with { OcrLanguage = _language });
+        await Task.CompletedTask;
+    }
+
+    private void Toggle(int index)
+    {
+        if (!_picked.Remove(index)) _picked.Add(index);
+    }
+
+    private string Box(Line l) => string.Create(CultureInfo.InvariantCulture,
+        $"left:{l.X / _width * 100:0.###}%;top:{l.Y / _height * 100:0.###}%;width:{l.Width / _width * 100:0.###}%;height:{l.Height / _height * 100:0.###}%");
+
+    /// <summary>The picked lines cleaned and joined, with the first year found: what the Add page's search takes.</summary>
+    private string SearchText
+    {
+        get
+        {
+            var parts = _picked.Select(i => OcrService.CleanLine(_lines![i].Text)).ToList();
+            var text = string.Join(' ', parts.Select(p => p.Text).Where(t => t.Length > 0));
+            return parts.FirstOrDefault(p => p.Year is not null).Year is int year ? $"{text} {year}" : text;
+        }
+    }
+
+    private string SearchHref => "/add?q=" + Uri.EscapeDataString(SearchText);
+
+    private async Task ReleaseFileAsync()
+    {
+        if (_module is null || _fileId is null) return;
+        try { await _module.InvokeVoidAsync("release", _fileId, _preview); }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException) { }
+        _fileId = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await ReleaseFileAsync();
+        try
+        {
+            if (_watcher is not null) await _watcher.InvokeVoidAsync("dispose");
+            if (_watcher is not null) await _watcher.DisposeAsync();
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException) { }
+        _self?.Dispose();
+    }
+}

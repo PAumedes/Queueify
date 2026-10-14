@@ -372,7 +372,6 @@ public static partial class Loc
         ["webSettings.testing"] = "Testing…",
         ["webSettings.test.ok"] = "{0} answered: the keys work.",
         ["webSettings.test.missing"] = "Save the {0} Client ID and secret first.",
-        ["webSettings.test.failed"] = "{0}: {1}",
         ["webSettings.test.unexpected"] = "Couldn't test {0} right now. Try again in a moment.",
         ["webSettings.theme.text"] = "Light or dark; by default the same as your device",
         ["webSettings.theme.system"] = "Use my device setting",

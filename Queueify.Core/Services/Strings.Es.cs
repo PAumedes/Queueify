@@ -373,7 +373,6 @@ public static partial class Loc
         ["webSettings.testing"] = "Probando…",
         ["webSettings.test.ok"] = "{0} respondió: las claves funcionan.",
         ["webSettings.test.missing"] = "Primero guardá el Client ID y el secret de {0}.",
-        ["webSettings.test.failed"] = "{0}: {1}",
         ["webSettings.test.unexpected"] = "No se pudo probar {0} ahora. Probá de nuevo en un rato.",
         ["webSettings.theme.text"] = "Claro u oscuro; por defecto, el de tu dispositivo",
         ["webSettings.theme.system"] = "Usar el de mi dispositivo",

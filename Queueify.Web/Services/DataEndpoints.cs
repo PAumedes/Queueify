@@ -13,6 +13,7 @@ public static class DataEndpoints
         services.AddHttpClient("catalogs", c => c.Timeout = TimeSpan.FromSeconds(20));
         services.AddSingleton<DataTransfer>();
         services.AddSingleton<PreferencesStore>();
+        services.AddScoped<TourService>();
         services.AddSingleton(sp =>
         {
             var factory = sp.GetRequiredService<IHttpClientFactory>();
