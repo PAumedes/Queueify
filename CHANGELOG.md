@@ -6,6 +6,32 @@ Each release section is written by `tools\release.ps1` from the
 [Conventional Commits](https://www.conventionalcommits.org/) since the previous tag. Don't edit released
 sections by hand; to change what the next release says, write better commit messages.
 
+## [1.4.0] - 2026-10-14
+
+### Features
+
+- a loading screen, and updates in About with a dot on Help (fa16a86)
+- update Queueify from inside the app (3f61040)
+
+### Fixes
+
+- the starter's messages come to the front (736363b)
+- update news reaches the user on any page (907a8ef)
+- when the new exe won't start, point to a version that works (a736ff6)
+- skip a version, and restart without a time limit (0b22a79)
+- replace the exe in one step, with no copy beside it (a54187a)
+- never free the exe's name, and leave focus where the user is (a8d255e)
+- make updating safe and clear when things go wrong (a9268ee)
+- **build:** refuse an archive header the packer never writes (df0cb85)
+
+### Documentation
+
+- skipping a version and the restart wait (22a3968)
+
+### Build and CI
+
+- pack the app with LZMA and the x86 branch filter (165aed5)
+
 ## [1.3.0] - 2026-10-13
 
 ### Features

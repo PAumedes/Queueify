@@ -6,7 +6,7 @@
     <RootNamespace>Queueify</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <!-- The app is published trimmed: warn about any code that trimming could break. -->
     <IsTrimmable>true</IsTrimmable>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
