@@ -68,9 +68,9 @@ into the exe and which a PC without the runtime must get from the download.
 ## Alternatives considered
 
 - **Keep .NET single-file (ADR-0007)**: 35 MB, and it unpacks the same amount.
-- **Brotli** (1.3.0): built into .NET, but 18.4 MB for the app, and 17.6 MB with the branch filter; LZMA
-  alone was no better (18.45 MB). The filter is what helps, and LZMA uses it best: 16.7 MB, and dropping
-  Brotli's native code made the starter 0.8 MB smaller.
+- **Brotli** (1.3.0): built into .NET. For the app's archive (sizes in MiB, like the exe's): Brotli 18.4,
+  Brotli with the branch filter 16.8, LZMA alone 17.6, LZMA with the filter 15.9. The filter is what helps,
+  and LZMA uses it best; dropping Brotli's native code also made the starter 0.8 MB smaller.
 - **7-Zip's BCJ2 filter and LZMA2**: about 1 MB smaller again, but BCJ2 splits the data into four streams
   and needs a much larger decoder.
 - Windows' own LZMS (Compression API) came out larger than Brotli (23.1 MB against 18.4 MB for the app).

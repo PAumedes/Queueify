@@ -151,6 +151,30 @@ public sealed class BundleTests : IDisposable
         Assert.Empty(Directory.Exists(cache) ? Directory.GetFileSystemEntries(cache) : []);
     }
 
+    [Theory]
+    [InlineData(4, 0xFF)]   // dictionary size: 4 GB
+    [InlineData(0, 225)]    // literal and position bits out of range
+    [InlineData(12, 0x7F)]  // tar length: far more than any app
+    public void A_wrong_header_under_a_matching_id_is_reported_as_damaged(int index, byte value)
+    {
+        // Only a mis-built download gets this far: the id is the hash of the archive as it is.
+        var output = Path.Combine(_dir, "Queueify.exe");
+        Bundle.Write(Starter(), App("app"), output);
+        BundleInfo info;
+        using (var exe = File.OpenRead(output)) info = Bundle.Read(exe)!;
+        var bytes = File.ReadAllBytes(output);
+        bytes[info.Offset + index] = value;
+        var id = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes.AsSpan((int)info.Offset, (int)info.Length)))[..32];
+        System.Text.Encoding.ASCII.GetBytes(id).CopyTo(bytes, bytes.Length - 40);
+        File.WriteAllBytes(output, bytes);
+        var cache = Path.Combine(_dir, "cache");
+
+        using (var exe = File.OpenRead(output))
+            Assert.Throws<BundleDamagedException>(() => Bundle.Unpack(exe, Bundle.Read(exe)!, cache));
+
+        Assert.Empty(Directory.Exists(cache) ? Directory.GetFileSystemEntries(cache) : []);
+    }
+
     [Fact]
     public void A_second_copy_finishing_later_keeps_the_running_one()
     {

@@ -26,6 +26,7 @@ public static class Bundle
     private const int IdLength = 32;
     private const int TrailerLength = sizeof(long) + IdLength + 8;
     private const string Complete = ".complete";
+    private const uint MaxDictionary = 1u << 26;
 
     // Same bytes for the same files, so an unchanged version keeps its id and its unpacked folder.
     private static readonly DateTimeOffset FixedTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -225,7 +226,7 @@ public static class Bundle
     {
         X86Filter.Encode(data);
         var encoder = new SevenZip.Compression.LZMA.Encoder();
-        var dictionary = (int)Math.Min(1u << 26, BitOperations.RoundUpToPowerOf2((uint)Math.Max(data.Length, 1 << 12)));
+        var dictionary = (int)Math.Min(MaxDictionary, BitOperations.RoundUpToPowerOf2((uint)Math.Max(data.Length, 1 << 12)));
         encoder.SetCoderProperties(
             [CoderPropID.DictionarySize, CoderPropID.LitContextBits, CoderPropID.LitPosBits, CoderPropID.PosStateBits,
              CoderPropID.Algorithm, CoderPropID.NumFastBytes, CoderPropID.MatchFinder, CoderPropID.EndMarker],
@@ -245,7 +246,9 @@ public static class Bundle
         Span<byte> lengthBytes = stackalloc byte[sizeof(long)];
         archive.ReadExactly(lengthBytes);
         var length = BinaryPrimitives.ReadInt64LittleEndian(lengthBytes);
-        if (length is < 0 or > 1L << 30) throw new InvalidDataException("Unexpected app size.");
+        // Never more than Compress writes, so a bad header can't ask for gigabytes of memory.
+        if (length is < 0 or > 1L << 30 || properties[0] >= 9 * 5 * 5 || BinaryPrimitives.ReadUInt32LittleEndian(properties.AsSpan(1)) > MaxDictionary)
+            throw new InvalidDataException("Unexpected archive header.");
 
         var data = new byte[length];
         var decoder = new SevenZip.Compression.LZMA.Decoder();

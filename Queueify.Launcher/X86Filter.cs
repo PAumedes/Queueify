@@ -4,7 +4,7 @@ namespace Queueify.Launcher;
 /// 7-Zip's x86 branch converter (BCJ), from the public-domain LZMA SDK by Igor Pavlov (Bra86.c): the 32-bit
 /// target of each likely call (E8) or jump (E9) becomes absolute on the way in and relative again on the
 /// way out. Works on x64 code too, and leaves anything that isn't code as reversible noise. Run over a
-/// whole buffer at once; the last four bytes are never touched.
+/// whole buffer at once; no instruction starts in the last four bytes.
 /// </summary>
 public static class X86Filter
 {

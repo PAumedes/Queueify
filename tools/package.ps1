@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 # Fails the build when the download grows past this. 1.1.0 was a 93 MB zip; 1.2.0 a 35 MB exe (ADR-0007);
-# compiled ahead of time and packed with LZMA it is about 19 MB (ADR-0008).
+# compiled ahead of time and packed with LZMA it is about 17.6 MB (ADR-0008).
 $maxMB = 20
 
 # Native AOT links with the C++ build tools and finds them through vswhere, which isn't on PATH by default.
