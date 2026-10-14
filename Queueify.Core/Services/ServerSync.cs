@@ -54,7 +54,7 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
         var now = BacklogStore.Now();
         var dirty = store.LoadDirty();
         // Only the first ask overlaps; later rounds start exactly at the last answer, so they can end.
-        var since = s.WebLastServerTime is DateTime last ? last - Overlap : (DateTime?)null;
+        var since = s.WebLastServerTime is DateTime last && last > DateTime.UnixEpoch + Overlap ? last - Overlap : (DateTime?)null;
         bool firstConnection = since == null;
         var settingsToSend = SettingsToSend(s);
         int sent = 0, downloaded = 0, rounds = 0;
@@ -68,6 +68,10 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
             var batch = dirty.Skip(sent).Take(maxBatch).ToList();
             var answer = await PostAsync(endpoint, token,
                 new SyncRequest(since, batch.Select(ToWire).ToList(), settingsToSend), ct);
+
+            // A missing or absurd time would be stored as the next position and break every later sync.
+            if (answer.ServerTime <= DateTime.UnixEpoch || answer.ServerTime > now + FutureTolerance)
+                throw new SyncException(Loc.T("webSync.err.bad_reply"));
 
             // The server has the batch now. Rows it kept because its own were newer come back below.
             foreach (var item in batch) store.MarkUploaded(item);
@@ -153,7 +157,7 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
         {
             throw new SyncException(Loc.T("webSync.err.timeout"));
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
         {
             // Not kept as the inner exception: its message can name the address.
             throw new SyncException(Loc.T("webSync.err.offline"));

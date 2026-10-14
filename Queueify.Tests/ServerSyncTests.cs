@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -42,7 +42,7 @@ public sealed class ServerSyncTests : IDisposable
         public readonly List<SyncRequest> Requests = [];
         public readonly List<string?> AuthHeaders = [];
         public readonly List<Uri?> Uris = [];
-        public DateTime Clock = new(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+        public DateTime Clock = new(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
         public Func<HttpRequestMessage, HttpResponseMessage?>? Override;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -127,7 +127,7 @@ public sealed class ServerSyncTests : IDisposable
 
         await new ServerSync(new HttpClient(server), maxBatch: 2).SyncAsync(store, settings, CancellationToken.None);
 
-        var firstStart = new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+        var firstStart = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
         Assert.Equal(firstStart - ServerSync.Overlap, server.Requests[0].Since);
         Assert.Equal(firstStart.AddSeconds(1), server.Requests[1].Since);   // the first answer's serverTime, exactly
     }
@@ -211,6 +211,52 @@ public sealed class ServerSyncTests : IDisposable
         var ex = await Assert.ThrowsAsync<SyncException>(() => Client(server).SyncAsync(NewStore(), Connected(), CancellationToken.None));
 
         Assert.Equal(Loc.T("webSync.err.bad_reply"), ex.Message);
+    }
+
+    [Theory]
+    [InlineData("""{"albums":[]}""")]                                                   // no serverTime
+    [InlineData("""{"serverTime":"9999-01-01T00:00:00Z","albums":[]}""")]              // absurd serverTime
+    public async Task A_reply_without_a_usable_server_time_is_a_bad_reply_and_changes_nothing(string json)
+    {
+        var server = new FakeServer
+        {
+            Override = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") },
+        };
+        var settings = Connected();
+
+        var ex = await Assert.ThrowsAsync<SyncException>(() => Client(server).SyncAsync(NewStore(), settings, CancellationToken.None));
+
+        Assert.Equal(Loc.T("webSync.err.bad_reply"), ex.Message);
+        Assert.Null(settings.WebLastServerTime);
+    }
+
+    [Fact]
+    public async Task A_stored_sync_position_at_the_very_start_of_time_does_not_crash_the_next_sync()
+    {
+        var server = new FakeServer();
+        var settings = Connected();
+        settings.WebLastServerTime = DateTime.MinValue;
+
+        await Client(server).SyncAsync(NewStore(), settings, CancellationToken.None);
+
+        Assert.Null(server.Requests[0].Since);
+    }
+
+    private sealed class CutContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) => throw new IOException("connection reset");
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+        protected override Task<Stream> CreateContentReadStreamAsync() => throw new IOException("connection reset");
+    }
+
+    [Fact]
+    public async Task A_connection_cut_while_the_answer_arrives_is_the_offline_message()
+    {
+        var server = new FakeServer { Override = _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new CutContent() } };
+
+        var ex = await Assert.ThrowsAsync<SyncException>(() => Client(server).SyncAsync(NewStore(), Connected(), CancellationToken.None));
+
+        Assert.Equal(Loc.T("webSync.err.offline"), ex.Message);
     }
 
     [Fact]
@@ -342,7 +388,7 @@ public sealed class ServerSyncTests : IDisposable
             calls++;
             if (calls > 2) return null;
             var album = Wire("page" + calls, "Page " + calls, new DateTime(2026, 10, 10, 0, 0, 0, DateTimeKind.Utc));
-            var json = JsonSerializer.Serialize(new SyncResponse(new DateTime(2026, 10, 14, 12, 0, calls, DateTimeKind.Utc), [album], null), SyncJson.Default.SyncResponse);
+            var json = JsonSerializer.Serialize(new SyncResponse(new DateTime(2026, 10, 1, 12, 0, calls, DateTimeKind.Utc), [album], null), SyncJson.Default.SyncResponse);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
         };
         var store = NewStore();
@@ -361,7 +407,7 @@ public sealed class ServerSyncTests : IDisposable
         server.Override = _ =>
         {
             var album = Wire("loop" + n++, "Loop", new DateTime(2026, 10, 10, 0, 0, 0, DateTimeKind.Utc));
-            var json = JsonSerializer.Serialize(new SyncResponse(new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc), [album], null), SyncJson.Default.SyncResponse);
+            var json = JsonSerializer.Serialize(new SyncResponse(new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc), [album], null), SyncJson.Default.SyncResponse);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
         };
 
@@ -521,7 +567,7 @@ public sealed class ServerSyncTests : IDisposable
         settings.SpotifyClientId = "sid";
         settings.SpotifyClientSecret = "ssecret";
         settings.CountryCode = "ES";
-        settings.SharedSettingsUpdatedAt = new DateTime(2026, 10, 14, 11, 0, 0, DateTimeKind.Utc);
+        settings.SharedSettingsUpdatedAt = new DateTime(2026, 10, 1, 11, 0, 0, DateTimeKind.Utc);
         settings.LastSource = "private note";
 
         await Client(server).SyncAsync(NewStore(), settings, CancellationToken.None);
@@ -540,7 +586,7 @@ public sealed class ServerSyncTests : IDisposable
     {
         var server = new FakeServer
         {
-            Settings = new SyncSettings("a", "b", "c", "d", "Spotify", "UY", new DateTime(2026, 10, 14, 9, 0, 0, DateTimeKind.Utc)),
+            Settings = new SyncSettings("a", "b", "c", "d", "Spotify", "UY", new DateTime(2026, 10, 1, 9, 0, 0, DateTimeKind.Utc)),
         };
         var settings = Connected();
 
@@ -549,7 +595,7 @@ public sealed class ServerSyncTests : IDisposable
         Assert.True(result.SettingsChanged);
         Assert.Equal(("a", "b", "c", "d", "Spotify", "UY"),
             (settings.SpotifyClientId, settings.SpotifyClientSecret, settings.TidalClientId, settings.TidalClientSecret, settings.PreferredService, settings.CountryCode));
-        Assert.Equal(new DateTime(2026, 10, 14, 9, 0, 0, DateTimeKind.Utc), settings.SharedSettingsUpdatedAt);
+        Assert.Equal(new DateTime(2026, 10, 1, 9, 0, 0, DateTimeKind.Utc), settings.SharedSettingsUpdatedAt);
         Assert.Equal(Token, settings.WebToken);
     }
 
@@ -590,7 +636,7 @@ public sealed class ServerSyncTests : IDisposable
     {
         var server = new FakeServer
         {
-            Settings = new SyncSettings("srv", "srv", "", "", "Tidal", "AR", new DateTime(2026, 10, 14, 9, 0, 0, DateTimeKind.Utc)),
+            Settings = new SyncSettings("srv", "srv", "", "", "Tidal", "AR", new DateTime(2026, 10, 1, 9, 0, 0, DateTimeKind.Utc)),
         };
         var settings = Connected();
         settings.SpotifyClientId = "local";
@@ -626,7 +672,7 @@ public sealed class ServerSyncTests : IDisposable
         var path = Path.Combine(_dir, "settings.json");
         Directory.CreateDirectory(_dir);
         var s = Connected();
-        s.WebLastServerTime = new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+        s.WebLastServerTime = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
         s.SpotifyClientId = "sid";
 
         AppData.SaveSettings(s, path);
