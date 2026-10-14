@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\Queueify.Tests\TestData\magazine-page.png" Link="TestData\magazine-page.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Queueify.Web\Queueify.Web.csproj" />
   </ItemGroup>
 </Project>
