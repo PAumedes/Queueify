@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Queueify.Services;
 using Queueify.Web.Storage;
@@ -87,7 +88,7 @@ public sealed class ProxyAndPurgeTests
             // existing rows can still be changed, and nothing of the refused request was kept
             var after = await engine.RunAsync("u", new SyncRequest(null, [Album("a0", now.AddMinutes(1), true)], null));
             Assert.DoesNotContain(after!.Albums, a => a.Uid == "one-more");
-            Assert.Empty((await engine.RunAsync("u", new SyncRequest(null, [], null)))!.Albums.Where(a => a.Uid == "one-more"));
+            Assert.DoesNotContain((await engine.RunAsync("u", new SyncRequest(null, [], null)))!.Albums, a => a.Uid == "one-more");
         }
         finally { try { Directory.Delete(dir, true); } catch (IOException) { } }
     }
