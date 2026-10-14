@@ -27,8 +27,23 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
     /// <summary>Longest text the server accepts per field; longer text is shortened on upload.</summary>
     public const int MaxTextLength = CloudSync.MaxTextLength;
 
+    /// <summary>Re-ask a few seconds before the last answer, in case the server committed two changes at nearly the same moment.</summary>
+    public static readonly TimeSpan Overlap = TimeSpan.FromSeconds(5);
+
+    /// <summary>Largest answer read (about 50,000 albums); a bigger one is not a Queueify server.</summary>
+    public const long MaxAnswerBytes = 16L * 1024 * 1024;
+
     private const int MaxExtraRounds = 20;
-    private const long MaxAnswerBytes = 64L * 1024 * 1024;
+    private const int MaxUidLength = 64;
+    private static readonly TimeSpan FutureTolerance = TimeSpan.FromMinutes(5);
+
+    /// <summary>The client for a web server: it never follows a redirect, so the token can't be handed to another host.</summary>
+    public static HttpClient CreateClient()
+    {
+        var http = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Queueify/1.0");
+        return http;
+    }
 
     public async Task<SyncResult> SyncAsync(BacklogStore store, AppSettings s, CancellationToken ct)
     {
@@ -36,8 +51,10 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
             throw new SyncException(Loc.T("webSync.err.not_configured"));
         var endpoint = new Uri(baseUrl + "/api/sync");
 
+        var now = BacklogStore.Now();
         var dirty = store.LoadDirty();
-        var since = s.WebLastServerTime;
+        // Only the first ask overlaps; later rounds start exactly at the last answer, so they can end.
+        var since = s.WebLastServerTime is DateTime last ? last - Overlap : (DateTime?)null;
         bool firstConnection = since == null;
         var settingsToSend = SettingsToSend(s);
         int sent = 0, downloaded = 0, rounds = 0;
@@ -61,23 +78,25 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
                 settingsToSend = null;
             }
 
+            int applied = 0;
             foreach (var wire in answer.Albums)
             {
-                if (string.IsNullOrEmpty(wire.Uid)) continue;
-                var remote = ToItem(wire);
+                if (wire.Uid is not { Length: > 0 and <= MaxUidLength }) continue;
+                var remote = ToItem(wire, now);
                 var local = store.FindByUid(remote.Uid);
                 if (local == null && remote.Deleted) continue;                       // deleted before this PC saw it
                 if (local != null && local.UpdatedAt >= remote.UpdatedAt) continue;  // same or newer here
                 store.ApplyRemote(remote);
-                downloaded++;
+                applied++;
             }
+            downloaded += applied;
 
             if (answer.Settings is { } shared)
             {
                 serverHadSettings = true;
-                if (shared.UpdatedAt > (s.SharedSettingsUpdatedAt ?? DateTime.MinValue))
+                if (Past(shared.UpdatedAt, now) > (s.SharedSettingsUpdatedAt ?? DateTime.MinValue))
                 {
-                    TakeSettings(s, shared);
+                    TakeSettings(s, shared, now);
                     settingsChanged = true;
                 }
             }
@@ -85,7 +104,8 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
             since = answer.ServerTime;
             s.WebLastServerTime = since;
 
-            bool more = sent < dirty.Count || answer.Albums.Count > 0;
+            // Rows already known (the overlap, or ones just sent) don't count, or an idle sync would never end.
+            bool more = sent < dirty.Count || applied > 0;
             if (!more && firstConnection && !serverHadSettings && s.SharedSettingsUpdatedAt == null
                 && (s.SpotifyConfigured || s.TidalConfigured))
             {
@@ -123,8 +143,9 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
             if (!res.IsSuccessStatusCode)
                 throw new SyncException(Loc.F("webSync.err.server", (int)res.StatusCode));
 
-            var text = await ReadBoundedAsync(res, timeout.Token);
-            return JsonSerializer.Deserialize(text, SyncJson.Default.SyncResponse) is { Albums: not null } answer
+            var bytes = await ReadBoundedAsync(res, timeout.Token);
+            return JsonSerializer.Deserialize(bytes.Span, SyncJson.Default.SyncResponse) is { Albums: not null } answer
+                   && !answer.Albums.Contains(null!)
                 ? answer
                 : throw new SyncException(Loc.T("webSync.err.bad_reply"));
         }
@@ -146,7 +167,7 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
     private static bool SameOrigin(Uri a, Uri b) =>
         a.Scheme == b.Scheme && a.Host == b.Host && a.Port == b.Port;
 
-    private static async Task<string> ReadBoundedAsync(HttpResponseMessage res, CancellationToken ct)
+    private static async Task<ReadOnlyMemory<byte>> ReadBoundedAsync(HttpResponseMessage res, CancellationToken ct)
     {
         if (res.Content.Headers.ContentLength > MaxAnswerBytes) throw new SyncException(Loc.T("webSync.err.bad_reply"));
         await using var stream = await res.Content.ReadAsStreamAsync(ct);
@@ -158,7 +179,7 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
             if (buffer.Length + n > MaxAnswerBytes) throw new SyncException(Loc.T("webSync.err.bad_reply"));
             buffer.Write(chunk, 0, n);
         }
-        return Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
+        return buffer.GetBuffer().AsMemory(0, (int)buffer.Length);
     }
 
     // ───────────── Mapping ─────────────
@@ -169,37 +190,47 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
                 Cut(s.PreferredService)!, Cut(s.CountryCode)!, Utc(stamp))
             : null;
 
-    private static void TakeSettings(AppSettings s, SyncSettings shared)
+    private static void TakeSettings(AppSettings s, SyncSettings shared, DateTime now)
     {
-        s.SpotifyClientId = shared.SpotifyClientId ?? "";
-        s.SpotifyClientSecret = shared.SpotifyClientSecret ?? "";
-        s.TidalClientId = shared.TidalClientId ?? "";
-        s.TidalClientSecret = shared.TidalClientSecret ?? "";
-        if (!string.IsNullOrWhiteSpace(shared.PreferredService)) s.PreferredService = shared.PreferredService;
-        if (!string.IsNullOrWhiteSpace(shared.CountryCode)) s.CountryCode = shared.CountryCode;
-        s.SharedSettingsUpdatedAt = s.WebSettingsSyncedAt = Utc(shared.UpdatedAt);
+        s.SpotifyClientId = Cut(shared.SpotifyClientId) ?? "";
+        s.SpotifyClientSecret = Cut(shared.SpotifyClientSecret) ?? "";
+        s.TidalClientId = Cut(shared.TidalClientId) ?? "";
+        s.TidalClientSecret = Cut(shared.TidalClientSecret) ?? "";
+        if (!string.IsNullOrWhiteSpace(shared.PreferredService)) s.PreferredService = Cut(shared.PreferredService)!;
+        if (!string.IsNullOrWhiteSpace(shared.CountryCode)) s.CountryCode = Cut(shared.CountryCode)!;
+        s.SharedSettingsUpdatedAt = s.WebSettingsSyncedAt = Past(shared.UpdatedAt, now);
     }
 
     private static SyncAlbum ToWire(BacklogItem i) => new(
         i.Uid, Cut(i.Artist)!, Cut(i.Album)!, i.Year, Cut(i.Source), Cut(i.CoverUrl), Cut(i.SpotifyId), Cut(i.TidalId),
         i.AddedAt.ToUniversalTime(), i.ListenedAt?.ToUniversalTime(), i.Rating, Utc(i.UpdatedAt), i.Deleted);
 
-    private static BacklogItem ToItem(SyncAlbum a) => new()
+    private static BacklogItem ToItem(SyncAlbum a, DateTime now) => new()
     {
         Uid = a.Uid,
-        Artist = a.Artist ?? "",
-        Album = a.Album ?? "",
-        Year = a.Year,
-        Source = a.Source,
-        CoverUrl = a.CoverUrl,
-        SpotifyId = a.SpotifyId,
-        TidalId = a.TidalId,
+        Artist = Cut(a.Artist) ?? "",
+        Album = Cut(a.Album) ?? "",
+        Year = a.Year is >= 1000 and <= 3000 ? a.Year : null,
+        Source = Cut(a.Source),
+        CoverUrl = Cut(a.CoverUrl),
+        SpotifyId = Cut(a.SpotifyId),
+        TidalId = Cut(a.TidalId),
         AddedAt = Utc(a.AddedAt).ToLocalTime(),
         ListenedAt = a.ListenedAt is DateTime l ? Utc(l).ToLocalTime() : null,
         Rating = double.IsNaN(a.Rating) || a.Rating < 0 ? -1 : Math.Min(a.Rating, 5),
-        UpdatedAt = Utc(a.UpdatedAt),
+        UpdatedAt = Past(a.UpdatedAt, now),
         Deleted = a.Deleted,
     };
+
+    /// <summary>
+    /// A change time more than a few minutes ahead is taken as now: a server (or a wrong clock) must not
+    /// be able to make a row win every later comparison.
+    /// </summary>
+    private static DateTime Past(DateTime t, DateTime now)
+    {
+        var utc = Utc(t);
+        return utc > now + FutureTolerance ? now : utc;   // one fixed "now" per sync, so the same row isn't "newer" every round
+    }
 
     private static string? Cut(string? text) =>
         text is { Length: > MaxTextLength } ? text[..MaxTextLength] : text;

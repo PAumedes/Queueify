@@ -111,7 +111,152 @@ public sealed class ServerSyncTests : IDisposable
 
         await Client(server).SyncAsync(store, settings, CancellationToken.None);
 
-        Assert.Equal(first, server.Requests[^1].Since);
+        // A small overlap, in case the server commits two changes at nearly the same moment; applying a row twice is harmless.
+        Assert.Equal(first - ServerSync.Overlap, server.Requests[^1].Since);
+        Assert.Equal(2, server.Requests.Count);          // the overlap doesn't make an idle sync loop
+    }
+
+    [Fact]
+    public async Task Later_rounds_of_one_sync_ask_from_the_exact_server_time_without_overlap()
+    {
+        var server = new FakeServer();
+        var store = NewStore();
+        var settings = Connected();
+        settings.WebLastServerTime = server.Clock;
+        for (int i = 0; i < 3; i++) store.Insert(Item("Album " + i));
+
+        await new ServerSync(new HttpClient(server), maxBatch: 2).SyncAsync(store, settings, CancellationToken.None);
+
+        var firstStart = new DateTime(2026, 10, 14, 12, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(firstStart - ServerSync.Overlap, server.Requests[0].Since);
+        Assert.Equal(firstStart.AddSeconds(1), server.Requests[1].Since);   // the first answer's serverTime, exactly
+    }
+
+    // ───────────── what a server may send ─────────────
+
+    private static HttpResponseMessage Answer(SyncResponse r) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(r, SyncJson.Default.SyncResponse), Encoding.UTF8, "application/json") };
+
+    [Fact]
+    public async Task Downloaded_text_is_cut_the_uid_checked_and_the_year_bounded()
+    {
+        var t = BacklogStore.Now();
+        var long1 = new string('x', 5000);
+        var server = new FakeServer
+        {
+            Override = _ => Answer(new SyncResponse(t,
+            [
+                new SyncAlbum("ok1", long1, long1, 99999, long1, long1, long1, long1, t, null, 9, t, false),
+                new SyncAlbum(new string('u', 65), "A", "B", 2000, null, null, null, null, t, null, -1, t, false),
+                new SyncAlbum("", "A", "B", 2000, null, null, null, null, t, null, -1, t, false),
+            ], null)),
+        };
+        var store = NewStore();
+
+        await Client(server).SyncAsync(store, Connected(), CancellationToken.None);
+
+        var got = Assert.Single(store.LoadAll());
+        Assert.Equal("ok1", got.Uid);
+        Assert.All(new[] { got.Artist, got.Album, got.Source!, got.CoverUrl!, got.SpotifyId!, got.TidalId! }, x => Assert.Equal(500, x.Length));
+        Assert.Null(got.Year);
+        Assert.Equal(5, got.Rating);
+    }
+
+    [Fact]
+    public async Task A_far_future_change_time_is_pulled_back_so_it_cannot_win_forever()
+    {
+        var future = new DateTime(9999, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var server = new FakeServer
+        {
+            Override = _ => Answer(new SyncResponse(BacklogStore.Now(),
+                [Wire("f1", "Future", future)],
+                new SyncSettings("a", "b", "", "", "Tidal", "AR", future))),
+        };
+        var store = NewStore();
+        var settings = Connected();
+
+        await Client(server).SyncAsync(store, settings, CancellationToken.None);
+
+        Assert.True(store.FindByUid("f1")!.UpdatedAt < BacklogStore.Now().AddMinutes(10));
+        Assert.True(settings.SharedSettingsUpdatedAt < BacklogStore.Now().AddMinutes(10));
+    }
+
+    [Fact]
+    public async Task Shared_settings_from_the_server_are_cut_to_500_characters()
+    {
+        var big = new string('k', 4000);
+        var server = new FakeServer
+        {
+            Override = _ => Answer(new SyncResponse(BacklogStore.Now(), [], new SyncSettings(big, big, big, big, big, big, BacklogStore.Now()))),
+        };
+        var settings = Connected();
+
+        await Client(server).SyncAsync(NewStore(), settings, CancellationToken.None);
+
+        Assert.Equal(500, settings.SpotifyClientSecret.Length);
+        Assert.Equal(500, settings.TidalClientId.Length);
+    }
+
+    [Fact]
+    public async Task A_null_album_in_the_answer_is_a_bad_reply_not_a_crash()
+    {
+        var server = new FakeServer
+        {
+            Override = _ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"serverTime":"2026-10-14T12:00:00Z","albums":[null],"settings":null}""", Encoding.UTF8, "application/json"),
+            },
+        };
+
+        var ex = await Assert.ThrowsAsync<SyncException>(() => Client(server).SyncAsync(NewStore(), Connected(), CancellationToken.None));
+
+        Assert.Equal(Loc.T("webSync.err.bad_reply"), ex.Message);
+    }
+
+    [Fact]
+    public async Task An_oversized_answer_is_refused_without_reading_it()
+    {
+        var server = new FakeServer
+        {
+            Override = _ =>
+            {
+                var content = new StringContent("{}");
+                content.Headers.ContentLength = ServerSync.MaxAnswerBytes + 1;
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+            },
+        };
+
+        var ex = await Assert.ThrowsAsync<SyncException>(() => Client(server).SyncAsync(NewStore(), Connected(), CancellationToken.None));
+
+        Assert.Equal(Loc.T("webSync.err.bad_reply"), ex.Message);
+        Assert.True(ServerSync.MaxAnswerBytes <= 16 * 1024 * 1024);
+    }
+
+    [Fact]
+    public async Task The_apps_own_client_does_not_follow_a_redirect_to_another_server()
+    {
+        using var first = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        using var second = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        first.Start();
+        second.Start();
+        int secondPort = ((IPEndPoint)second.LocalEndpoint).Port;
+        int firstPort = ((IPEndPoint)first.LocalEndpoint).Port;
+        var serving = Task.Run(async () =>
+        {
+            using var c = await first.AcceptTcpClientAsync();
+            var buffer = new byte[4096];
+            await c.GetStream().ReadAsync(buffer);
+            var reply = Encoding.ASCII.GetBytes($"HTTP/1.1 307 Temporary Redirect\r\nLocation: http://127.0.0.1:{secondPort}/api/sync\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            await c.GetStream().WriteAsync(reply);
+        });
+        using var http = ServerSync.CreateClient();
+        var settings = new AppSettings { WebServerUrl = $"http://127.0.0.1:{firstPort}", WebToken = Token };
+
+        var ex = await Assert.ThrowsAsync<SyncException>(() => new ServerSync(http).SyncAsync(NewStore(), settings, CancellationToken.None));
+        await serving;
+
+        Assert.Equal(Loc.T("webSync.err.redirect"), ex.Message);
+        Assert.False(second.Pending());
     }
 
     [Fact]

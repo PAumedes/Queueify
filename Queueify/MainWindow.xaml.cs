@@ -34,7 +34,7 @@ public sealed partial class MainWindow : Window
     private readonly SpotifyCatalog _spotify;
     private readonly TidalCatalog _tidal;
     private readonly CloudSync _cloud;
-    private readonly ServerSync _web = new(CreateWebSyncClient());
+    private readonly ServerSync _web = new(ServerSync.CreateClient());
     private readonly Updater _updater = new(Http, UpdateSource.For(Environment.GetEnvironmentVariable("QUEUEIFY_UPDATE_SERVER")));
     private bool _updating;
 
@@ -134,14 +134,6 @@ public sealed partial class MainWindow : Window
     private static HttpClient CreateHttpClient()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Queueify/1.0");
-        return http;
-    }
-
-    /// <summary>The web server gets the token, so this client never follows a redirect to another host.</summary>
-    private static HttpClient CreateWebSyncClient()
-    {
-        var http = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Queueify/1.0");
         return http;
     }
@@ -1344,6 +1336,7 @@ public sealed partial class MainWindow : Window
         var webPanel = new StackPanel { Spacing = 10, Visibility = Visibility.Collapsed };
         webPanel.Children.Add(Paragraph(Loc.T("webSync.setup.text")));
         webPanel.Children.Add(webBox);
+        webPanel.Children.Add(Paragraph(Loc.T("webSync.keys_notice")));
 
         void ShowOnly(StackPanel shown)
         {
@@ -1541,7 +1534,7 @@ public sealed partial class MainWindow : Window
     private async Task ShowWebSyncConnectedAsync()
     {
         // Only the host is shown; the token stays out of the window.
-        var host = new Uri(_settings.WebServerUrl).Authority;
+        var host = Uri.TryCreate(_settings.WebServerUrl, UriKind.Absolute, out var address) ? address.Authority : "?";
         var status = _syncError ?? (_lastSynced is DateTime t ? Loc.F("sync.last", t) : Loc.T("sync.ok"));
         var panel = new StackPanel { Spacing = 12, Width = 480 };
         panel.Children.Add(Paragraph(Loc.F("webSync.this_pc", host, status)));
