@@ -14,7 +14,7 @@ public sealed class SettingsDataTests : BunitContext
     {
         _module = JSInterop.SetupModule("./js/queueify-upload.js");
         _module.SetupModule("watch", _ => true).SetupVoid("dispose");
-        _module.SetupVoid("release", _ => true);
+        _module.SetupVoid("release", _ => true).SetVoidResult();
     }
 
     private (IRenderedComponent<SettingsData> Cut, DotNetObjectReference<SettingsData> Page) Open()

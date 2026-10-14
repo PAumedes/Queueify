@@ -46,7 +46,10 @@ public sealed class PreferencesStore(UserStores stores)
         if (!preferences.IsValid) throw new ArgumentException("Not an offered choice.", nameof(preferences));
         var path = stores.FileOf(userId, "prefs.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(preferences));
+        // Written beside and moved into place, so a read during a write (another tab) never sees half a file.
+        var partial = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        File.WriteAllText(partial, JsonSerializer.Serialize(preferences));
+        File.Move(partial, path, overwrite: true);
     }
 
     private static string Pick(string? value, string[] choices, string fallback) => value is not null && choices.Contains(value) ? value : fallback;

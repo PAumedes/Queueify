@@ -10,7 +10,7 @@ using Queueify.Web.Storage;
 
 namespace Queueify.Web.Services;
 
-public enum ImportProblem { Invalid, TooLarge }
+public enum ImportProblem { Invalid, TooLarge, Busy }
 
 public sealed class ImportException(ImportProblem problem) : Exception(problem.ToString())
 {
@@ -77,45 +77,42 @@ public sealed partial class DataTransfer(UserStores stores)
     public ImportReport Import(string userId, byte[] upload)
     {
         if (upload.Length > MaxBytes) throw new ImportException(ImportProblem.TooLarge);
-        var rows = upload.AsSpan().StartsWith(SqliteMagic) ? ReadDatabase(upload) : ReadJson(upload);
 
-        var store = stores.QueueOf(userId);
-        int added = 0, here = 0, skipped = 0;
-        foreach (var row in rows)
+        // One import per user at a time: a second one (a retry after a slow answer) is turned away, not interleaved.
+        var gate = Gates.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
+        if (!gate.Wait(0)) throw new ImportException(ImportProblem.Busy);
+        try
         {
-            if (row.Deleted || Build(row) is not { } item) { skipped++; continue; }
+            var rows = upload.AsSpan().StartsWith(SqliteMagic) ? ReadDatabase(upload) : ReadJson(upload);
 
-            var existing = store.FindByUid(item.Uid);
-            if (existing is null)
+            var items = new List<BacklogItem>();
+            int skipped = 0;
+            foreach (var row in rows)
             {
-                store.Insert(item);
-                added++;
-                continue;
+                if (row.Deleted || Build(row) is not { } item) skipped++;
+                else items.Add(item);
             }
-            // Newest change wins, as in sync; an album the user deleted here is not brought back.
-            if (!existing.Deleted && row.UpdatedAtValue.ToUniversalTime() > existing.UpdatedAt)
-            {
-                (existing.Artist, existing.Album, existing.Year, existing.Source) = (item.Artist, item.Album, item.Year, item.Source);
-                (existing.CoverUrl, existing.SpotifyId, existing.TidalId) = (item.CoverUrl, item.SpotifyId, item.TidalId);
-                (existing.AddedAt, existing.ListenedAt, existing.Rating) = (item.AddedAt, item.ListenedAt, item.Rating);
-                store.Update(existing);
-            }
-            here++;
+            // Newest change wins, as in sync, by each album's own last edit; an album deleted here stays deleted.
+            var (added, here) = stores.QueueOf(userId).MergeBackup(items);
+            return new ImportReport(added, here, skipped);
         }
-        return new ImportReport(added, here, skipped);
+        finally
+        {
+            gate.Release();
+        }
     }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> Gates = new();
 
     private sealed record Row(string? Uid, string? Artist, string? Album, long? Year, string? Source, string? CoverUrl, string? SpotifyId,
-        string? TidalId, string? AddedAt, string? ListenedAt, double? Rating, string? UpdatedAt, bool Deleted)
-    {
-        public DateTime UpdatedAtValue => ParseDate(UpdatedAt) ?? DateTime.MinValue;
-    }
+        string? TidalId, string? AddedAt, string? ListenedAt, double? Rating, string? UpdatedAt, bool Deleted);
 
     private static IEnumerable<Row> ReadJson(byte[] upload)
     {
         try
         {
-            using var doc = JsonDocument.Parse(upload, new JsonDocumentOptions { MaxDepth = 16 });
+            var body = upload.AsSpan().StartsWith(Encoding.UTF8.GetPreamble()) ? upload.AsMemory(3) : upload.AsMemory();   // Notepad and PowerShell add a BOM
+            using var doc = JsonDocument.Parse(body, new JsonDocumentOptions { MaxDepth = 16 });
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object
                 || !root.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.String || format.GetString() != Format
@@ -165,16 +162,25 @@ public sealed partial class DataTransfer(UserStores stores)
 
             using (var kind = db.CreateCommand())
             {
-                kind.CommandText = "SELECT type FROM sqlite_master WHERE name = 'items' COLLATE NOCASE";
-                if (kind.ExecuteScalar() as string != "table") throw new ImportException(ImportProblem.Invalid);
+                kind.CommandText = "SELECT type, sql FROM sqlite_master WHERE name = 'items' COLLATE NOCASE";
+                using var r = kind.ExecuteReader();
+                // A real table only: a view or a virtual table could run anything when read.
+                if (!r.Read() || r.GetString(0) != "table" || (r.IsDBNull(1) ? "" : r.GetString(1)).Contains("VIRTUAL", StringComparison.OrdinalIgnoreCase))
+                    throw new ImportException(ImportProblem.Invalid);
             }
 
             var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             using (var info = db.CreateCommand())
             {
-                info.CommandText = "PRAGMA table_info(items)";
+                info.CommandText = "PRAGMA table_xinfo(items)";
                 using var r = info.ExecuteReader();
-                while (r.Read()) columns.Add(r.GetString(1));
+                while (r.Read())
+                {
+                    // hidden != 0 marks generated columns: their expressions run on every read (a few bytes of file
+                    // can ask for gigabytes of memory), so a table that has one is refused.
+                    if (r.GetInt64(6) != 0) throw new ImportException(ImportProblem.Invalid);
+                    columns.Add(r.GetString(1));
+                }
             }
             if (!columns.IsSupersetOf(["artist", "album", "added_at"])) throw new ImportException(ImportProblem.Invalid);
 
@@ -233,6 +239,8 @@ public sealed partial class DataTransfer(UserStores stores)
             SpotifyId = SafeId(row.SpotifyId, 64),
             TidalId = SafeId(row.TidalId, 64),
             AddedAt = added,
+            // The album's own last edit (never in the future, so it can't beat real edits); its added time when the file has none.
+            UpdatedAt = new[] { ParseDate(row.UpdatedAt) ?? added, DateTime.UtcNow }.Min().ToUniversalTime(),
             ListenedAt = ParseDate(row.ListenedAt),
             Rating = row.Rating is -1 or (>= 0 and <= 5) ? row.Rating.Value : -1,
         };
@@ -249,8 +257,11 @@ public sealed partial class DataTransfer(UserStores stores)
     private static string Fingerprint(string artist, string album, DateTime added) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{artist}\n{album}\n{added.ToString("O", CultureInfo.InvariantCulture)}")))[..32].ToLowerInvariant();
 
+    /// <summary>A date with no zone is taken as UTC, so the server's time zone never changes what an import means.</summary>
     private static DateTime? ParseDate(string? s) =>
-        s is not null && DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var d) && d.Year is >= 1950 and <= 2200 ? d : null;
+        s is not null && DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var d) && d.Year is >= 1950 and <= 2999
+            ? (d.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(d, DateTimeKind.Utc) : d)
+            : null;
 
     [GeneratedRegex("^[A-Za-z0-9_:.-]+$")]
     private static partial Regex IdShape();

@@ -54,12 +54,14 @@
     {
         <p>@Loc.T("webPhoto.no_text")</p>
     }
+    else if (_lines is { Count: > 0 })
+    {
+        <p class="found">@Loc.F("webPhoto.found", _lines.Count)</p>
+    }
 </div>
 
 @if (_preview is not null && _lines is { Count: > 0 })
 {
-    <p>@Loc.T("webPhoto.tap")</p>
-
     <div class="sheet" role="img" aria-label="@Loc.T("webPhoto.preview")">
         <img src="@_preview" alt="" />
         @for (var i = 0; i < _lines.Count; i++)
@@ -83,7 +85,7 @@
         }
     </ul>
 
-    @if (_picked.Count > 0)
+    @if (_picked.Count > 0 && SearchText.Trim().Length > 0)
     {
         <div class="searchbar">
             <a class="go" href="@SearchHref">@Loc.F("webPhoto.search", SearchText)</a>
@@ -124,6 +126,14 @@
     [JSInvokable]
     public async Task OnFileChosen(string id, string name, long size, string? preview)
     {
+        if (_reading)
+        {
+            // A photo dropped or pasted while another is being read: the new one is let go, so a late answer
+            // can never be drawn over the wrong picture.
+            try { await _module!.InvokeVoidAsync("release", id, preview); }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException) { }
+            return;
+        }
         await ReleaseFileAsync();
         (_fileId, _preview, _lines, _error) = (id, preview, null, null);
         _picked.Clear();
@@ -161,7 +171,7 @@
             return;
         }
 
-        var code = result.Status == 0 ? "network" : Parse<ErrorBody>(result.Body)?.Error ?? "engineMissing";
+        var code = result.Status == 0 ? "network" : Parse<ErrorBody>(result.Body)?.Error ?? "unknown";
         _error = code switch
         {
             "tooLarge" => Loc.F("webPhoto.err.tooLarge", Limits.MaxBytes / (1024 * 1024)),
@@ -173,7 +183,8 @@
             "unauthorized" => Loc.T("webPhoto.err.unauthorized"),
             "network" => Loc.T("webPhoto.err.network"),
             "language" => Loc.T("webPhoto.err.language"),
-            _ => Loc.T("webPhoto.err.engineMissing"),
+            "engineMissing" =>Loc.T("webPhoto.err.engineMissing"),
+            _ => Loc.T("webPhoto.err.unknown"),
         };
     }
 
@@ -207,6 +218,8 @@
         {
             var parts = _picked.Select(i => OcrService.CleanLine(_lines![i].Text)).ToList();
             var text = string.Join(' ', parts.Select(p => p.Text).Where(t => t.Length > 0));
+            // A year alone (a junk line) is no search: the link stays hidden until a title or an artist is picked.
+            if (text.Length == 0) return "";
             return parts.FirstOrDefault(p => p.Year is not null).Year is int year ? $"{text} {year}" : text;
         }
     }

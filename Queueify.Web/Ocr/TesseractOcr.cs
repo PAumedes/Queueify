@@ -19,7 +19,8 @@ public sealed class TesseractOcr(OcrOptions options, TessdataFetcher tessdata, I
     public async Task<OcrReading> RecognizeAsync(Stream image, string language, CancellationToken ct = default)
     {
         var languages = LanguagesFor(language);
-        var folder = await tessdata.EnsureAsync(ct);
+        // The first download has its own (HTTP) time limit: under the photo's 40 s it would restart from zero every time.
+        var folder = await tessdata.EnsureAsync(CancellationToken.None);
 
         var start = new ProcessStartInfo(options.TesseractPath)
         {
@@ -107,9 +108,9 @@ public sealed class TesseractOcr(OcrOptions options, TessdataFetcher tessdata, I
                     width = (int)page.Width;
                     height = (int)page.Height;
                     break;
-                case 4 when TryBox(cells, out var line):
-                    Finish();
-                    box = line;
+                case 4:
+                    Finish();   // a line whose box can't be read is dropped with its words, not merged into the previous one
+                    if (TryBox(cells, out var line)) box = line;
                     break;
                 case 5 when cells.Length >= 12 && box is not null
                             && double.TryParse(cells[10], NumberStyles.Float, CultureInfo.InvariantCulture, out var conf) && conf >= 0
@@ -146,8 +147,8 @@ public sealed class TesseractOcr(OcrOptions options, TessdataFetcher tessdata, I
         int n;
         while ((n = await reader.ReadAsync(buffer.AsMemory(), ct)) > 0)
         {
-            if (text.Length + n > MaxOutputChars) break;
-            text.Append(buffer, 0, n);
+            // Past the cap the rest is read and thrown away, so the engine never blocks on a full pipe.
+            if (text.Length + n <= MaxOutputChars) text.Append(buffer, 0, n);
         }
         return text.ToString();
     }

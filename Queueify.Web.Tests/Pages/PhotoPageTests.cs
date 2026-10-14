@@ -30,7 +30,7 @@ public sealed class PhotoPageTests : BunitContext
         _module = JSInterop.SetupModule("./js/queueify-upload.js");
         var watcher = _module.SetupModule("watch", _ => true);
         watcher.SetupVoid("dispose");
-        _module.SetupVoid("release", _ => true);
+        _module.SetupVoid("release", _ => true).SetVoidResult();
     }
 
     protected override void Dispose(bool disposing)
@@ -202,6 +202,51 @@ public sealed class PhotoPageTests : BunitContext
 
         Assert.Empty(_module.Invocations["send"]);
         Assert.Equal(Loc.F("webPhoto.err.tooLarge", 5), cut.Find(".error").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task A_second_photo_dropped_while_one_is_being_read_is_let_go_and_cannot_mix_with_the_first()
+    {
+        var cut = Open();
+        var send = _module.Setup<UploadResult>("send", _ => true);
+        var first = cut.InvokeAsync(() => _page!.Value.OnFileChosen("1", "a.jpg", 10, "blob:a"));
+        cut.WaitForAssertion(() => Assert.Contains(Loc.T("webPhoto.reading"), cut.Markup));
+
+        await cut.InvokeAsync(() => _page!.Value.OnFileChosen("2", "b.jpg", 10, "blob:b"));
+        send.SetResult(new UploadResult(200, Page));
+        await first;
+
+        Assert.Single(_module.Invocations["send"]);
+        Assert.Equal("blob:a", cut.Find(".sheet img").GetAttribute("src"));
+        Assert.Contains(_module.Invocations["release"], i => i.Arguments[0]!.ToString() == "2");
+    }
+
+    [Fact]
+    public async Task A_line_with_no_text_left_after_cleaning_is_no_search_so_no_link_is_offered()
+    {
+        var cut = Open();
+        await Choose(cut, """{"width":10,"height":10,"lines":[{"text":"•","x":0,"y":0,"width":5,"height":5}]}""");
+
+        cut.Find(".line").Click();
+
+        Assert.Empty(cut.FindAll("a.go"));
+    }
+
+    [Fact]
+    public async Task The_number_of_lines_found_is_announced_in_the_live_region()
+    {
+        var cut = Open();
+        await Choose(cut, Page);
+
+        Assert.Contains(Loc.F("webPhoto.found", 2), cut.Find("[role=status]").TextContent);
+    }
+
+    [Fact]
+    public async Task An_unknown_failure_says_to_try_again_not_to_call_the_administrator()
+    {
+        var cut = Open();
+        await Choose(cut, "<html>oops</html>", status: 500);
+        Assert.Equal(Loc.T("webPhoto.err.unknown"), cut.Find(".error").TextContent.Trim());
     }
 
     [Fact]

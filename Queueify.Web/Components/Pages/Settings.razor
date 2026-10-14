@@ -69,6 +69,7 @@
             </select>
             <span class="help">@Loc.T("webSettings.language.text")</span>
         </div>
+        <p class="notice @(_prefsNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="prefs">@Show(_prefsNotice)</p>
     </SettingsSection>
 
     <SettingsSection Id="sec-ocr" Title="@Loc.T("settings.ocr")">
@@ -81,6 +82,7 @@
             </select>
             <span class="help">@Loc.T("webSettings.ocr.text")</span>
         </div>
+        <p class="notice @(_ocrNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="prefs-ocr">@Show(_ocrNotice)</p>
     </SettingsSection>
 
     <SettingsSection Id="sec-connect" Title="@Loc.T("webSettings.connect.title")" Text="@Loc.T("webSettings.connect.text")">
@@ -112,7 +114,7 @@
     private string _spotifyId = "", _spotifySecret = "", _tidalId = "", _tidalSecret = "", _preferred = "Tidal", _country = "AR";
     private MusicService? _testing;
     private bool _sure;
-    private Notice? _musicNotice, _spotifyNotice, _tidalNotice, _deleteNotice;
+    private Notice? _musicNotice, _spotifyNotice, _tidalNotice, _deleteNotice, _prefsNotice, _ocrNotice;
 
     protected override async Task OnInitializedAsync()
     {
@@ -146,10 +148,22 @@
 
     private void Remove(MusicService service)
     {
-        Music.RemoveKeys(_uid!, service);
-        Reload();
+        Notice notice;
+        try
+        {
+            Music.RemoveKeys(_uid!, service);
+            _opened = Music.Snapshot(_uid!);
+            // Only this service's fields are emptied; whatever was typed in the other fields stays.
+            if (service == MusicService.Spotify) (_spotifyId, _spotifySecret) = ("", "");
+            else (_tidalId, _tidalSecret) = ("", "");
+            notice = new(Loc.F("webSettings.removed", service.ToString()));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            notice = new(Loc.F("webSettings.failed", ex.GetType().Name), true);
+        }
         _musicNotice = null;
-        if (service == MusicService.Spotify) _spotifyNotice = null; else _tidalNotice = null;
+        if (service == MusicService.Spotify) _spotifyNotice = notice; else _tidalNotice = notice;
     }
 
     private async Task TestAsync(MusicService service)
@@ -177,7 +191,7 @@
 
     private void ThemeChanged(ChangeEventArgs e) => Remember(p => Preferences.Themes.Contains(e.Value as string ?? "") ? p with { Theme = (string)e.Value! } : p);
 
-    private void OcrChanged(ChangeEventArgs e) => Remember(p => Preferences.OcrLanguages.Contains(e.Value as string ?? "") ? p with { OcrLanguage = (string)e.Value! } : p);
+    private void OcrChanged(ChangeEventArgs e) => Remember(p => Preferences.OcrLanguages.Contains(e.Value as string ?? "") ? p with { OcrLanguage = (string)e.Value! } : p, ocr: true);
 
     private void LanguageChanged(ChangeEventArgs e)
     {
@@ -187,18 +201,34 @@
         if (_prefs.Language != before) Nav.NavigateTo(Nav.Uri, forceLoad: true);
     }
 
-    private void Remember(Func<Preferences, Preferences> change)
+    private void Remember(Func<Preferences, Preferences> change, bool ocr = false)
     {
-        _prefs = change(Prefs.Load(_uid!));
-        Prefs.Save(_uid!, _prefs);
+        try
+        {
+            _prefs = change(Prefs.Load(_uid!));
+            Prefs.Save(_uid!, _prefs);
+            var notice = new Notice(Loc.T("webSettings.saved")); if (ocr) _ocrNotice = notice; else _prefsNotice = notice;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            var failed = new Notice(Loc.F("webSettings.failed", ex.GetType().Name), true); if (ocr) _ocrNotice = failed; else _prefsNotice = failed;
+        }
     }
 
     private void DeleteAll()
     {
         if (!_sure) return;
-        Stores.Delete(_uid!);
-        _sure = false;
-        Reload();
-        _deleteNotice = new(Loc.T("webSettings.delete.done"));
+        try
+        {
+            Stores.Delete(_uid!);
+            _sure = false;
+            Reload();
+            _deleteNotice = new(Loc.T("webSettings.delete.done"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A file in use (an import or a photo is running): nothing is lost that wasn't already being written.
+            _deleteNotice = new(Loc.F("webSettings.failed", ex.GetType().Name), true);
+        }
     }
 }

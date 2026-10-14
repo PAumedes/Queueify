@@ -43,6 +43,19 @@ public class TesseractTsvTests
     }
 
     [Fact]
+    public void A_line_whose_box_is_unreadable_is_dropped_with_its_words_and_does_not_merge_into_the_previous_one()
+    {
+        var tsv = Header
+            + Row(1, 0, 0, 0, 0, 0, 0, 100, 100, -1, "")
+            + Row(4, 1, 1, 1, 0, 5, 5, 50, 10, -1, "")
+            + Row(5, 1, 1, 1, 1, 5, 5, 50, 10, 90, "A")
+            + "4\t1\t1\t1\t2\t0\tbad\t20\t50\t10\t-1\t\n"
+            + Row(5, 1, 1, 2, 1, 5, 20, 50, 10, 90, "B");
+
+        Assert.Equal(["A"], TesseractOcr.ParseTsv(tsv, "x").Lines.Select(l => l.Text));
+    }
+
+    [Fact]
     public void Garbage_output_gives_an_empty_reading_instead_of_throwing()
     {
         var reading = TesseractOcr.ParseTsv("not\ttsv\nat all\n1\t2", "x");

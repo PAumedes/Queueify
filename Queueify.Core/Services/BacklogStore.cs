@@ -140,6 +140,61 @@ public sealed class BacklogStore
     }
 
     /// <summary>
+    /// Brings in albums from a backup in one transaction, keeping each album's own <c>UpdatedAt</c> (so "newest
+    /// wins" still means the album's last edit, not the day of the import). A new album is added; one already here
+    /// is overwritten only when the backup's copy is newer. An album deleted here is not brought back.
+    /// Returns how many were added and how many were already here.
+    /// </summary>
+    public (int Added, int AlreadyHere) MergeBackup(IEnumerable<BacklogItem> items)
+    {
+        int added = 0, here = 0;
+        using var db = Open();
+        using var tx = db.BeginTransaction();
+        foreach (var item in items)
+        {
+            if (item.Uid.Length == 0) item.Uid = Guid.NewGuid().ToString("N");
+            item.Dirty = false;
+            item.Deleted = false;
+
+            using var find = db.CreateCommand();
+            find.Transaction = tx;
+            find.CommandText = "SELECT deleted, updated_at FROM items WHERE uid = $uid";
+            find.Parameters.AddWithValue("$uid", item.Uid);
+            using (var r = find.ExecuteReader())
+            {
+                if (r.Read())
+                {
+                    here++;
+                    if (r.GetInt64(0) != 0 || ParseDate(r.GetString(1)).ToUniversalTime() >= item.UpdatedAt.ToUniversalTime()) continue;
+                    using var update = db.CreateCommand();
+                    update.Transaction = tx;
+                    update.CommandText = """
+                        UPDATE items SET artist = $artist, album = $album, year = $year, source = $source, cover_url = $cover,
+                            spotify_id = $spotify, tidal_id = $tidal, added_at = $added, listened_at = $listened, rating = $rating,
+                            updated_at = $updated, dirty = $dirty, deleted = 0
+                        WHERE uid = $uid
+                        """;
+                    Bind(update, item);
+                    update.ExecuteNonQuery();
+                    continue;
+                }
+            }
+
+            using var insert = db.CreateCommand();
+            insert.Transaction = tx;
+            insert.CommandText = $"""
+                INSERT INTO items ({Columns[4..]})
+                VALUES ($uid, $artist, $album, $year, $source, $cover, $spotify, $tidal, $added, $listened, $rating, $updated, $dirty, $deleted)
+                """;
+            Bind(insert, item);
+            insert.ExecuteNonQuery();
+            added++;
+        }
+        tx.Commit();
+        return (added, here);
+    }
+
+    /// <summary>
     /// Marks an uploaded change as done, unless the album changed again meanwhile. Uploaded
     /// deletions are removed for good.
     /// </summary>

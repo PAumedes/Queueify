@@ -356,7 +356,7 @@ public static partial class Loc
 
         // ── Web app: Settings, Help, Photo, data ──
         ["webSettings.title"] = "Settings",
-        ["webSettings.summary"] = "Music services, country, theme, language, text recognition and your data. Each section saves on its own.",
+        ["webSettings.summary"] = "Music services, country, theme, language, text recognition and your data. The music section has a Save button; the rest saves as soon as you change it.",
         ["webSettings.keys.note"] = "Keys are write-only: once saved they are never shown again. Leave a field empty to keep the saved one.",
         ["webSettings.steps"] = "How to get the keys",
         ["webSettings.keys.on"] = "Configured",
@@ -369,7 +369,8 @@ public static partial class Loc
         ["webSettings.save"] = "Save",
         ["webSettings.saved"] = "Saved.",
         ["webSettings.unchanged"] = "Nothing changed.",
-        ["webSettings.test"] = "Test {0} keys",
+        ["webSettings.test"] = "Test saved {0} keys",
+        ["webSettings.removed"] = "{0} keys removed.",
         ["webSettings.testing"] = "Testing…",
         ["webSettings.test.ok"] = "{0} answered: the keys work.",
         ["webSettings.test.missing"] = "Save the {0} Client ID and secret first.",
@@ -385,7 +386,7 @@ public static partial class Loc
         ["webSettings.connect.title"] = "Windows app",
         ["webSettings.connect.text"] = "Link the Queueify app on a PC to this queue with a personal token.",
         ["webSettings.connect.open"] = "Connect a PC",
-        ["webSettings.signout.title"] = "Sign out everywhere",
+        ["webSettings.signout.title"] = "Sessions on other devices",
         ["webSettings.signout.text"] = "Signing out here doesn't end your sessions on other devices. Changing your password in Account signs every other device out.",
         ["webSettings.signout.open"] = "Open account",
         ["webSettings.delete.title"] = "Delete my data",
@@ -435,7 +436,6 @@ public static partial class Loc
         ["webPhoto.tap"] = "Tap the artist and the album, in that order, then search.",
         ["webPhoto.search"] = "Search for “{0}”",
         ["webPhoto.clear"] = "Clear selection",
-        ["webPhoto.line"] = "Line: {0}",
         ["webPhoto.no_text"] = "No text found. Try a sharper, well-lit photo taken straight on.",
         ["webPhoto.preview"] = "Your photo, with the text lines that were found",
         ["webPhoto.err.tooLarge"] = "That photo is too big (up to {0} MB). Try a smaller one.",
@@ -448,5 +448,9 @@ public static partial class Loc
         ["webPhoto.err.unauthorized"] = "Your session ended. Sign in again.",
         ["webPhoto.err.network"] = "Couldn't send the photo. Check the connection and try again.",
         ["webPhoto.err.language"] = "That language isn't offered.",
+        ["webPhoto.err.unknown"] = "Something went wrong reading the photo. Try again in a moment.",
+        ["webPhoto.found"] = "{0} lines found. Tap the artist and the album, in that order, then search.",
+        ["webHelp.col.keys"] = "Keys",
+        ["webHelp.col.does"] = "What it does",
     };
 }

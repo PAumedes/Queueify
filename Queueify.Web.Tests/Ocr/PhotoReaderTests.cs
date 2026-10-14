@@ -52,6 +52,36 @@ public class PhotoReaderTests
         Assert.Empty(ocr.Calls);
     }
 
+    private sealed class ExplodingStream : MemoryStream
+    {
+        public override int Read(byte[] buffer, int offset, int count) => throw new InvalidOperationException("read before admission");
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) => throw new InvalidOperationException("read before admission");
+    }
+
+    [Fact]
+    public async Task A_turned_away_photo_is_never_read_so_a_flood_costs_no_memory()
+    {
+        var release = new TaskCompletionSource();
+        var started = new TaskCompletionSource();
+        var reader = Reader(new FakeOcr(async (_, _, _) => { started.TrySetResult(); await release.Task; return new OcrReading([], 1, 1, "x"); }));
+        var first = reader.ReadAsync("alice", Photo(), "auto", TestContext.Current.CancellationToken);
+        await started.Task;
+
+        var ex = await Assert.ThrowsAsync<PhotoException>(() => reader.ReadAsync("alice", new ExplodingStream(), "auto", TestContext.Current.CancellationToken));
+
+        Assert.Equal(PhotoProblem.Busy, ex.Problem);
+        release.SetResult();
+        await first;
+    }
+
+    [Fact]
+    public async Task An_upload_over_the_size_limit_is_refused_while_reading_it()
+    {
+        var reader = Reader(new FakeOcr(), new OcrOptions { MaxBytes = 100 });
+        var ex = await Assert.ThrowsAsync<PhotoException>(() => reader.ReadAsync("alice", new MemoryStream(new byte[500]), "auto", TestContext.Current.CancellationToken));
+        Assert.Equal(PhotoProblem.TooLarge, ex.Problem);
+    }
+
     [Fact]
     public async Task A_second_photo_from_the_same_user_is_turned_away_while_the_first_is_read()
     {

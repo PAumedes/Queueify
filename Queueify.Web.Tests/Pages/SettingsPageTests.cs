@@ -157,6 +157,42 @@ public sealed class SettingsPageTests : BunitContext
         Assert.Contains(Loc.T("webSettings.keys.off"), cut.Find("[data-service=spotify] .state").TextContent);
     }
 
+    [Fact]
+    public void Removing_one_services_keys_says_so_and_keeps_what_was_typed_for_the_other()
+    {
+        Configure();
+        var cut = Render<Settings>();
+        cut.Find("#tidal-id").Change("typed-for-tidal");
+
+        cut.Find("button.remove-spotify").Click();
+
+        Assert.Contains(Loc.F("webSettings.removed", "Spotify"), cut.Find("[data-status=spotify]").TextContent);
+        Assert.Equal("typed-for-tidal", cut.Find("#tidal-id").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Changing_a_preference_says_it_was_saved()
+    {
+        var cut = Render<Settings>();
+        cut.Find("#theme").Change("dark");
+        Assert.Contains(Loc.T("webSettings.saved"), cut.Find("[data-status=prefs]").TextContent);
+        cut.Find("#ocr").Change("en");
+        Assert.Contains(Loc.T("webSettings.saved"), cut.Find("[data-status=prefs-ocr]").TextContent);
+    }
+
+    [Fact]
+    public void A_delete_that_hits_a_file_in_use_is_a_message_not_a_dead_page()
+    {
+        _stores.QueueOf("alice").Insert(new BacklogItem { Artist = "A", Album = "One" });
+        var cut = Render<Settings>();
+        cut.Find("#sure").Change(true);
+
+        using (new FileStream(_stores.FileOf("alice", "queueify.db"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            cut.Find("button.delete").Click();
+
+        Assert.Contains("error", cut.Find("[data-status=delete]").ClassList);
+    }
+
     // ── testing the keys ──
 
     [Fact]
@@ -270,7 +306,7 @@ public sealed class SettingsPageTests : BunitContext
     {
         using var _ = Loc.Override("es");
         var cut = Render<Settings>();
-        Assert.Contains("Ajustes", cut.Find("h1").TextContent);
+        Assert.Contains("Configuración", cut.Find("h1").TextContent);
         Assert.Contains(Loc.T("webSettings.delete.title"), cut.Markup);
         Assert.DoesNotContain("Delete my data", cut.Markup);
     }

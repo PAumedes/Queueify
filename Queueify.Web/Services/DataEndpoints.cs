@@ -76,9 +76,12 @@ public static class DataEndpoints
         }
         catch (ImportException ex)
         {
-            return ex.Problem == ImportProblem.TooLarge
-                ? Error("tooLarge", StatusCodes.Status413PayloadTooLarge)
-                : Error("invalid", StatusCodes.Status422UnprocessableEntity);
+            return ex.Problem switch
+            {
+                ImportProblem.TooLarge => Error("tooLarge", StatusCodes.Status413PayloadTooLarge),
+                ImportProblem.Busy => Error("busy", StatusCodes.Status429TooManyRequests),
+                _ => Error("invalid", StatusCodes.Status422UnprocessableEntity),
+            };
         }
         catch (BadHttpRequestException)
         {

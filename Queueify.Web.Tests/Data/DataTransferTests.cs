@@ -110,6 +110,87 @@ public sealed class DataTransferTests : IDisposable
     }
 
     [Fact]
+    public void The_files_own_last_edit_time_is_kept_so_a_newer_backup_imported_later_still_wins()
+    {
+        string Backup(string album, double rating, string updated) => JsonSerializer.Serialize(new
+        {
+            format = "queueify-export", version = 1,
+            albums = new[] { new { uid = "u1", artist = "A", album, rating, addedAt = "2026-01-01T00:00:00Z", updatedAt = updated } },
+        });
+
+        _transfer.Import("alice", Encoding.UTF8.GetBytes(Backup("Old title", -1, "2026-01-02T00:00:00Z")));
+        var stored = _stores.QueueOf("alice").FindByUid("u1")!;
+        Assert.Equal(new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc), stored.UpdatedAt);
+
+        _transfer.Import("alice", Encoding.UTF8.GetBytes(Backup("New title", 5, "2026-06-01T00:00:00Z")));
+
+        var after = _stores.QueueOf("alice").FindByUid("u1")!;
+        Assert.Equal(("New title", 5.0), (after.Album, after.Rating));
+    }
+
+    [Fact]
+    public void An_updated_time_in_the_future_or_without_a_zone_cannot_beat_real_edits()
+    {
+        var future = JsonSerializer.Serialize(new { format = "queueify-export", version = 1, albums = new[] { new { uid = "u1", artist = "A", album = "One", addedAt = "2026-01-01T00:00:00Z", updatedAt = "2999-01-01T00:00:00" } } });
+        _transfer.Import("alice", Encoding.UTF8.GetBytes(future));
+        Assert.True(_stores.QueueOf("alice").FindByUid("u1")!.UpdatedAt <= DateTime.UtcNow);
+    }
+
+    [Fact]
+    public void JSON_saved_with_a_byte_order_mark_still_imports()
+    {
+        _stores.QueueOf("alice").Insert(Album("A", "One", "u1"));
+        var json = new byte[] { 0xEF, 0xBB, 0xBF }.Concat(Encoding.UTF8.GetBytes(_transfer.ExportJson("alice"))).ToArray();
+
+        Assert.Equal(1, _transfer.Import("bob", json).Added);
+    }
+
+    [Fact]
+    public void A_table_with_a_generated_column_is_refused_because_reading_it_could_cost_gigabytes()
+    {
+        var bytes = RawDb("CREATE TABLE items (id INTEGER PRIMARY KEY, artist TEXT, album TEXT, added_at TEXT, cover_url TEXT AS (hex(zeroblob(400000000))))",
+            $"INSERT INTO items (artist, album, added_at) VALUES ('A','B','{DateTime.UtcNow:O}')");
+
+        Assert.Equal(ImportProblem.Invalid, ProblemOf(bytes));
+    }
+
+    [Fact]
+    public void A_virtual_table_named_items_is_refused()
+    {
+        var bytes = RawDb("CREATE VIRTUAL TABLE items USING fts5(artist, album, added_at)");
+        Assert.Equal(ImportProblem.Invalid, ProblemOf(bytes));
+    }
+
+    [Fact]
+    public void A_large_import_is_one_quick_transaction()
+    {
+        var albums = Enumerable.Range(0, 3000).Select(i => new { uid = $"u{i}", artist = "A", album = $"Album {i}", addedAt = "2026-01-01T00:00:00Z" });
+        var json = JsonSerializer.Serialize(new { format = "queueify-export", version = 1, albums });
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var report = _transfer.Import("alice", Encoding.UTF8.GetBytes(json));
+
+        Assert.Equal(3000, report.Added);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(8), $"took {watch.Elapsed}");
+    }
+
+    [Fact]
+    public async Task Two_imports_at_once_for_one_user_are_not_allowed_to_collide()
+    {
+        var albums = Enumerable.Range(0, 3000).Select(i => new { uid = $"u{i}", artist = "A", album = $"Album {i}", addedAt = "2026-01-01T00:00:00Z" });
+        var json = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { format = "queueify-export", version = 1, albums }));
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => Task.Run(() =>
+        {
+            try { _transfer.Import("alice", json); return (ImportProblem?)null; }
+            catch (ImportException ex) { return ex.Problem; }
+        }, TestContext.Current.CancellationToken)));
+
+        Assert.All(results, r => Assert.True(r is null or ImportProblem.Busy));
+        Assert.Equal(3000, _stores.QueueOf("alice").LoadAll().Count);
+    }
+
+    [Fact]
     public void An_album_the_user_deleted_here_stays_deleted()
     {
         var store = _stores.QueueOf("alice");

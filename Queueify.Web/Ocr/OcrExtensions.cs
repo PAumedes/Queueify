@@ -50,9 +50,7 @@ public static class OcrExtensions
 
         try
         {
-            // Kestrel forbids synchronous reads, so the (capped) body is buffered here, not inside the guard.
-            using var upload = await BufferAsync(ctx.Request.Body, options.MaxBytes, ct);
-            var reading = await reader.ReadAsync(user, upload, lang ?? "auto", ct);
+            var reading = await reader.ReadAsync(user, ctx.Request.Body, lang ?? "auto", ct);
             return Results.Json(new
             {
                 width = reading.Width,
@@ -70,20 +68,6 @@ public static class OcrExtensions
         {
             return Problem(PhotoProblem.TooLarge);
         }
-    }
-
-    private static async Task<MemoryStream> BufferAsync(Stream body, long max, CancellationToken ct)
-    {
-        var buffer = new MemoryStream();
-        var chunk = new byte[81920];
-        int n;
-        while ((n = await body.ReadAsync(chunk, ct)) > 0)
-        {
-            if (buffer.Length + n > max) throw new PhotoException(PhotoProblem.TooLarge);
-            buffer.Write(chunk, 0, n);
-        }
-        buffer.Position = 0;
-        return buffer;
     }
 
     private static IResult Problem(PhotoProblem problem) => Results.Json(
