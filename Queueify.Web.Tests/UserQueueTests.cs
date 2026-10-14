@@ -90,6 +90,47 @@ public sealed class UserQueueTests : IDisposable
     }
 
     [Fact]
+    public async Task AStaleTab_CannotBringADeletedAlbumBack()
+    {
+        var a = QueueOf("alice");
+        await a.LoadAsync();
+        var item = a.Add(new BacklogItem { Album = "x" }, "");
+        var staleCopy = a.All.Single();
+
+        var b = QueueOf("alice");
+        await b.LoadAsync();
+        b.Delete(b.All.Single());
+
+        a.Rate(staleCopy, 4);
+        a.SetListened(staleCopy, true);
+
+        var check = QueueOf("alice");
+        await check.LoadAsync();
+        Assert.Empty(check.All);
+        Assert.Equal(item.Uid, staleCopy.Uid);
+    }
+
+    [Fact]
+    public async Task Undo_DoesNotUndoAnotherTabsListened()
+    {
+        var a = QueueOf("alice");
+        await a.LoadAsync();
+        a.Add(new BacklogItem { Album = "x" }, "");
+        var staleCopy = a.All.Single();
+
+        var b = QueueOf("alice");
+        await b.LoadAsync();
+        b.SetListened(b.All.Single(), true);          // already listened in the other tab
+
+        var undo = a.SetListened(staleCopy, true);    // this tab still believed it was pending
+        undo();
+
+        var check = QueueOf("alice");
+        await check.LoadAsync();
+        Assert.True(check.All.Single().IsListened);
+    }
+
+    [Fact]
     public async Task Delete_RemovesTheAlbum_AndUndoRestoresIt()
     {
         var q = QueueOf("alice");

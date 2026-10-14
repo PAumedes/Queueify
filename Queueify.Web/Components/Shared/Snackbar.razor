@@ -37,8 +37,9 @@
         if (Toasts.Current != null)
         {
             var cts = _timer = new CancellationTokenSource();
+            var shown = Toasts.Current;
             _ = Task.Delay(TimeSpan.FromSeconds(Toasts.Current.Action != null ? 15 : 9), cts.Token).ContinueWith(
-                _ => InvokeAsync(Toasts.Dismiss), CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+                _ => InvokeAsync(() => { if (ReferenceEquals(Toasts.Current, shown)) Toasts.Dismiss(); }), CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
         }
         _ = InvokeAsync(StateHasChanged);
     }

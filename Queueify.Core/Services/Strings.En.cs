@@ -414,5 +414,7 @@ public static partial class Loc
         ["web.queue.star.one"] = "1 star",
         ["web.add.throttled"] = "Too many searches in a minute. Wait a moment and try again.",
         ["web.add.not_on"] = "not found there",
+
+        ["web.error.save"] = "Couldn't save that. Try again in a moment.",
     };
 }

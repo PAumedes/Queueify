@@ -102,7 +102,7 @@ else
     private RenderFragment Actions(BacklogItem item) => @<text>
         @{
             var link = PlayLinks.Of(item, Queue.Preferred);
-            var service = item.HasTidal && (Queue.Preferred == MusicService.Tidal || !item.HasSpotify) ? "Tidal" : "Spotify";
+            var service = link != null && link.Web.Contains("tidal.com") ? "Tidal" : "Spotify";
         }
         @if (link != null)
         {
@@ -119,13 +119,13 @@ else
         <details class="q-menu">
             <summary class="q-btn icon quiet" aria-label="@Loc.T("item.more") - @item.Album" title="@Loc.T("item.more.tip")"><Ico Name="more" /></summary>
             <div class="q-menu-list">
-                @if (item.HasTidal)
+                @if (PlayLinks.Only(item, MusicService.Tidal) is { } tidal)
                 {
-                    <a class="q-btn" href="@PlayLinks.For(MusicService.Tidal, item.TidalId!).Web" data-app="@PlayLinks.For(MusicService.Tidal, item.TidalId!).App" target="_blank" rel="noopener noreferrer"><Ico Name="open" />@Loc.T("menu.open_tidal")</a>
+                    <a class="q-btn" href="@tidal.Web" data-app="@tidal.App" target="_blank" rel="noopener noreferrer"><Ico Name="open" />@Loc.T("menu.open_tidal")</a>
                 }
-                @if (item.HasSpotify)
+                @if (PlayLinks.Only(item, MusicService.Spotify) is { } spotify)
                 {
-                    <a class="q-btn" href="@PlayLinks.For(MusicService.Spotify, item.SpotifyId!).Web" data-app="@PlayLinks.For(MusicService.Spotify, item.SpotifyId!).App" target="_blank" rel="noopener noreferrer"><Ico Name="open" />@Loc.T("menu.open_spotify")</a>
+                    <a class="q-btn" href="@spotify.Web" data-app="@spotify.App" target="_blank" rel="noopener noreferrer"><Ico Name="open" />@Loc.T("menu.open_spotify")</a>
                 }
                 <button type="button" class="q-btn" @onclick="() => Delete(item)"><Ico Name="trash" />@Loc.T("menu.delete")</button>
             </div>
@@ -193,18 +193,34 @@ else
         if (e.Key == "Escape") _filter = "";
     }
 
+    // A disk problem must reach the user as a message, not end the circuit.
+    private void Guarded(Action action)
+    {
+        try { action(); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            Toasts.Show(new Toast(Loc.T("web.error.save"), Warning: true));
+        }
+    }
+
     private void Toggle(BacklogItem item)
     {
         var listened = !item.IsListened;
-        var undo = Queue.SetListened(item, listened);
-        Toasts.Show(new Toast(Loc.F(listened ? "toast.listened" : "toast.moved_back", item.Album), Loc.T("toast.undo"), undo,
-            Rate: listened ? stars => Queue.Rate(item, stars) : null));
+        Guarded(() =>
+        {
+            var undo = Queue.SetListened(item, listened);
+            Toasts.Show(new Toast(Loc.F(listened ? "toast.listened" : "toast.moved_back", item.Album), Loc.T("toast.undo"), undo,
+                Rate: listened ? stars => Guarded(() => Queue.Rate(item, stars)) : null));
+        });
     }
 
     private void Delete(BacklogItem item)
     {
-        var undo = Queue.Delete(item);
-        Toasts.Show(new Toast(Loc.F("toast.deleted", item.Album), Loc.T("toast.undo"), undo));
+        Guarded(() =>
+        {
+            var undo = Queue.Delete(item);
+            Toasts.Show(new Toast(Loc.F("toast.deleted", item.Album), Loc.T("toast.undo"), undo));
+        });
     }
 
     private async Task Surprise()

@@ -126,12 +126,8 @@
     private async Task OnInput(ChangeEventArgs e)
     {
         _query = e.Value?.ToString() ?? "";
-        _cts?.Cancel();
-        if (_query.Trim().Length == 0)
-        {
-            _results = []; _errors = []; _status = ""; _resultsFor = null; _searching = false; _offerNoLink = false;
-            return;
-        }
+        // Whatever was running or shown belongs to the old text.
+        ClearSearch();
         if (_query.Trim().Length < 3) return;
 
         // Wait for a pause in typing; a newer keystroke cancels this wait.
@@ -147,12 +143,19 @@
         {
             case "ArrowDown": Move(+1); break;
             case "ArrowUp": Move(-1); break;
-            case "Escape": _query = ""; _results = []; _errors = []; _status = ""; _resultsFor = null; _offerNoLink = false; _cts?.Cancel(); break;
+            case "Escape": _query = ""; ClearSearch(); break;
             case "Enter":
                 if (_resultsFor == _query.Trim() && _selected >= 0 && _selected < _results.Count) AddResult(_results[_selected]);
-                else { _cts?.Cancel(); await RunSearch(_cts = new CancellationTokenSource()); }
+                else { ClearSearch(); await RunSearch(_cts = new CancellationTokenSource()); }
                 break;
         }
+    }
+
+    /// <summary>Abandons a running search and forgets its results, so a late answer can never reappear.</summary>
+    private void ClearSearch()
+    {
+        _cts?.Cancel();
+        _searching = false; _results = []; _errors = []; _status = ""; _resultsFor = null; _offerNoLink = false; _selected = -1;
     }
 
     private void Move(int delta)
@@ -169,7 +172,7 @@
 
         SearchOutcome? outcome;
         try { outcome = await Search.RunAsync(raw, Queue.UserId!, Queue.Settings, cts.Token); }
-        finally { if (!cts.IsCancellationRequested) _searching = false; }
+        finally { if (ReferenceEquals(_cts, cts)) _searching = false; }
         if (outcome == null || cts.IsCancellationRequested) return;
 
         _needsKeys = outcome.NeedsKeys;
@@ -215,8 +218,14 @@
 
     private void Added(BacklogItem item)
     {
-        item = Queue.Add(item, _magazine);
-        _query = ""; _results = []; _errors = []; _status = ""; _resultsFor = null; _offerNoLink = false; _selected = -1;
+        ClearSearch();
+        try { item = Queue.Add(item, _magazine); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            Toasts.Show(new Toast(Loc.T("web.error.save"), Warning: true));
+            return;
+        }
+        _query = "";
         Toasts.Show(new Toast(Loc.F("toast.added", item.Album), Loc.T("toast.undo"), () => Queue.Remove(item)));
         _ = JS.InvokeVoidAsync("queueify.focus", "[data-q-search]").AsTask().ContinueWith(_ => { }, TaskScheduler.Default);
     }

@@ -33,6 +33,7 @@ public class PrefsTests
     [InlineData("https://evil.example", "/")]
     [InlineData("\\\\evil.example", "/")]
     [InlineData("/\\evil.example", "/")]
+    [InlineData("/\t/evil.example", "/")]
     [InlineData("", "/")]
     [InlineData(null, "/")]
     public void LocalReturn_NeverLeavesTheSite(string? url, string expected) => Assert.Equal(expected, Prefs.LocalReturn(url));

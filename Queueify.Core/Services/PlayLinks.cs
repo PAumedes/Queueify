@@ -22,11 +22,15 @@ public static class PlayLinks
             ? new[] { MusicService.Spotify, MusicService.Tidal }
             : new[] { MusicService.Tidal, MusicService.Spotify };
         foreach (var service in order)
-        {
-            var id = service == MusicService.Spotify ? item.SpotifyId : item.TidalId;
-            if (IsPlainId(id)) return For(service, id!);
-        }
+            if (Only(item, service) is { } link) return link;
         return null;
+    }
+
+    /// <summary>The link on exactly this service, or null when the album isn't there or its id is not a plain token.</summary>
+    public static PlayLink? Only(BacklogItem item, MusicService service)
+    {
+        var id = service == MusicService.Spotify ? item.SpotifyId : item.TidalId;
+        return IsPlainId(id) ? For(service, id!) : null;
     }
 
     private static bool IsPlainId(string? id) =>

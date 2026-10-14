@@ -20,7 +20,8 @@ public static class Prefs
     public static string LocalReturn(string? url)
     {
         if (string.IsNullOrEmpty(url) || url[0] != '/' || url.Length > 1 && url[1] is '/' or '\\') return "/";
-        return url;
+        // Browsers drop tabs and line breaks inside an address, so "/<tab>/host" would become "//host".
+        return url.Any(char.IsControl) ? "/" : url;
     }
 
     /// <summary>

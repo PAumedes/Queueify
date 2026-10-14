@@ -100,7 +100,7 @@ public sealed class AlbumSearch(ICatalogs catalogs)
         void Report(string service, string message)
         {
             var line = $"{service}: {message}";
-            if (!errors.Contains(line)) errors.Add(line);
+            lock (errors) { if (!errors.Contains(line)) errors.Add(line); }
         }
 
         List<AlbumResult> Combine() => Matcher.Combine(

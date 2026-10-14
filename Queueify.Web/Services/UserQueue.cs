@@ -90,32 +90,42 @@ public sealed class UserQueue(UserStores stores, IUserContext user)
         Reload();
     }
 
+    // Every change starts from the stored album, not from the copy a page drew earlier: another tab may have
+    // deleted, rated or listened to it since, and writing the old copy back would undo that.
     public Action SetListened(BacklogItem item, bool listened)
     {
-        var before = item.ListenedAt;
-        item.ListenedAt = listened ? DateTime.Now : null;
-        Store.Update(item);
+        if (Store.FindByUid(item.Uid) is not { Deleted: false } current || current.IsListened == listened)
+        {
+            Reload();
+            return () => { };
+        }
+        var before = current.ListenedAt;
+        var stamp = listened ? DateTime.Now : (DateTime?)null;
+        current.ListenedAt = stamp;
+        Store.Update(current);
         Reload();
         return () =>
         {
-            if (Store.FindByUid(item.Uid) is not { Deleted: false } current) return;
-            current.ListenedAt = before;
-            Store.Update(current);
+            if (Store.FindByUid(item.Uid) is not { Deleted: false } now || now.ListenedAt != stamp) return;
+            now.ListenedAt = before;
+            Store.Update(now);
             Reload();
         };
     }
 
     public void Rate(BacklogItem item, double rating)
     {
-        if (item.Rating == rating) return;
-        item.Rating = rating;
-        Store.Update(item);
+        if (Store.FindByUid(item.Uid) is { Deleted: false } current && current.Rating != rating)
+        {
+            current.Rating = rating;
+            Store.Update(current);
+        }
         Reload();
     }
 
     public Action Delete(BacklogItem item)
     {
-        Store.Delete(item);
+        Store.Delete(Store.FindByUid(item.Uid) ?? item);
         Reload();
         return () =>
         {

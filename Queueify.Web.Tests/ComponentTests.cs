@@ -80,10 +80,14 @@ public abstract class WebComponentTests : BunitContext
         public List<AlbumMatch> Tidal { get; set; } = [];
         public List<string> Queries { get; } = [];
 
-        public Task<List<AlbumMatch>> SearchAsync(MusicService service, string query, string userId, AppSettings settings, CancellationToken ct)
+        /// <summary>When set, searches wait here until the test lets them go.</summary>
+        public TaskCompletionSource? Gate { get; set; }
+
+        public async Task<List<AlbumMatch>> SearchAsync(MusicService service, string query, string userId, AppSettings settings, CancellationToken ct)
         {
             Queries.Add(query);
-            return Task.FromResult(service == MusicService.Spotify ? Spotify : Tidal);
+            if (Gate != null) await Gate.Task;
+            return service == MusicService.Spotify ? Spotify : Tidal;
         }
     }
 }
@@ -406,6 +410,47 @@ public sealed class AddPageTests : WebComponentTests
         Assert.Single(Stores.QueueOf("alice").LoadAll());
         Toasts.Current!.Action!();
         Assert.Empty(Stores.QueueOf("alice").LoadAll());
+    }
+
+    [Fact]
+    public void Clearing_the_box_while_a_search_runs_stops_the_spinner_and_drops_the_results()
+    {
+        SaveKeys(tidal: false);
+        Catalogs.Spotify = [Match(MusicService.Spotify, "sp1", "Signos", "Soda Stereo", 1986)];
+        Catalogs.Gate = new TaskCompletionSource();
+        var cut = Open();
+
+        cut.Find("#q-search").Input("soda stereo signos");
+        cut.Find("#q-search").KeyDown("Enter");
+        cut.WaitForAssertion(() => Assert.Contains(Loc.T("search.searching"), cut.Find(".q-status").TextContent));
+
+        cut.Find("#q-search").Input("so");          // too short: the running search is abandoned
+        Catalogs.Gate.SetResult();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain(Loc.T("search.searching"), cut.Find(".q-status").TextContent);
+            Assert.Empty(cut.FindAll("li.q-result"));
+        });
+    }
+
+    [Fact]
+    public void Adding_by_hand_while_a_search_runs_does_not_bring_old_results_back()
+    {
+        SaveKeys(tidal: false);
+        Catalogs.Spotify = [Match(MusicService.Spotify, "sp1", "Signos", "Soda Stereo", 1986)];
+        Catalogs.Gate = new TaskCompletionSource();
+        var cut = Open();
+
+        cut.Find("#q-search").Input("soda stereo signos");
+        cut.Find("#q-search").KeyDown("Enter");
+        cut.WaitForAssertion(() => Assert.Contains(Loc.T("search.searching"), cut.Find(".q-status").TextContent));
+        cut.Find("#qa-album").Input("Artaud");
+        cut.Find("form.q-quick-body").Submit();
+        Catalogs.Gate.SetResult();
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain(Loc.T("search.searching"), cut.Find(".q-status").TextContent));
+        Assert.Empty(cut.FindAll("li.q-result"));
     }
 
     [Fact]
