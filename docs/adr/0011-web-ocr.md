@@ -24,8 +24,9 @@ Linux x64 hosts, with photo uploads treated as untrusted input ([ADR-0010](0010-
   SHA-256 matches the one in the code, replaced when a local copy doesn't match. An administrator who sets
   `Ocr:TessdataPath` takes over: nothing is downloaded or checked. The fast models are 2 MB (`spa`) and
   4 MB (`eng`); the "best" models read photos slightly better and could be swapped in by that setting.
-- **Image handling with ImageSharp** (Six Labors Split License: Apache-2.0 for software under an open source
-  license, which this GPL project is). An upload is sniffed by its bytes (JPEG, PNG or WebP; the declared type
+- **Image handling with SkiaSharp** (MIT, with `SkiaSharp.NativeAssets.Linux.NoDependencies` for Linux hosts).
+  The first choice, SixLabors.ImageSharp 4.x, was dropped because `dotnet publish -c Release` refuses to build
+  without a Six Labors license key, so a release could not be produced by anyone without one. An upload is sniffed by its bytes (JPEG, PNG or WebP; the declared type
   is only a CSRF gate), its pixel count is read from the header before decoding (60 MP), it is turned upright,
   scaled to 3000 px and re-encoded as PNG, which drops EXIF (GPS), ICC and XMP. The upload and the PNG exist only
   in memory and are wiped after reading.

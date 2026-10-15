@@ -47,6 +47,8 @@ web server (`Queueify.Web`, [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md
 
 Out of scope: a compromised PC or user account, and the security of Spotify, Tidal and Google's services.
 
+Photo decoding uses SkiaSharp (MIT), a native library: it is fed only bytes that passed the sniff, size and pixel checks above, and its licence (like Tesseract's Apache-2.0) needs no key to publish a release; see [ADR-0011](docs/adr/0011-web-ocr.md).
+
 ## Threat model: the web app (`Queueify.Web`)
 
 | Asset / surface | Threat | Defence |

@@ -1,7 +1,5 @@
 using Queueify.Services;
 using Queueify.Web.Ocr;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Queueify.Web.Tests.Ocr;
 
@@ -22,11 +20,7 @@ public class PhotoReaderTests
 
     private static MemoryStream Photo(int w = 20, int h = 10)
     {
-        using var image = new Image<Rgb24>(w, h);
-        var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        ms.Position = 0;
-        return ms;
+        return Support.TestImages.PngStream(w, h);
     }
 
     private static PhotoReader Reader(IOcr ocr, OcrOptions? options = null) =>

@@ -155,3 +155,6 @@ Conventional Commits, pull requests with adversarial review). Design documents l
 
 [GPL-3.0-or-later](LICENSE). Spotify and Tidal are trademarks of their owners; Queueify isn't affiliated
 with either. Their logos in the app come from [Simple Icons](https://simpleicons.org) (CC0).
+The web app decodes photos with [SkiaSharp](https://github.com/mono/SkiaSharp) (MIT) and Tesseract
+(Apache-2.0, run as a separate program); both are permissive and need no license key to build a release
+([ADR-0011](docs/adr/0011-web-ocr.md)).
