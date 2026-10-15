@@ -52,6 +52,7 @@ public static class ImageGuard
             canvas.Clear(SKColors.White);
             canvas.Scale((float)outW / width, (float)outH / height);
             canvas.Concat(Upright(size.Width, size.Height, origin));
+            decoded.SetImmutable();   // lets the image share the pixels instead of copying them
             using var source = SKImage.FromBitmap(decoded);
             canvas.DrawImage(source, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell));
 

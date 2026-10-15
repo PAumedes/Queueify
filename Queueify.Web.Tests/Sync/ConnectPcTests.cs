@@ -53,7 +53,7 @@ public sealed class ConnectPcTests : BunitContext
     {
         var page = Open("user-1");
         page.Find("#token-name").Input("Studio PC");
-        page.Find("#token-password").Input(Password);
+        page.Find("#token-password").Change(Password);
         page.Find("form").Submit();
 
         var text = page.Find("#connect-text").GetAttribute("value")!;
@@ -72,7 +72,7 @@ public sealed class ConnectPcTests : BunitContext
     {
         var page = Open("user-2");
         page.Find("#token-name").Input("Studio PC");
-        page.Find("#token-password").Input("not-the-password");
+        page.Find("#token-password").Change("not-the-password");
         page.Find("form").Submit();
 
         Assert.Empty(page.FindAll("#connect-text"));
@@ -98,12 +98,12 @@ public sealed class ConnectPcTests : BunitContext
         for (var i = 0; i < 6; i++)
         {
             page.Find("#token-name").Input("PC");
-            page.Find("#token-password").Input("wrong-" + i);
+            page.Find("#token-password").Change("wrong-" + i);
             page.Find("form").Submit();
         }
 
         page.Find("#token-name").Input("PC");
-        page.Find("#token-password").Input(Password);
+        page.Find("#token-password").Change(Password);
         page.Find("form").Submit();
         Assert.Empty(page.FindAll("#connect-text"));
     }
@@ -113,7 +113,7 @@ public sealed class ConnectPcTests : BunitContext
     {
         var page = Open("user-5", publicUrl: "https://queue.example.org");
         page.Find("#token-name").Input("PC");
-        page.Find("#token-password").Input(Password);
+        page.Find("#token-password").Change(Password);
         page.Find("form").Submit();
 
         Assert.StartsWith("queueify-web|https://queue.example.org|qw_", page.Find("#connect-text").GetAttribute("value")!);

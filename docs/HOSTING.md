@@ -80,3 +80,10 @@ Queueify.Web is a long-running .NET process: its Blazor circuits hold a WebSocke
 SQLite files and encryption keys to a local disk that must persist, and it starts the `tesseract` program.
 Serverless and static hosts have no .NET server runtime, no persistent local disk and no way to run that program, so
 none of those three can work there. Use a VM, a container host with a persistent volume, or your own machine.
+
+## Upgrading from an early build
+
+Early builds kept the account database at `Data/app.db` beside the app. The server now uses `<DataDir>/identity.db`,
+and a fresh one has no accounts, so before the first start of a new version move the old file there
+(`Data/app.db` to `<DataDir>/identity.db`), or the first visitor becomes the owner of an empty server. Or set
+`ConnectionStrings__DefaultConnection` to the old path.
