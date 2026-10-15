@@ -637,6 +637,7 @@
                                     <TextBlock Text="{l:Tr Key=sync.title}" Style="{StaticResource SubtitleTextBlockStyle}" />
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.sync.1}" />
                                     <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=help.sync.2}" />
+                                    <TextBlock TextWrapping="Wrap" Text="{l:Tr Key=webSync.help}" />
                                 </StackPanel>
                             </Border>
 

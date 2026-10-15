@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
     private readonly SpotifyCatalog _spotify;
     private readonly TidalCatalog _tidal;
     private readonly CloudSync _cloud;
+    private readonly ServerSync _web = new(ServerSync.CreateClient());
     private readonly Updater _updater = new(Http, UpdateSource.For(Environment.GetEnvironmentVariable("QUEUEIFY_UPDATE_SERVER")));
     private bool _updating;
 
@@ -136,6 +137,8 @@ public sealed partial class MainWindow : Window
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Queueify/1.0");
         return http;
     }
+
+    private ISyncProvider Provider() => SyncProviders.For(_settings.ActiveSync, _cloud, _web);
 
     // ───────────────────────── Window & layout ─────────────────────────
 
@@ -1177,7 +1180,7 @@ public sealed partial class MainWindow : Window
 
     private void ScheduleSync()
     {
-        if (!_settings.CloudConfigured) return;
+        if (!_settings.SyncConfigured) return;
         _syncDebounce.Stop();
         _syncDebounce.Start();
     }
@@ -1193,7 +1196,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Task<string?> SyncNowAsync()
     {
-        if (!_settings.CloudConfigured) return Task.FromResult<string?>(null);
+        if (!_settings.SyncConfigured) return Task.FromResult<string?>(null);
         if (_syncTask is { IsCompleted: false } running)
             return _followUpSync ??= AfterAsync(running);
         return _syncTask = RunSyncAsync();
@@ -1213,14 +1216,17 @@ public sealed partial class MainWindow : Window
 
         // Sync a copy: the UI thread keeps using _settings while the sync runs in the background.
         var work = _settings.Clone();
+        var provider = Provider();
         var sharedStampBefore = _settings.SharedSettingsUpdatedAt;
         string? error = null;
         try
         {
-            var result = await Task.Run(() => _cloud.SyncAsync(_store, work, CancellationToken.None));
-            if (_settings.CloudQueueKey == work.CloudQueueKey)   // still connected to the same queue
+            var result = await Task.Run(() => provider.SyncAsync(_store, work, CancellationToken.None));
+            if (_settings.SyncIdentity == work.SyncIdentity)   // still connected to the same queue
             {
                 _settings.CloudLastServerTime = work.CloudLastServerTime;
+                _settings.WebLastServerTime = work.WebLastServerTime;
+                _settings.WebSettingsSyncedAt = work.WebSettingsSyncedAt;
                 // Take downloaded keys/preferences unless the user saved Settings while this sync ran.
                 bool sharedChanged = _settings.SharedSettingsUpdatedAt == sharedStampBefore
                                      && work.SharedSettingsUpdatedAt != sharedStampBefore;
@@ -1254,14 +1260,14 @@ public sealed partial class MainWindow : Window
             error = DescribeSyncError(ex);
         }
 
-        _syncError = _settings.CloudConfigured ? error : null;
+        _syncError = _settings.SyncConfigured ? error : null;
         UpdateSyncButton();
         return error;
     }
 
     private static string DescribeSyncError(Exception ex) => ex switch
     {
-        CatalogException => ex.Message,
+        CatalogException or SyncException => ex.Message,
         HttpRequestException => Loc.T("sync.err.offline"),
         TaskCanceledException => Loc.T("sync.err.timeout"),
         IOException or UnauthorizedAccessException => Loc.F("sync.err.disk", ex.Message),
@@ -1272,13 +1278,15 @@ public sealed partial class MainWindow : Window
     private void UpdateSyncButton()
     {
         string label, glyph, tip;
-        if (!_settings.CloudConfigured)
+        bool web = _settings.WebConfigured;
+        if (!_settings.SyncConfigured)
             (label, glyph, tip) = (Loc.T("nav.sync"), "", Loc.T("sync.tip.off"));
         else if (_syncError != null)
             (label, glyph, tip) = (Loc.T("sync.not_synced"), "", Loc.F("sync.tip.error", _syncError));
         else
             (label, glyph, tip) = (Loc.T("sync.synced"), "",
-                _lastSynced is DateTime t ? Loc.F("sync.tip.at", t) : Loc.T("sync.tip.ok"));
+                _lastSynced is DateTime t ? web ? Loc.F("webSync.tip.at", t) : Loc.F("sync.tip.at", t)
+                : web ? Loc.T("webSync.tip.ok") : Loc.T("sync.tip.ok"));
 
         SyncNav.Content = label;
         SyncIcon.Glyph = SettingsSyncIcon.Glyph = glyph;
@@ -1289,8 +1297,12 @@ public sealed partial class MainWindow : Window
 
     private async void OnSync(object sender, RoutedEventArgs e)
     {
-        if (_settings.CloudConfigured) await ShowSyncConnectedAsync();
-        else await ShowSyncSetupAsync();
+        switch (_settings.ActiveSync)
+        {
+            case SyncKind.Web: await ShowWebSyncConnectedAsync(); break;
+            case SyncKind.Cloud: await ShowSyncConnectedAsync(); break;
+            default: await ShowSyncSetupAsync(); break;
+        }
     }
 
     /// <summary>First-time setup: create the online queue (first PC) or join it with a sync code.</summary>
@@ -1298,6 +1310,7 @@ public sealed partial class MainWindow : Window
     {
         var create = new RadioButton { Content = Loc.T("sync.setup.create"), GroupName = "sync", IsChecked = true };
         var join = new RadioButton { Content = Loc.T("sync.setup.join"), GroupName = "sync" };
+        var web = new RadioButton { Content = Loc.T("webSync.setup.option"), GroupName = "sync" };
 
         var projectBox = new TextBox { Header = Loc.T("sync.project"), PlaceholderText = Loc.T("sync.project.placeholder") };
         var copyRules = new Button { Content = Loc.T("sync.copy_rules") };
@@ -1319,8 +1332,20 @@ public sealed partial class MainWindow : Window
             Loc.T("sync.setup.join_text")));
         joinPanel.Children.Add(codeBox);
 
-        create.Checked += (_, _) => { createPanel.Visibility = Visibility.Visible; joinPanel.Visibility = Visibility.Collapsed; };
-        join.Checked += (_, _) => { createPanel.Visibility = Visibility.Collapsed; joinPanel.Visibility = Visibility.Visible; };
+        var webBox = new TextBox { Header = Loc.T("webSync.code"), PlaceholderText = Loc.T("webSync.code.placeholder") };
+        var webPanel = new StackPanel { Spacing = 10, Visibility = Visibility.Collapsed };
+        webPanel.Children.Add(Paragraph(Loc.T("webSync.setup.text")));
+        webPanel.Children.Add(webBox);
+        webPanel.Children.Add(Paragraph(Loc.T("webSync.keys_notice")));
+
+        void ShowOnly(StackPanel shown)
+        {
+            foreach (var p in new[] { createPanel, joinPanel, webPanel })
+                p.Visibility = p == shown ? Visibility.Visible : Visibility.Collapsed;
+        }
+        create.Checked += (_, _) => ShowOnly(createPanel);
+        join.Checked += (_, _) => ShowOnly(joinPanel);
+        web.Checked += (_, _) => ShowOnly(webPanel);
 
         var progress = new ProgressBar { IsIndeterminate = true, Visibility = Visibility.Collapsed };
         var error = new InfoBar { Severity = InfoBarSeverity.Error, IsClosable = false, IsOpen = false };
@@ -1329,8 +1354,10 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(Paragraph(Loc.T("sync.setup.intro")));
         panel.Children.Add(create);
         panel.Children.Add(join);
+        panel.Children.Add(web);
         panel.Children.Add(createPanel);
         panel.Children.Add(joinPanel);
+        panel.Children.Add(webPanel);
         panel.Children.Add(progress);
         panel.Children.Add(error);
 
@@ -1344,15 +1371,24 @@ public sealed partial class MainWindow : Window
             XamlRoot = Root.XamlRoot,
         };
 
-        bool joined = false;
+        bool joined = false, toWeb = false;
         dialog.PrimaryButtonClick += async (d, args) =>
         {
             var deferral = args.GetDeferral();
             try
             {
-                string project, key;
-                joined = join.IsChecked == true;
-                if (joined)
+                string project = "", key = "", webUrl = "", webToken = "";
+                toWeb = web.IsChecked == true;
+                joined = toWeb || join.IsChecked == true;
+                if (toWeb)
+                {
+                    if (!SyncConnect.TryParse(webBox.Text, out webUrl, out webToken))
+                    {
+                        Fail(Loc.T("webSync.bad_code"));
+                        return;
+                    }
+                }
+                else if (joined)
                 {
                     if (!CloudSync.TryParseSyncCode(codeBox.Text, out project, out key))
                     {
@@ -1373,9 +1409,8 @@ public sealed partial class MainWindow : Window
 
                 // Try the connection on a copy; the live settings only change if the first sync works.
                 var trial = _settings.Clone();
-                trial.CloudProjectId = project;
-                trial.CloudQueueKey = key;
-                trial.CloudLastServerTime = null;
+                if (toWeb) trial.ConnectWeb(webUrl, webToken);
+                else trial.ConnectCloud(project, key);
                 // Creating: this PC's keys go up. Joining: the online queue's keys win (or this PC's,
                 // if the queue has none yet).
                 trial.SharedSettingsUpdatedAt = joined ? null
@@ -1392,7 +1427,7 @@ public sealed partial class MainWindow : Window
                     if (_syncTask is { } previous) await previous;
                     // Albums synced to an earlier queue are marked clean; this queue needs all of them.
                     _store.MarkAllDirty();
-                    await Task.Run(() => _cloud.SyncAsync(_store, trial, CancellationToken.None));
+                    await Task.Run(() => SyncProviders.For(trial.ActiveSync, _cloud, _web).SyncAsync(_store, trial, CancellationToken.None));
                 }
                 catch (Exception ex)
                 {
@@ -1434,9 +1469,11 @@ public sealed partial class MainWindow : Window
             }
         };
 
-        if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary || !_settings.CloudConfigured) return;
+        if (await ShowDialogAsync(dialog) != ContentDialogResult.Primary || !_settings.SyncConfigured) return;
 
-        if (joined)
+        if (toWeb)
+            ShowToast(Loc.F("webSync.joined", QueueText.Albums(_all.Count)));
+        else if (joined)
             ShowToast(Loc.F("sync.joined", QueueText.Albums(_all.Count)));
         else
             await ShowSyncConnectedAsync(justCreated: true);
@@ -1483,13 +1520,49 @@ public sealed partial class MainWindow : Window
                 ShowToast(problem ?? Loc.T("sync.ok"), severity: problem == null ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
                 break;
             case ContentDialogResult.Secondary:
-                _settings.CloudProjectId = _settings.CloudQueueKey = "";
-                _settings.CloudLastServerTime = null;
+                _settings.DisconnectCloud();
                 _syncError = null;
                 AppData.SaveSettings(_settings);
                 UpdateSyncButton();
                 ShowToast(Loc.T("sync.disconnected"),
                     severity: InfoBarSeverity.Informational);
+                break;
+        }
+    }
+
+    /// <summary>Shows which web server this PC syncs with, plus "Sync now" and "Disconnect".</summary>
+    private async Task ShowWebSyncConnectedAsync()
+    {
+        // Only the host is shown; the token stays out of the window.
+        var host = Uri.TryCreate(_settings.WebServerUrl, UriKind.Absolute, out var address) ? address.Authority : "?";
+        var status = _syncError ?? (_lastSynced is DateTime t ? Loc.F("sync.last", t) : Loc.T("sync.ok"));
+        var panel = new StackPanel { Spacing = 12, Width = 480 };
+        panel.Children.Add(Paragraph(Loc.F("webSync.this_pc", host, status)));
+        panel.Children.Add(Paragraph(Loc.T("webSync.private")));
+
+        var dialog = new ContentDialog
+        {
+            Title = Loc.T("sync.title"),
+            Content = new ScrollViewer { Content = panel, MaxHeight = 560 },
+            PrimaryButtonText = Loc.T("sync.now"),
+            SecondaryButtonText = Loc.T("sync.disconnect"),
+            CloseButtonText = Loc.T("dialog.close"),
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = Root.XamlRoot,
+        };
+
+        switch (await ShowDialogAsync(dialog))
+        {
+            case ContentDialogResult.Primary:
+                var problem = await SyncNowAsync();
+                ShowToast(problem ?? Loc.T("sync.ok"), severity: problem == null ? InfoBarSeverity.Success : InfoBarSeverity.Warning);
+                break;
+            case ContentDialogResult.Secondary:
+                _settings.DisconnectWeb();
+                _syncError = null;
+                AppData.SaveSettings(_settings);
+                UpdateSyncButton();
+                ShowToast(Loc.T("webSync.disconnected"), severity: InfoBarSeverity.Informational);
                 break;
         }
     }

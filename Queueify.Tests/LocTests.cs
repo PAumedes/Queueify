@@ -180,10 +180,10 @@ public partial class LocTests
     [GeneratedRegex(@"Loc\.[TF]\(""([A-Za-z0-9_.]+)""")]
     private static partial Regex CodeKey();
 
-    [GeneratedRegex(@"\{l:Tr Key=([a-z0-9_.]+)\}")]
+    [GeneratedRegex(@"\{l:Tr Key=([A-Za-z0-9_.]+)\}")]
     private static partial Regex XamlKey();
 
-    [GeneratedRegex(@"""([a-z]+\.[a-z0-9_.]+)""")]
+    [GeneratedRegex(@"""([a-zA-Z]+\.[A-Za-z0-9_.]+)""")]
     private static partial Regex KeyLike();
 
     [GeneratedRegex(@"\[""([A-Za-z0-9_.]+)""\] =")]

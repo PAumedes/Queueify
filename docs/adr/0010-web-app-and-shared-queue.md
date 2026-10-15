@@ -57,3 +57,12 @@ Deletions stay as soft rows. This is the same shape `CloudSync` already uses, so
 - The server needs HTTPS and a persistent data folder with backups.
 - Two sync providers to keep tested; the contract tests run against the in-process server.
 - Desktop and web share copy and string tables, so both languages stay identical.
+- Desktop client (`ServerSync`, behind `ISyncProvider` with `CloudSync`): a PC syncs with **one provider at a
+  time**. Connecting is only offered while nothing is connected, so switching means disconnecting first; the
+  queue stays on the PC and the other copy is untouched. If a hand-edited `settings.json` sets both, **the web
+  server wins**. The token and address (`WebToken`, `WebServerUrl`) are per PC and never part of the shared
+  settings. The client's HTTP client does not follow redirects, a redirect or an answer from another host is
+  refused, requests time out after 20 s, and a 401 becomes a plain "token not accepted" message. Errors never
+  contain the token, the address or the server's text. Shared settings are sent only when they changed on the
+  PC (`WebSettingsSyncedAt` remembers the stamp already in step); a PC connecting with keys to a server that has
+  none uploads them, otherwise the server's keys win.
