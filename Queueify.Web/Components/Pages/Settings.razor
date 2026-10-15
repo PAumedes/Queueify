@@ -1,0 +1,234 @@
+@page "/settings"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Queueify.Models
+@using Queueify.Services
+@using Queueify.Web.Components.Shared
+@using Queueify.Web.Services
+@using Queueify.Web.Storage
+@inject AuthenticationStateProvider Auth
+@inject SettingsService Music
+@inject PreferencesStore Prefs
+@inject UserStores Stores
+@inject NavigationManager Nav
+
+<PageTitle>@Loc.T("webSettings.title")</PageTitle>
+
+<h1>@Loc.T("webSettings.title")</h1>
+<p class="summary">@Loc.T("webSettings.summary")</p>
+
+@if (_opened is not null)
+{
+    <SettingsSection Id="sec-music" Title="@Loc.T("settings.music")" Text="@(Loc.T("settings.music.text") + " " + Loc.T("webSettings.keys.note"))">
+        <SettingsKeysCard Service="spotify" Name="Spotify" Steps="@Loc.T("settings.spotify.steps")" Configured="_opened.SpotifyConfigured"
+                          @bind-ClientId="_spotifyId" @bind-Secret="_spotifySecret" Testing="_testing == MusicService.Spotify" Result="_spotifyNotice"
+                          OnTest="() => TestAsync(MusicService.Spotify)" OnRemove="() => Remove(MusicService.Spotify)" />
+        <SettingsKeysCard Service="tidal" Name="Tidal" Steps="@Loc.T("settings.tidal.steps")" Configured="_opened.TidalConfigured"
+                          @bind-ClientId="_tidalId" @bind-Secret="_tidalSecret" Testing="_testing == MusicService.Tidal" Result="_tidalNotice"
+                          OnTest="() => TestAsync(MusicService.Tidal)" OnRemove="() => Remove(MusicService.Tidal)" />
+
+        <div class="field">
+            <label for="preferred">@Loc.T("settings.preferred")</label>
+            <select id="preferred" @bind="_preferred">
+                <option value="Tidal">Tidal</option>
+                <option value="Spotify">Spotify</option>
+            </select>
+            <span class="help">@Loc.T("settings.preferred.text")</span>
+        </div>
+        <div class="field">
+            <label for="country">@Loc.T("settings.country")</label>
+            <select id="country" @bind="_country">
+                @foreach (var option in Countries.Options(_opened.CountryCode, Loc.Culture))
+                {
+                    <option value="@option.Code">@option.Name</option>
+                }
+            </select>
+            <span class="help">@Loc.T("settings.country.text")</span>
+        </div>
+        <button type="button" class="save-music primary" @onclick="SaveMusic">@Loc.T("webSettings.save")</button>
+        <p class="notice @(_musicNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="music">@Show(_musicNotice)</p>
+    </SettingsSection>
+
+    <SettingsSection Id="sec-appearance" Title="@Loc.T("settings.appearance")">
+        <div class="field">
+            <label for="theme">@Loc.T("settings.theme")</label>
+            <select id="theme" value="@_prefs.Theme" @onchange="ThemeChanged">
+                <option value="system">@Loc.T("webSettings.theme.system")</option>
+                <option value="light">@Loc.T("settings.theme.light")</option>
+                <option value="dark">@Loc.T("settings.theme.dark")</option>
+            </select>
+            <span class="help">@Loc.T("webSettings.theme.text")</span>
+        </div>
+        <div class="field">
+            <label for="language">@Loc.T("settings.language")</label>
+            <select id="language" value="@_prefs.Language" @onchange="LanguageChanged">
+                <option value="system">@Loc.T("webSettings.language.system")</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+            </select>
+            <span class="help">@Loc.T("webSettings.language.text")</span>
+        </div>
+        <p class="notice @(_prefsNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="prefs">@Show(_prefsNotice)</p>
+    </SettingsSection>
+
+    <SettingsSection Id="sec-ocr" Title="@Loc.T("settings.ocr")">
+        <div class="field">
+            <label for="ocr">@Loc.T("settings.ocr.read")</label>
+            <select id="ocr" value="@_prefs.OcrLanguage" @onchange="OcrChanged">
+                <option value="auto">@Loc.T("webSettings.ocr.auto")</option>
+                <option value="es">@Loc.T("webSettings.ocr.es")</option>
+                <option value="en">@Loc.T("webSettings.ocr.en")</option>
+            </select>
+            <span class="help">@Loc.T("webSettings.ocr.text")</span>
+        </div>
+        <p class="notice @(_ocrNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="prefs-ocr">@Show(_ocrNotice)</p>
+    </SettingsSection>
+
+    <SettingsSection Id="sec-connect" Title="@Loc.T("webSettings.connect.title")" Text="@Loc.T("webSettings.connect.text")">
+        <a class="link connect" href="connect">@Loc.T("webSettings.connect.open")</a>
+    </SettingsSection>
+
+    <SettingsSection Id="sec-data" Title="@Loc.T("webData.title")" Text="@Loc.T("webData.text")">
+        <SettingsData />
+    </SettingsSection>
+
+    <SettingsSection Id="sec-signout" Title="@Loc.T("webSettings.signout.title")" Text="@Loc.T("webSettings.signout.text")">
+        <a class="link account" href="Account/Manage">@Loc.T("webSettings.signout.open")</a>
+    </SettingsSection>
+
+    <SettingsSection Id="sec-delete" Title="@Loc.T("webSettings.delete.title")" Text="@Loc.T("webSettings.delete.text")">
+        <div class="check">
+            <input id="sure" type="checkbox" @bind="_sure" />
+            <label for="sure">@Loc.T("webSettings.delete.sure")</label>
+        </div>
+        <button type="button" class="delete danger" disabled="@(!_sure)" @onclick="DeleteAll">@Loc.T("webSettings.delete.button")</button>
+        <p class="notice @(_deleteNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="delete">@Show(_deleteNotice)</p>
+    </SettingsSection>
+}
+
+@code {
+    private string? _uid;
+    private SettingsSnapshot? _opened;
+    private Preferences _prefs = Preferences.Default;
+    private string _spotifyId = "", _spotifySecret = "", _tidalId = "", _tidalSecret = "", _preferred = "Tidal", _country = "AR";
+    private MusicService? _testing;
+    private bool _sure;
+    private Notice? _musicNotice, _spotifyNotice, _tidalNotice, _deleteNotice, _prefsNotice, _ocrNotice;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _uid = await Auth.IdAsync();
+        if (_uid is not null) Reload();
+    }
+
+    private void Reload()
+    {
+        _opened = Music.Snapshot(_uid!);
+        _prefs = Prefs.Load(_uid!);
+        (_spotifyId, _spotifySecret, _tidalId, _tidalSecret) = (_opened.SpotifyClientId, "", _opened.TidalClientId, "");
+        (_preferred, _country) = (_opened.PreferredService, _opened.CountryCode);
+    }
+
+    private static string Show(Notice? n) => n is null ? "" : (n.IsError ? "⚠︎ " : "✓ ") + n.Text;
+
+    private void SaveMusic()
+    {
+        try
+        {
+            var edit = new SettingsEdit(_spotifyId, _spotifySecret, _tidalId, _tidalSecret, _preferred, _country);
+            _musicNotice = new(Loc.T(Music.Save(_uid!, _opened!, edit) ? "webSettings.saved" : "webSettings.unchanged"));
+            Reload();
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException)
+        {
+            _musicNotice = new(Loc.F("webSettings.failed", ex.GetType().Name), true);
+        }
+    }
+
+    private void Remove(MusicService service)
+    {
+        Notice notice;
+        try
+        {
+            Music.RemoveKeys(_uid!, service);
+            _opened = Music.Snapshot(_uid!);
+            // Only this service's fields are emptied; whatever was typed in the other fields stays.
+            if (service == MusicService.Spotify) (_spotifyId, _spotifySecret) = ("", "");
+            else (_tidalId, _tidalSecret) = ("", "");
+            notice = new(Loc.F("webSettings.removed", service.ToString()));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            notice = new(Loc.F("webSettings.failed", ex.GetType().Name), true);
+        }
+        _musicNotice = null;
+        if (service == MusicService.Spotify) _spotifyNotice = notice; else _tidalNotice = notice;
+    }
+
+    private async Task TestAsync(MusicService service)
+    {
+        _testing = service;
+        var name = service.ToString();
+        Notice notice;
+        try
+        {
+            var result = await Music.TestAsync(_uid!, service, CancellationToken.None);
+            notice = result.Outcome switch
+            {
+                KeyTestOutcome.Ok => new(Loc.F("webSettings.test.ok", name)),
+                KeyTestOutcome.Missing => new(Loc.F("webSettings.test.missing", name), true),
+                KeyTestOutcome.Unexpected => new(Loc.F("webSettings.test.unexpected", name), true),
+                _ => new(result.Message ?? Loc.F("webSettings.test.unexpected", name), true),
+            };
+        }
+        finally
+        {
+            _testing = null;
+        }
+        if (service == MusicService.Spotify) _spotifyNotice = notice; else _tidalNotice = notice;
+    }
+
+    private void ThemeChanged(ChangeEventArgs e) => Remember(p => Preferences.Themes.Contains(e.Value as string ?? "") ? p with { Theme = (string)e.Value! } : p);
+
+    private void OcrChanged(ChangeEventArgs e) => Remember(p => Preferences.OcrLanguages.Contains(e.Value as string ?? "") ? p with { OcrLanguage = (string)e.Value! } : p, ocr: true);
+
+    private void LanguageChanged(ChangeEventArgs e)
+    {
+        var before = _prefs.Language;
+        Remember(p => Preferences.Languages.Contains(e.Value as string ?? "") ? p with { Language = (string)e.Value! } : p);
+        // Every text on the page comes from the language, so the page is loaded again in the new one.
+        if (_prefs.Language != before) Nav.NavigateTo(Nav.Uri, forceLoad: true);
+    }
+
+    private void Remember(Func<Preferences, Preferences> change, bool ocr = false)
+    {
+        try
+        {
+            _prefs = change(Prefs.Load(_uid!));
+            Prefs.Save(_uid!, _prefs);
+            var notice = new Notice(Loc.T("webSettings.saved")); if (ocr) _ocrNotice = notice; else _prefsNotice = notice;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            var failed = new Notice(Loc.F("webSettings.failed", ex.GetType().Name), true); if (ocr) _ocrNotice = failed; else _prefsNotice = failed;
+        }
+    }
+
+    private void DeleteAll()
+    {
+        if (!_sure) return;
+        try
+        {
+            Stores.Delete(_uid!);
+            _sure = false;
+            Reload();
+            _deleteNotice = new(Loc.T("webSettings.delete.done"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A file in use (an import or a photo is running): nothing is lost that wasn't already being written.
+            _deleteNotice = new(Loc.F("webSettings.failed", ex.GetType().Name), true);
+        }
+    }
+}

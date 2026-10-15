@@ -5,3 +5,4 @@ publish/
 .vs/
 .cache/
 dist/
+Queueify.Web/App_Data/

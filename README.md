@@ -105,6 +105,28 @@ Settings → *Text recognition*, which also installs English, Portuguese, French
 Windows asks for an administrator's permission. If anything goes wrong (permission declined, no
 internet, updates managed by an organization), Queueify says what happened and how to go on.
 
+## Web version: photos, settings and your data
+
+The web app (`Queueify.Web`, see [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md)) has the same Help,
+Settings and Magazine photo pages.
+
+- **Magazine photo**: choose, take (phones open the camera), drop or paste a photo, then tap the artist and the
+  album; *Search* opens the Add page with them. Photos are read by Tesseract in Spanish and English, then
+  discarded: nothing is stored. Run the server with the `tesseract` program installed (`apt install
+  tesseract-ocr`, or the Windows installer; `Ocr:TesseractPath` if it isn't on the PATH). The models download
+  once, checked against a checksum; to manage them yourself set `Ocr:TessdataPath`
+  ([ADR-0011](docs/adr/0011-web-ocr.md)). Limits live in the `Ocr` section: `MaxBytes`, `MaxPixels`,
+  `Timeout`, `MaxConcurrent`.
+- **Settings**: Spotify and Tidal keys are write-only (the page says *Configured* or *Not configured* and never shows
+  them again), with a *Test keys* button; Play app, country, theme, language, reading language, the link to
+  connect a PC, how to sign out everywhere, and *Delete my data*.
+- **Your data**: download the queue as JSON or CSV; import the desktop's `queueify.db` (in
+  `%LOCALAPPDATA%\Queueify`) or an exported JSON. Albums keep their identity, so importing twice never duplicates
+  anything and an album you deleted on the web stays deleted.
+
+Test it: `dotnet test --project Queueify.Web.Tests`. The real-engine test runs when `QUEUEIFY_TESSERACT` and
+`QUEUEIFY_TESSDATA` are set.
+
 ## Privacy
 
 Queueify has no servers and no telemetry. It talks to Tidal and Spotify (searches, with your keys), to

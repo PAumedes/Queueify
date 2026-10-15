@@ -22,6 +22,14 @@ public sealed class UserStores(string root, IDataProtector? protector = null)
         return Path.Combine(root, userId);
     }
 
+    /// <summary>A file in the user's folder, by a plain name (no folders).</summary>
+    public string FileOf(string userId, string name)
+    {
+        if (name.Length == 0 || name.IndexOfAny(['/', '\\', ':']) >= 0 || name.Contains(".."))
+            throw new ArgumentException("Not a valid file name.", nameof(name));
+        return Path.Combine(FolderOf(userId), name);
+    }
+
     public string QueuePathOf(string userId) => Path.Combine(FolderOf(userId), "queueify.db");
 
     public BacklogStore QueueOf(string userId) => new(QueuePathOf(userId));
@@ -69,6 +77,13 @@ public sealed class UserStores(string root, IDataProtector? protector = null)
         var plain = settings.Clone();
         plain.SpotifyClientSecret = plain.TidalClientSecret = "";
         AppData.SaveSettings(plain, Path.Combine(folder, "settings.json"));
+    }
+
+    /// <summary>Removes everything stored for the user: queue, settings, secrets, preferences.</summary>
+    public void Delete(string userId)
+    {
+        var folder = FolderOf(userId);
+        if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
     }
 
     private static void WriteAtomically(string path, string text)

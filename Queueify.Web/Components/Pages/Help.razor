@@ -1,0 +1,54 @@
+@page "/help"
+@rendermode InteractiveServer
+@using Queueify.Services
+@using Queueify.Web.Components.Shared
+@using Queueify.Web.Services
+@inject TourService Tour
+
+<PageTitle>@Loc.T("webHelp.title")</PageTitle>
+
+<h1>@Loc.T("webHelp.title")</h1>
+<p class="summary">@Loc.T("webHelp.summary")</p>
+
+<section aria-labelledby="guide">
+    <h2 id="guide">@Loc.T("help.guide")</h2>
+    <p>@Loc.T("help.guide.1")</p>
+    <p>@Loc.T("help.guide.2")</p>
+    <p>@Loc.T("help.guide.3")</p>
+    <p>@Loc.T("help.guide.4")</p>
+    <p>@Loc.T("webHelp.guide.5")</p>
+    <button type="button" class="replay" @onclick="Tour.Replay">@Loc.T("help.replay")</button>
+</section>
+
+<section aria-labelledby="keys">
+    <h2 id="keys">@Loc.T("help.shortcuts")</h2>
+    <table class="shortcuts">
+        <thead class="visually-hidden">
+            <tr><th scope="col">@Loc.T("webHelp.col.keys")</th><th scope="col">@Loc.T("webHelp.col.does")</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var shortcut in Shortcuts.All)
+            {
+                <tr>
+                    <th scope="row"><kbd>@shortcut.Keys</kbd></th>
+                    <td>@shortcut.Description</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <p>@Loc.T("webHelp.touch")</p>
+</section>
+
+<section aria-labelledby="sync">
+    <h2 id="sync">@Loc.T("webSettings.connect.title")</h2>
+    <p>@Loc.T("webHelp.sync")</p>
+</section>
+
+<section aria-labelledby="trouble">
+    <h2 id="trouble">@Loc.T("help.trouble")</h2>
+    <p>@Loc.T("webHelp.trouble.1")</p>
+    <p>@Loc.T("webHelp.trouble.2")</p>
+    <p>@Loc.T("webHelp.trouble.3")</p>
+</section>
+
+<HelpTour />

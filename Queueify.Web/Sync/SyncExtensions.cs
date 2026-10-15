@@ -20,7 +20,8 @@ public static class SyncExtensions
     public static IServiceCollection AddQueueifySync(this IServiceCollection services)
     {
         // Resolved late, from the final configuration, so tests and hosts can set the folder as they like.
-        services.AddSingleton(sp => new DataLocation(Path.GetFullPath(sp.GetRequiredService<IConfiguration>()["Queueify:DataDir"] ?? "./data")));
+        services.AddSingleton(sp => new DataLocation(Queueify.Web.Services.QueueifyStorageExtensions.DataRootOf(
+            sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<IHostEnvironment>())));
 
         services.AddDataProtection().SetApplicationName("Queueify");
         services.AddOptions<Microsoft.AspNetCore.DataProtection.KeyManagement.KeyManagementOptions>()
