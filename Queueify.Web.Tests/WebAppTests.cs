@@ -127,6 +127,37 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task Deleting_the_only_account_does_not_hand_the_server_to_the_next_visitor()
+    {
+        using var factory = Factory(allowRegistration: false);
+        await RegisterAsync(Client(factory), "owner@example.com");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await users.DeleteAsync((await users.FindByEmailAsync("owner@example.com"))!)).Succeeded);
+            Assert.Empty(users.Users.ToList());
+        }
+
+        var visitor = Client(factory);
+        Assert.DoesNotContain("Input.Email", await visitor.GetStringAsync("/Account/Register", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task An_existing_server_without_the_marker_gets_it_the_first_time_the_gate_is_asked()
+    {
+        using var factory = Factory(allowRegistration: false);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await users.CreateAsync(new ApplicationUser { UserName = "old@example.com", Email = "old@example.com" }, "Passw0rd!x")).Succeeded);
+            Assert.False(await scope.ServiceProvider.GetRequiredService<Queueify.Web.Services.RegistrationGate>().IsOpenAsync());
+            await users.DeleteAsync((await users.FindByEmailAsync("old@example.com"))!);
+            Assert.False(await scope.ServiceProvider.GetRequiredService<Queueify.Web.Services.RegistrationGate>().IsOpenAsync());
+        }
+    }
+
+    [Fact]
     public async Task Two_simultaneous_first_registrations_make_one_owner()
     {
         using var factory = Factory(allowRegistration: false);
