@@ -78,7 +78,7 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock, in
         {
             if (a == null || a.Uid == null || !UidPattern().IsMatch(a.Uid)) return null;
             clean.Add(new SyncAlbum(
-                a.Uid, Cut(a.Artist), Cut(a.Album), a.Year is >= 1 and <= 9999 ? a.Year : null,
+                a.Uid, Cut(a.Artist), Cut(a.Album), a.Year is >= 1000 and <= 3000 ? a.Year : null,
                 CutOrNull(a.Source), CutOrNull(a.CoverUrl), CutOrNull(a.SpotifyId), CutOrNull(a.TidalId),
                 Utc(a.AddedAt), a.ListenedAt is DateTime l ? Utc(l) : null, Rating(a.Rating),
                 Min(Utc(a.UpdatedAt), latest), a.Deleted));

@@ -27,6 +27,7 @@ public class AlbumSearchTests
         };
 
         var outcome = await new AlbumSearch(catalogs).RunAsync("charly garcia clics modernos 1983", "u", Keys(), default);
+        Assert.NotNull(outcome);
 
         var row = Assert.Single(outcome.Results);
         Assert.Equal("sp1", row.Spotify!.Id);
@@ -40,6 +41,7 @@ public class AlbumSearchTests
         var catalogs = new FakeCatalogs { Spotify = [Match(MusicService.Spotify, "sp1", "Signos", "Soda Stereo", 1986)] };
 
         var outcome = await new AlbumSearch(catalogs).RunAsync("soda stereo signos", "u", Keys(tidal: false), default);
+        Assert.NotNull(outcome);
 
         Assert.Equal([MusicService.Spotify], catalogs.Asked.Select(a => a.Service).Distinct());
         Assert.Single(outcome.Results);
@@ -50,6 +52,7 @@ public class AlbumSearchTests
     {
         var catalogs = new FakeCatalogs();
         var outcome = await new AlbumSearch(catalogs).RunAsync("anything", "u", Keys(false, false), default);
+        Assert.NotNull(outcome);
 
         Assert.Empty(catalogs.Asked);
         Assert.True(outcome.NeedsKeys);
@@ -65,6 +68,7 @@ public class AlbumSearchTests
         };
 
         var outcome = await new AlbumSearch(catalogs).RunAsync("soda stereo signos", "u", Keys(), default);
+        Assert.NotNull(outcome);
 
         Assert.Single(outcome.Results);
         Assert.Equal("Spotify: Spotify said no", Assert.Single(outcome.Errors));
@@ -75,6 +79,7 @@ public class AlbumSearchTests
     {
         var catalogs = new FakeCatalogs { SpotifyFails = new HttpRequestException("boom") };
         var outcome = await new AlbumSearch(catalogs).RunAsync("x y z", "u", Keys(tidal: false), default);
+        Assert.NotNull(outcome);
         Assert.Contains("boom", Assert.Single(outcome.Errors));
     }
 
@@ -87,6 +92,7 @@ public class AlbumSearchTests
             : [];
 
         var outcome = await new AlbumSearch(catalogs).RunAsync("Prince 1999", "u", Keys(tidal: false), default);
+        Assert.NotNull(outcome);
 
         Assert.Contains("Prince", catalogs.Asked.Select(a => a.Query));
         Assert.Contains("Prince 1999", catalogs.Asked.Select(a => a.Query));
@@ -107,6 +113,7 @@ public class AlbumSearchTests
     {
         var catalogs = new FakeCatalogs { SpotifyFails = new TaskCanceledException() };
         var outcome = await new AlbumSearch(catalogs).RunAsync("x y z", "u", Keys(tidal: false), default);
+        Assert.NotNull(outcome);
         Assert.Contains("Spotify", Assert.Single(outcome!.Errors));
     }
 
