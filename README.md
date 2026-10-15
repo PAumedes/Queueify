@@ -91,8 +91,8 @@ dotnet run --project Queueify.Web          # then open the address it prints
 ```
 
 The first account that registers owns the server; after that registration is closed unless the server's
-configuration sets `Queueify:AllowRegistration` to `true`. Data lives under `Queueify:DataRoot`
-(default `Data/users`, one folder per user). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
+configuration sets `Queueify:AllowRegistration` to `true`. Data lives under `Queueify:DataDir`
+(default `./data`, one folder per user). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
 the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md).
 
 ## Magazine photos

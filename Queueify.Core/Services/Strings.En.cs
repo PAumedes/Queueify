@@ -594,5 +594,20 @@ public static partial class Loc
 
         ["web.acct.m.ext_load"] = "Couldn't load the external login information.",
         ["web.acct.pk.unnamed"] = "Unnamed passkey",
+        // ── Connect a PC (web) ──
+        ["connect.title"] = "Connect a PC",
+        ["connect.intro"] = "Give each PC its own access token. Paste the connect text into Queueify's Sync settings on that PC.",
+        ["connect.name"] = "Name of the PC",
+        ["connect.create"] = "Create token",
+        ["connect.once"] = "Copy this now: it is shown only once.",
+        ["connect.text"] = "Connect text",
+        ["connect.tokens"] = "Your tokens",
+        ["connect.empty"] = "No tokens yet.",
+        ["connect.created"] = "Created",
+        ["connect.last_used"] = "Last used",
+        ["connect.never"] = "Never",
+        ["connect.revoked"] = "Revoked",
+        ["connect.revoke"] = "Revoke",
+        ["connect.limit"] = "You have reached the limit of tokens. Revoke one to create another.",
     };
 }

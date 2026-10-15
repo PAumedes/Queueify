@@ -595,5 +595,20 @@ public static partial class Loc
 
         ["web.acct.m.ext_load"] = "No se pudo cargar la información de la cuenta externa.",
         ["web.acct.pk.unnamed"] = "Clave sin nombre",
+        // ── Conectar una PC (web) ──
+        ["connect.title"] = "Conectar una PC",
+        ["connect.intro"] = "Dale a cada PC su propia ficha de acceso. Pegá el texto de conexión en los ajustes de Sincronizar de Queueify en esa PC.",
+        ["connect.name"] = "Nombre de la PC",
+        ["connect.create"] = "Crear ficha",
+        ["connect.once"] = "Copialo ahora: se muestra una sola vez.",
+        ["connect.text"] = "Texto de conexión",
+        ["connect.tokens"] = "Tus fichas",
+        ["connect.empty"] = "Todavía no hay fichas.",
+        ["connect.created"] = "Creada",
+        ["connect.last_used"] = "Último uso",
+        ["connect.never"] = "Nunca",
+        ["connect.revoked"] = "Revocada",
+        ["connect.revoke"] = "Revocar",
+        ["connect.limit"] = "Llegaste al límite de fichas. Revocá una para crear otra.",
     };
 }

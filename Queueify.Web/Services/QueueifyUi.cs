@@ -30,9 +30,6 @@ public static class QueueifyUi
         var services = builder.Services;
         services.AddFluentUIComponents();
 
-        var root = builder.Configuration["Queueify:DataRoot"] ?? Path.Combine(builder.Environment.ContentRootPath, "Data", "users");
-        services.TryAddSingleton(new UserStores(root));
-
         services.AddHttpClient(HttpCatalogs.ClientName, c =>
         {
             c.Timeout = TimeSpan.FromSeconds(20);   // ENGINEERING.md: explicit 20 s for HTTP
@@ -55,9 +52,6 @@ public static class QueueifyUi
 
     public static WebApplication MapQueueifyUi(this WebApplication app)
     {
-        using (var scope = app.Services.CreateScope())
-            scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.Migrate();
-
         // Each request answers in the language of the cookie, or of the browser; circuits do the same
         // through LocCircuitHandler. Loc keeps it per async flow, so two users never swap languages.
         app.Use(async (context, next) =>

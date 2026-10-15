@@ -21,7 +21,7 @@ public sealed partial class WebAppTests : IDisposable
         {
             Directory.CreateDirectory(_root);
             b.UseSetting("ConnectionStrings:DefaultConnection", $"DataSource={Path.Combine(_root, "app.db")}");
-            b.UseSetting("Queueify:DataRoot", Path.Combine(_root, "users"));
+            b.UseSetting("Queueify:DataDir", Path.Combine(_root, "users"));
             b.UseSetting("Queueify:AllowRegistration", allowRegistration ? "true" : "false");
         });
 
