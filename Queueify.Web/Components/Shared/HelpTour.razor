@@ -1,0 +1,82 @@
+@implements IDisposable
+@using Queueify.Services
+@using Queueify.Web.Services
+@inject AuthenticationStateProvider Auth
+@inject PreferencesStore Prefs
+@inject TourService Tour
+
+@if (_step is { } step)
+{
+    <div class="tour" role="dialog" aria-modal="false" aria-label="@Loc.T("webHelp.tour.title")" tabindex="-1" @onkeydown="KeyPressed" @ref="_dialog">
+        <p class="counter">@Loc.F("tour.counter", Loc.T("webHelp.tour.title"), step + 1, Steps)</p>
+        <h2>@Loc.T($"webHelp.tour.{step + 1}.title")</h2>
+        <p>@Loc.T($"webHelp.tour.{step + 1}")</p>
+        <div class="actions">
+            <button type="button" class="skip" @onclick="Finish">@Loc.T("tour.skip")</button>
+            <button type="button" class="next" @onclick="Next">@Loc.T(step + 1 == Steps ? "tour.done" : "tour.next")</button>
+        </div>
+    </div>
+}
+
+@code {
+    private const int Steps = 4;
+    private string? _userId;
+    private int? _step;
+    private bool _owner;
+    private bool _focus;
+    private ElementReference _dialog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _owner = Tour.TryAttach(this);
+        if (!_owner) return;
+        Tour.Replayed += Replay;
+        _userId = await Auth.IdAsync();
+        if (_userId is not null && !Prefs.Load(_userId).TourSeen) Start();
+    }
+
+    private void Start()
+    {
+        _step = 0;
+        _focus = true;
+    }
+
+    private void Replay() => _ = InvokeAsync(() =>
+    {
+        if (_userId is null) return;
+        Start();
+        StateHasChanged();
+    });
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focus || _step is null) return;
+        _focus = false;
+        try { await _dialog.FocusAsync(); }
+        catch (Exception ex) when (ex is InvalidOperationException or JSException or JSDisconnectedException) { }
+    }
+
+    private void Next()
+    {
+        if (_step + 1 >= Steps) Finish();
+        else _step++;
+    }
+
+    private void Finish()
+    {
+        _step = null;
+        if (_userId is not null) Prefs.Save(_userId, Prefs.Load(_userId) with { TourSeen = true });
+    }
+
+    private void KeyPressed(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") Finish();
+    }
+
+    public void Dispose()
+    {
+        if (!_owner) return;
+        Tour.Replayed -= Replay;
+        Tour.Detach(this);
+    }
+}

@@ -1,5 +1,5 @@
-# Unit tests (with the Firestore emulator), the release-tool tests and the portable build, on every
-# push to main and every pull request. The exe is attached to the run as an artifact.
+# Unit tests (with the Firestore emulator), the web tests, the release-tool tests and the portable build, on
+# every push to main and every pull request. The exe is attached to the run as an artifact.
 name: CI
 
 on:
@@ -17,12 +17,20 @@ concurrency:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
+
+      # Keyed on what decides the package set, so a changed version restores fresh.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       # Java runs the Firestore emulator, so the sync tests run here too instead of being skipped.
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -32,13 +40,26 @@ jobs:
 
       - name: Start the Firestore emulator
         shell: pwsh
+        timeout-minutes: 5
         run: tools/firestore-emulator.ps1 -Background
 
       - name: Unit tests
         shell: pwsh
+        timeout-minutes: 15
         env:
           QUEUEIFY_FIRESTORE_EMULATOR: 127.0.0.1:8080
-        run: dotnet test --project Queueify.Tests
+        run: dotnet test --project Queueify.Tests --report-xunit-trx --results-directory "$env:GITHUB_WORKSPACE/TestResults/unit"
+
+      - name: Web tests
+        shell: pwsh
+        timeout-minutes: 15
+        run: dotnet test --project Queueify.Web.Tests --report-xunit-trx --results-directory "$env:GITHUB_WORKSPACE/TestResults/web"
+
+      # The shipped web app must publish (it is what the Docker image builds); the tests do not catch a broken publish.
+      - name: Publish the web app
+        shell: pwsh
+        timeout-minutes: 10
+        run: dotnet publish Queueify.Web -c Release -o "$env:RUNNER_TEMP/web-publish"
 
       - name: Release tool tests
         shell: powershell
@@ -46,6 +67,7 @@ jobs:
 
       - name: Build the portable app
         shell: pwsh
+        timeout-minutes: 20
         run: tools/package.ps1
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -53,3 +75,11 @@ jobs:
           name: Queueify-portable
           path: dist/*.exe
           if-no-files-found: error
+
+      # What failed, in a form to open: the test reports.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: test-results
+          path: TestResults/
+          if-no-files-found: ignore

@@ -1,0 +1,73 @@
+﻿@page "/Account/ResendEmailConfirmation"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Queueify.Web.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>@Loc.T("web.acct.resend.title")</PageTitle>
+
+<h1>@Loc.T("web.acct.resend.title")</h1>
+<h2>@Loc.T("web.acct.forgot.enter")</h2>
+<hr />
+<StatusMessage Message="@message" />
+<div class="q-form-row">
+    <div class="q-col">
+        <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="q-field-error" role="alert" />
+            <div class="q-field">
+                <InputText @bind-Value="Input.Email" id="Input.Email" class="q-input" aria-required="true" placeholder="name@example.com" />
+                <label for="Input.Email">@Loc.T("web.acct.email")</label>
+                <ValidationMessage For="() => Input.Email" class="q-field-error" />
+            </div>
+            <button type="submit" class="q-btn primary wide">@Loc.T("web.acct.resend.btn")</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string? message;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        Input ??= new();
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        var user = await UserManager.FindByEmailAsync(Input.Email!);
+        if (user is null)
+        {
+            message = Loc.T("web.acct.m.ver_sent");
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = Loc.T("web.acct.m.ver_sent");
+    }
+
+    private sealed class InputModel
+    {
+        [LocRequired]
+        [LocEmail]
+        public string Email { get; set; } = "";
+    }
+}

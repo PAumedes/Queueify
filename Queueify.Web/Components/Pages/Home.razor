@@ -1,0 +1,6 @@
+@page "/"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageTitle>@Loc.T("nav.queue") - Queueify</PageTitle>
+
+<QueueBrowser Listened="false" />

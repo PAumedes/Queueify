@@ -1,0 +1,103 @@
+﻿@page "/Account/LoginWith2fa"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Queueify.Web.Data
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<LoginWith2fa> Logger
+
+<PageTitle>@Loc.T("web.acct.twofa.title")</PageTitle>
+
+<h1>@Loc.T("web.acct.twofa.title")</h1>
+<hr />
+<StatusMessage Message="@message" />
+<p>@Loc.T("web.acct.twofa.intro")</p>
+<div class="q-form-row">
+    <div class="q-col">
+        <EditForm Model="Input" FormName="login-with-2fa" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <input type="hidden" name="RememberMe" value="@RememberMe" />
+            <DataAnnotationsValidator />
+            <ValidationSummary class="q-field-error" role="alert" />
+            <div class="q-field">
+                <InputText @bind-Value="Input.TwoFactorCode" id="Input.TwoFactorCode" class="q-input" autocomplete="off" />
+                <label for="Input.TwoFactorCode">@Loc.T("web.acct.twofa.code")</label>
+                <ValidationMessage For="() => Input.TwoFactorCode" class="q-field-error" />
+            </div>
+            <div class="q-check-row">
+                <label for="remember-machine">
+                    <InputCheckbox @bind-Value="Input.RememberMachine" />
+                    @Loc.T("web.acct.twofa.remember")
+                </label>
+            </div>
+            <div>
+                <button type="submit" class="q-btn primary wide">@Loc.T("web.auth.login")</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+<p>
+    @Loc.T("web.acct.twofa.nodevice")
+    <a href="Account/LoginWithRecoveryCode?ReturnUrl=@ReturnUrl">@Loc.T("web.acct.twofa.use_recovery")</a>.
+</p>
+
+@code {
+    private string? message;
+    private ApplicationUser user = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery]
+    private bool RememberMe { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        // Ensure the user has gone through the username & password screen first
+        user = await SignInManager.GetTwoFactorAuthenticationUserAsync() ??
+            throw new InvalidOperationException("Unable to load two-factor authentication user.");
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        var authenticatorCode = Input.TwoFactorCode!.Replace(" ", string.Empty).Replace("-", string.Empty);
+        var result = await SignInManager.TwoFactorAuthenticatorSignInAsync(authenticatorCode, RememberMe, Input.RememberMachine);
+        var userId = await UserManager.GetUserIdAsync(user);
+
+        if (result.Succeeded)
+        {
+            Logger.LogInformation("User with ID '{UserId}' logged in with 2fa.", userId);
+            RedirectManager.RedirectTo(ReturnUrl);
+        }
+        else if (result.IsLockedOut)
+        {
+            Logger.LogWarning("User with ID '{UserId}' account locked out.", userId);
+            RedirectManager.RedirectTo("Account/Lockout");
+        }
+        else
+        {
+            Logger.LogWarning("Invalid authenticator code entered for user with ID '{UserId}'.", userId);
+            message = "Error: " + Loc.T("web.acct.m.invalid2fa");
+        }
+    }
+
+    private sealed class InputModel
+    {
+        [LocRequired]
+        [LocStringLength(7, MinimumLength = 6)]
+        [DataType(DataType.Text)]
+        [Display(Name = "Authenticator code")]
+        public string? TwoFactorCode { get; set; }
+
+        [Display(Name = "Remember this machine")]
+        public bool RememberMachine { get; set; }
+    }
+}

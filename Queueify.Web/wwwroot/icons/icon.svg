@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Queueify logo: a record sliding out of a magazine page. Master vector;
+       tools/make-icon.ps1 draws the same shapes for the .ico and PNG sizes. -->
+  <defs>
+    <linearGradient id="tile" x1="8" y1="8" x2="248" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6C4BFF"/>
+      <stop offset="1" stop-color="#FF4D8D"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#tile)"/>
+  <circle cx="164" cy="128" r="74" fill="#15121C"/>
+  <g fill="none" stroke="#3A3348" stroke-width="3">
+    <circle cx="164" cy="128" r="62"/>
+    <circle cx="164" cy="128" r="52"/>
+    <circle cx="164" cy="128" r="42"/>
+  </g>
+  <circle cx="164" cy="128" r="26" fill="#FFC0DA"/>
+  <circle cx="164" cy="128" r="5" fill="#15121C"/>
+  <rect x="40" y="62" width="118" height="146" rx="14" fill="#140A28" fill-opacity="0.27"/>
+  <rect x="34" y="54" width="118" height="146" rx="14" fill="#FFFFFF"/>
+  <rect x="52" y="74" width="70" height="18" rx="5" fill="#6C4BFF"/>
+  <g fill="#D9D3EA">
+    <rect x="52" y="104" width="82" height="9" rx="4"/>
+    <rect x="52" y="122" width="74" height="9" rx="4"/>
+    <rect x="52" y="140" width="82" height="9" rx="4"/>
+    <rect x="52" y="158" width="58" height="9" rx="4"/>
+  </g>
+</svg>

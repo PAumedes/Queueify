@@ -1,0 +1,169 @@
+﻿@page "/Account/Register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Queueify.Web.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject RegistrationGate Registration
+
+<PageTitle>@Loc.T("web.auth.register") - Queueify</PageTitle>
+
+<h1>@Loc.T("web.auth.register")</h1>
+
+@if (!open)
+{
+    <div class="q-alert warn" role="status">
+        <Ico Name="info" />
+        <p>@Loc.T("web.auth.closed")</p>
+    </div>
+    <p><a href="Account/Login">@Loc.T("web.auth.login")</a></p>
+}
+else
+{
+    <p class="q-sub">@(first ? Loc.T("web.auth.first_user") : Loc.T("web.auth.register.sub"))</p>
+    <StatusMessage Message="@Message" />
+    <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register" class="q-form">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="q-errors" role="alert" />
+        <div class="q-field">
+            <InputText @bind-Value="Input.Email" id="Input.Email" class="q-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+            <label for="Input.Email">@Loc.T("web.auth.email")</label>
+            <ValidationMessage For="() => Input.Email" class="q-field-error" />
+        </div>
+        <div class="q-field">
+            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="new-password" aria-required="true" placeholder="password" />
+            <label for="Input.Password">@Loc.T("web.auth.password")</label>
+            <ValidationMessage For="() => Input.Password" class="q-field-error" />
+        </div>
+        <div class="q-field">
+            <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="q-input" autocomplete="new-password" aria-required="true" placeholder="password" />
+            <label for="Input.ConfirmPassword">@Loc.T("web.auth.confirm")</label>
+            <ValidationMessage For="() => Input.ConfirmPassword" class="q-field-error" />
+        </div>
+        <button type="submit" class="q-btn primary wide">@Loc.T("web.auth.register")</button>
+    </EditForm>
+    <div class="q-divider">@Loc.T("web.auth.or")</div>
+    <ExternalLoginPicker />
+    <p><a href="Account/Login">@Loc.T("web.auth.have_account")</a></p>
+}
+
+@code {
+    private IEnumerable<IdentityError>? identityErrors;
+    private bool open = true;
+    private bool first;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        open = await Registration.IsOpenAsync();
+        first = open && !UserManager.Users.Any();
+    }
+
+    public async Task RegisterUser(EditContext editContext)
+    {
+        // The form can be posted without ever showing the page, so the rule is checked again here,
+        // in the same lock as the write: two first registrations at once cannot both become owner.
+        var user = CreateUser();
+        IdentityResult result = default!;
+        var allowed = await Registration.RunIfOpenAsync(async () =>
+        {
+            await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+            var emailStore = GetEmailStore();
+            await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+            result = await UserManager.CreateAsync(user, Input.Password);
+        });
+        if (!allowed)
+        {
+            open = false;
+            return;
+        }
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            return;
+        }
+
+        Logger.LogInformation("User created a new account with password.");
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo(
+                "Account/RegisterConfirmation",
+                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+        }
+        else
+        {
+            await SignInManager.SignInAsync(user, isPersistent: false);
+            RedirectManager.RedirectTo(string.IsNullOrEmpty(ReturnUrl) ? "add" : ReturnUrl);
+        }
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
+                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+        if (!UserManager.SupportsUserEmail)
+        {
+            throw new NotSupportedException("The default UI requires a user store with email support.");
+        }
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    private sealed class InputModel
+    {
+        [LocRequired]
+        [LocEmail]
+        [Display(Name = "Email")]
+        public string Email { get; set; } = "";
+
+        [LocRequired]
+        [LocStringLength(100, MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        [Display(Name = "Password")]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Confirm password")]
+        [LocCompare("Password")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

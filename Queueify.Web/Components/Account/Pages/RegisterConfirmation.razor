@@ -1,0 +1,21 @@
+@page "/Account/RegisterConfirmation"
+
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>@Loc.T("web.acct.regconf.title")</PageTitle>
+
+<h1>@Loc.T("web.acct.regconf.title")</h1>
+
+@* No mail leaves this server, so the page can neither look the address up nor show a confirmation link: it
+   answers the same for every address. *@
+<p role="alert">@Loc.T("web.acct.regconf.check")</p>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? Email { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Email is null) RedirectManager.RedirectTo("");
+    }
+}

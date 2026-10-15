@@ -1,0 +1,15 @@
+<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
+
+<dialog id="components-reconnect-modal" data-nosnippet>
+    <div class="components-reconnect-container">
+        <p class="components-reconnect-first-attempt-visible">@Loc.T("web.reconnect.first")</p>
+        <p class="components-reconnect-repeated-attempt-visible">
+            @Loc.T("web.reconnect.repeat") <span id="components-seconds-to-next-attempt"></span>
+        </p>
+        <p class="components-reconnect-failed-visible">@Loc.T("web.reconnect.failed")</p>
+        <button id="components-reconnect-button" class="components-reconnect-failed-visible">@Loc.T("web.reconnect.retry")</button>
+        <p class="components-pause-visible">@Loc.T("web.reconnect.paused")</p>
+        <p class="components-resume-failed-visible">@Loc.T("web.reconnect.failed")</p>
+        <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">@Loc.T("web.reconnect.resume")</button>
+    </div>
+</dialog>

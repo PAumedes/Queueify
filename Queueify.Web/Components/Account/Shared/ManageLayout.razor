@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+@layout Queueify.Web.Components.Layout.MainLayout
+
+<header class="q-head">
+    <span class="q-head-ico"><Ico Name="person" /></span>
+    <div>
+        <h1>@Loc.T("web.auth.manage.title")</h1>
+        <p class="q-sub">@Loc.T("web.auth.manage.sub")</p>
+    </div>
+</header>
+
+<div class="q-manage">
+    <ManageNavMenu />
+    <div class="q-card stack">
+        @Body
+    </div>
+</div>

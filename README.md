@@ -77,6 +77,33 @@ Keep the sync code private: anyone who has it can see and change your queue. Som
 Firebase project ID can't read your queue, but could use up its free daily quota; see [SECURITY.md](SECURITY.md). If you published security
 rules from an earlier version, copy them again from the Sync dialog and publish them in Firebase.
 
+**Or a Queueify web server.** If you run the web app ([ADR-0010](docs/adr/0010-web-app-and-shared-queue.md)),
+make a token in its Settings → Connect a PC, click **Sync**, choose *Connect to a Queueify web server* and
+paste the connect text (`queueify-web|https://…|token`). The server is then the shared queue, also for your
+phone. A PC syncs with one place at a time: to switch between Firebase and a web server, disconnect first
+(the queue stays on the PC and the other copy isn't touched). The token stays on that PC; revoke it in the web
+app to cut that PC off. The address must be https (plain http only for `localhost`), and the app never follows a
+redirect to another host.
+
+## Web app (from your phone)
+
+`Queueify.Web` is the same queue as a website you can host yourself: sign in with a password or a passkey,
+add an album from your phone the moment someone recommends it, and see it on your PCs. On a phone the
+**Add** page is the first thing you see after signing in, and the site installs to the home screen (PWA).
+It has the same pages as the desktop app (To listen, Listened, Magazine photo, Help, Settings), English and
+Rioplatense Spanish (chosen with the language button, otherwise by the browser), and light, dark or system
+theme. The Spotify and Tidal keys stay on the server and are never sent to the browser.
+
+```powershell
+dotnet run --project Queueify.Web          # then open the address it prints
+```
+
+The first account that registers owns the server; after that registration is closed unless the server's
+configuration sets `Queueify:AllowRegistration` to `true`. Data lives under `Queueify:DataDir`
+(default `App_Data` beside the app: one folder per user, the Data Protection keys and `identity.db`, the account
+database, created on first run; back the whole folder up as one). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
+the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md). To host it (Docker, a home PC behind a tunnel, a free VM) see [docs/HOSTING.md](docs/HOSTING.md).
+
 ## Magazine photos
 
 Take the photo with your phone, get it onto the PC (Phone Link, WhatsApp Web, OneDrive…) and drop it into
@@ -86,6 +113,28 @@ For accents and ñ, install Spanish text recognition once per PC: *Install Spani
 Settings → *Text recognition*, which also installs English, Portuguese, French, Italian and German.
 Windows asks for an administrator's permission. If anything goes wrong (permission declined, no
 internet, updates managed by an organization), Queueify says what happened and how to go on.
+
+## Web version: photos, settings and your data
+
+The web app (`Queueify.Web`, see [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md)) has the same Help,
+Settings and Magazine photo pages.
+
+- **Magazine photo**: choose, take (phones open the camera), drop or paste a photo, then tap the artist and the
+  album; *Search* opens the Add page with them. Photos are read by Tesseract in Spanish and English, then
+  discarded: nothing is stored. Run the server with the `tesseract` program installed (`apt install
+  tesseract-ocr`, or the Windows installer; `Ocr:TesseractPath` if it isn't on the PATH). The models download
+  once, checked against a checksum; to manage them yourself set `Ocr:TessdataPath`
+  ([ADR-0011](docs/adr/0011-web-ocr.md)). Limits live in the `Ocr` section: `MaxBytes`, `MaxPixels`,
+  `Timeout`, `MaxConcurrent`.
+- **Settings**: Spotify and Tidal keys are write-only (the page says *Configured* or *Not configured* and never shows
+  them again), with a *Test keys* button; Play app, country, theme, language, reading language, the link to
+  connect a PC, how to sign out everywhere, and *Delete my data*.
+- **Your data**: download the queue as JSON or CSV; import the desktop's `queueify.db` (in
+  `%LOCALAPPDATA%\Queueify`) or an exported JSON. Albums keep their identity, so importing twice never duplicates
+  anything and an album you deleted on the web stays deleted.
+
+Test it: `dotnet test --project Queueify.Web.Tests`. The real-engine test runs when `QUEUEIFY_TESSERACT` and
+`QUEUEIFY_TESSDATA` are set.
 
 ## Privacy
 
@@ -107,3 +156,6 @@ Conventional Commits, pull requests with adversarial review). Design documents l
 
 [GPL-3.0-or-later](LICENSE). Spotify and Tidal are trademarks of their owners; Queueify isn't affiliated
 with either. Their logos in the app come from [Simple Icons](https://simpleicons.org) (CC0).
+The web app decodes photos with [SkiaSharp](https://github.com/mono/SkiaSharp) (MIT) and Tesseract
+(Apache-2.0, run as a separate program); both are permissive and need no license key to build a release
+([ADR-0011](docs/adr/0011-web-ocr.md)).

@@ -1,20 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Everything that isn't UI: models, matching, OCR, storage, catalogs and sync. Tested by Queueify.Tests. -->
   <PropertyGroup>
-    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <!-- The plain net10.0 build is what the web app uses; the Windows build adds Windows OCR and the app launcher. -->
+    <TargetFrameworks>net10.0;net10.0-windows10.0.26100.0</TargetFrameworks>
+    <TargetPlatformMinVersion Condition="$(TargetFramework.Contains('windows'))">10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>Queueify</RootNamespace>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <Version>1.4.0</Version>
-    <!-- The app is published trimmed: warn about any code that trimming could break. -->
+    <!-- The app is published trimmed and ahead of time: warn about any code that could break (this turns on the trim, AOT and single-file analyzers). -->
     <IsTrimmable>true</IsTrimmable>
-    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <IsAotCompatible>true</IsAotCompatible>
     <DebugType Condition="'$(Configuration)' == 'Release'">embedded</DebugType>
   </PropertyGroup>
 
+  <ItemGroup Condition="!$(TargetFramework.Contains('windows'))">
+    <Compile Remove="Services\OcrService.cs;Services\WindowsOcr.cs;Services\ExternalLinks.cs" />
+  </ItemGroup>
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
   <!-- The security rules users paste into Firebase: the same file the emulator tests run against. -->

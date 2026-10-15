@@ -1,0 +1,182 @@
+﻿@page "/Account/Manage/EnableAuthenticator"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Queueify.Web.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject UrlEncoder UrlEncoder
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<EnableAuthenticator> Logger
+
+<PageTitle>@Loc.T("web.acct.auth.config")</PageTitle>
+
+@if (recoveryCodes is not null)
+{
+    <ShowRecoveryCodes RecoveryCodes="recoveryCodes.ToArray()" StatusMessage="@message" />
+}
+else
+{
+    <StatusMessage Message="@message" />
+    <h3>@Loc.T("web.acct.auth.config")</h3>
+    <div>
+        <p>@Loc.T("web.acct.auth.steps")</p>
+        <ol>
+            <li>
+                <p>
+                    @Loc.T("web.acct.auth.step1")
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> and
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> @Loc.T("web.acct.auth.step1b")
+                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> and
+                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
+                </p>
+            </li>
+            <li>
+                <p>@Loc.T("web.acct.auth.step2a") <kbd>@sharedKey</kbd> @Loc.T("web.acct.auth.step2b")</p>
+                <div class="q-alert">@Loc.T("web.acct.auth.qr") <a href="https://go.microsoft.com/fwlink/?Linkid=852423">@Loc.T("web.acct.auth.qr_link")</a>.</div>
+                <div></div>
+                <div data-url="@authenticatorUri"></div>
+            </li>
+            <li>
+                <p>
+                    @Loc.T("web.acct.auth.step3")
+                </p>
+                <div class="q-form-row">
+                    <div class="q-col">
+                        <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
+                            <DataAnnotationsValidator />
+                            <div class="q-field">
+                                <InputText @bind-Value="Input.Code" id="Input.Code" class="q-input" autocomplete="off" placeholder="@Loc.T("web.acct.auth.code.ph")" />
+                                <label for="Input.Code" class="q-label">@Loc.T("web.acct.auth.code")</label>
+                                <ValidationMessage For="() => Input.Code" class="q-field-error" />
+                            </div>
+                            <button type="submit" class="q-btn primary wide">@Loc.T("web.acct.auth.verify")</button>
+                            <ValidationSummary class="q-field-error" role="alert" />
+                        </EditForm>
+                    </div>
+                </div>
+            </li>
+        </ol>
+    </div>
+}
+
+@code {
+    private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
+
+    private string? message;
+    private ApplicationUser? user;
+    private string? sharedKey;
+    private string? authenticatorUri;
+    private IEnumerable<string>? recoveryCodes;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        await LoadSharedKeyAndQrCodeUriAsync(user);
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        // Strip spaces and hyphens
+        var verificationCode = Input.Code.Replace(" ", string.Empty).Replace("-", string.Empty);
+
+        var is2faTokenValid = await UserManager.VerifyTwoFactorTokenAsync(
+            user, UserManager.Options.Tokens.AuthenticatorTokenProvider, verificationCode);
+
+        if (!is2faTokenValid)
+        {
+            message = "Error: " + Loc.T("web.acct.m.code_invalid");
+            return;
+        }
+
+        await UserManager.SetTwoFactorEnabledAsync(user, true);
+        var userId = await UserManager.GetUserIdAsync(user);
+        Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", userId);
+
+        message = Loc.T("web.acct.m.auth_ok");
+
+        if (await UserManager.CountRecoveryCodesAsync(user) == 0)
+        {
+            recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+        }
+        else
+        {
+            RedirectManager.RedirectToWithStatus("Account/Manage/TwoFactorAuthentication", message, HttpContext);
+        }
+    }
+
+    private async ValueTask LoadSharedKeyAndQrCodeUriAsync(ApplicationUser user)
+    {
+        // Load the authenticator key & QR code URI to display on the form
+        var unformattedKey = await UserManager.GetAuthenticatorKeyAsync(user);
+        if (string.IsNullOrEmpty(unformattedKey))
+        {
+            await UserManager.ResetAuthenticatorKeyAsync(user);
+            unformattedKey = await UserManager.GetAuthenticatorKeyAsync(user);
+        }
+
+        sharedKey = FormatKey(unformattedKey!);
+
+        var email = await UserManager.GetEmailAsync(user);
+        authenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+    }
+
+    private string FormatKey(string unformattedKey)
+    {
+        var result = new StringBuilder();
+        int currentPosition = 0;
+        while (currentPosition + 4 < unformattedKey.Length)
+        {
+            result.Append(unformattedKey.AsSpan(currentPosition, 4)).Append(' ');
+            currentPosition += 4;
+        }
+        if (currentPosition < unformattedKey.Length)
+        {
+            result.Append(unformattedKey.AsSpan(currentPosition));
+        }
+
+        return result.ToString().ToLowerInvariant();
+    }
+
+    private string GenerateQrCodeUri(string email, string unformattedKey)
+    {
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            AuthenticatorUriFormat,
+            UrlEncoder.Encode("Microsoft.AspNetCore.Identity.UI"),
+            UrlEncoder.Encode(email),
+            unformattedKey);
+    }
+
+    private sealed class InputModel
+    {
+        [LocRequired]
+        [LocStringLength(7, MinimumLength = 6)]
+        [DataType(DataType.Text)]
+        [Display(Name = "Verification Code")]
+        public string Code { get; set; } = "";
+    }
+}

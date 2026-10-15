@@ -1,0 +1,79 @@
+.summary { color: var(--colorNeutralForeground2, #424242); }
+
+.zone {
+    border: 2px dashed var(--colorNeutralStroke1, #d1d1d1);
+    border-radius: var(--borderRadiusLarge, 8px);
+    padding: 16px;
+    margin-block: 16px;
+}
+
+.hint, .privacy { margin: 0 0 12px; color: var(--colorNeutralForeground2, #424242); }
+.privacy { margin: 12px 0 0; font-size: 0.875rem; }
+
+.picks { display: flex; flex-wrap: wrap; gap: 16px; }
+.pick { display: flex; flex-direction: column; gap: 4px; min-width: 14rem; }
+.pick label { font-weight: 600; }
+.pick select, .pick input { min-height: 44px; font: inherit; }
+
+.status { min-height: 1.5rem; }
+.error { color: var(--colorPaletteRedForeground1, #b10e1c); }
+.error::before { content: "\26A0\FE0E  "; }
+
+.sheet { position: relative; display: block; max-width: 100%; width: fit-content; margin-block: 12px; }
+.sheet img { display: block; max-width: 100%; height: auto; border-radius: var(--borderRadiusMedium, 4px); }
+.box {
+    position: absolute;
+    border: 2px solid var(--colorBrandStroke1, #0f6cbd);
+    background: color-mix(in srgb, var(--colorBrandBackground, #0f6cbd) 12%, transparent);
+    border-radius: 2px;
+    cursor: pointer;
+}
+.box.picked { background: color-mix(in srgb, var(--colorBrandBackground, #0f6cbd) 45%, transparent); border-width: 3px; }
+
+.lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.line {
+    width: 100%;
+    min-height: 44px;
+    text-align: start;
+    font: inherit;
+    padding: 6px 12px;
+    border: 1px solid var(--colorNeutralStroke1, #d1d1d1);
+    border-radius: var(--borderRadiusMedium, 4px);
+    background: var(--colorNeutralBackground1, #fff);
+    color: var(--colorNeutralForeground1, #242424);
+}
+.line[aria-pressed="true"] {
+    border-color: var(--colorBrandStroke1, #0f6cbd);
+    background: color-mix(in srgb, var(--colorBrandBackground, #0f6cbd) 18%, var(--colorNeutralBackground1, #fff));
+    font-weight: 600;
+}
+.line[aria-pressed="true"]::before { content: "\2713  "; }
+
+.line:focus-visible, .go:focus-visible, .plain:focus-visible, .pick select:focus-visible, .pick input:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2, #000);
+    outline-offset: 2px;
+}
+
+.searchbar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-top: 16px;
+    padding: 12px 0;
+    background: var(--colorNeutralBackground1, #fff);
+}
+.go {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--borderRadiusMedium, 4px);
+    background: var(--colorBrandBackground, #0f6cbd);
+    color: var(--colorNeutralForegroundOnBrand, #fff);
+    text-decoration: none;
+    font-weight: 600;
+}
+.plain { min-height: 44px; font: inherit; background: none; border: none; text-decoration: underline; color: inherit; }

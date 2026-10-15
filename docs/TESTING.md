@@ -5,8 +5,10 @@
 | Suite | Runs | Where |
 | --- | --- | --- |
 | Unit (`Queueify.Tests`) | Core logic: matching, store, sync, catalogs (fake HTTP), OCR, texts, settings | `dotnet test --project Queueify.Tests`; CI |
+| Web sync client (inside the unit suite) | `ServerSync` against scripted answers over a fake `HttpMessageHandler`: round trips, pagination (a full page means more), 401, timeout, redirects, size limit, token never in messages | always on |
 | Sync (inside the unit suite) | Two simulated PCs against the Firestore emulator, and the security rules | with `QUEUEIFY_FIRESTORE_EMULATOR`; CI |
 | UI (`tests\ui\Queueify.UiTests.ps1`) | The published app through UI Automation: tour, pages, panel, settings, language restart | locally, before merging UI changes |
+| Web (`Queueify.Web.Tests`) | The sync server and tokens through `WebApplicationFactory<Program>`: auth, user isolation, conflicts, limits, secrets on disk, and `ServerSyncEndToEndTests`, which runs the real `ServerSync` client against the real `SyncEngine` in process (two PCs and the web, conflicts, deletions, pages over 1,000, revoked token) | `dotnet test --project Queueify.Web.Tests`; CI |
 | Sync UI (`tests\ui\Queueify.SyncUiTests.ps1`) | Connecting Sync from the dialog, an album reaching Firestore | locally, with the emulator |
 | Update UI (`tests\ui\Queueify.UpdateUiTests.ps1`) | A copy of the download updating itself from a release served on this PC: offer, refusing a bad download, the setting, the swap and restart | locally |
 | Release tool (`tests\tools\Release.Tests.ps1`) | Version bump, changelog and notes | locally; CI |
@@ -55,4 +57,15 @@ folder, keeps its data in local app data (default mode), and a taskbar pin would
   decisions that would start something (an install) are pure functions tested on their own.
 - Texts asserted in English run under `Loc.Override("en")` when they contain numbers or dates, so the
   machine's regional format can't change them.
+- Web tests never touch real data or the source tree: every host (smoke test included) points `Queueify:DataDir` and the Identity database at a scratch
+  folder (`SyncFactory`, `ScratchHost`) and gives every test its own user, so tests share one server without seeing each other's data.
 - Could the test pass with a wrong implementation? Flip a comparison mentally; a test should fail.
+
+## Build rules
+
+`Directory.Build.props` holds the settings every project shares (nullable, implicit usings) and, when `CI=true`
+(GitHub sets it), turns nullable warnings and NuGet audit findings (known vulnerable packages) into errors; set
+`CI=true` locally to see what CI will see. `Directory.Packages.props` holds every package version (central package
+management): projects reference packages without a `Version`. The app version stays in `Queueify\Queueify.csproj`
+and `Queueify.Core\Queueify.Core.csproj`, where `tools\package.ps1` and `release.yml` read it. CI also publishes
+`Queueify.Web` as a smoke step, because the tests do not notice a publish that no longer works.

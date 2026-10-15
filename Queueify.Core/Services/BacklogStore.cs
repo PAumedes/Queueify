@@ -13,14 +13,41 @@ public sealed class BacklogStore
     private const string Columns =
         "id, uid, artist, album, year, source, cover_url, spotify_id, tidal_id, added_at, listened_at, rating, updated_at, dirty, deleted";
 
+    /// <summary>How long a writer waits for another one (a sync, an import, a page) before giving up.</summary>
+    private const int BusyTimeoutSeconds = 15;
+
+    // Schema work (and the one-time switch to WAL) runs once per database file and process, not on every
+    // `new BacklogStore`: the web app builds one per page load, and the work writes, so it would queue behind a sync.
+    private static readonly object PrepareLock = new();
+    private static readonly HashSet<string> Prepared =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
     private readonly string _connectionString;
 
     public BacklogStore(string path)
     {
+        path = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        _connectionString = new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString();
+        _connectionString = new SqliteConnectionStringBuilder { DataSource = path, Pooling = false, DefaultTimeout = BusyTimeoutSeconds }.ToString();
 
+        lock (PrepareLock)
+        {
+            // A file that was deleted (an account removed, a data folder cleared) needs its schema again.
+            if (Prepared.Contains(path) && File.Exists(path)) return;
+            Prepare();
+            Prepared.Add(path);
+        }
+    }
+
+    private void Prepare()
+    {
         using var db = Open();
+        // Readers no longer block the writer and the other way round; the setting stays in the file.
+        using (var wal = db.CreateCommand())
+        {
+            wal.CommandText = "PRAGMA journal_mode = WAL";
+            wal.ExecuteScalar();
+        }
         Execute(db, """
             CREATE TABLE IF NOT EXISTS items (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +77,7 @@ public sealed class BacklogStore
         if (!existing.Contains("dirty")) Execute(db, "ALTER TABLE items ADD COLUMN dirty INTEGER NOT NULL DEFAULT 1");
         if (!existing.Contains("deleted")) Execute(db, "ALTER TABLE items ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0");
         Execute(db, "UPDATE items SET uid = lower(hex(randomblob(16))) WHERE uid IS NULL");
-        Execute(db, $"UPDATE items SET updated_at = '{Stamp(DateTime.UtcNow)}' WHERE updated_at IS NULL");
+        Execute(db, $"UPDATE items SET updated_at = '{StampUtc(DateTime.UtcNow)}' WHERE updated_at IS NULL");
         Execute(db, "CREATE UNIQUE INDEX IF NOT EXISTS items_uid ON items(uid)");
     }
 
@@ -114,18 +141,37 @@ public sealed class BacklogStore
     public void ApplyRemote(BacklogItem remote)
     {
         using var db = Open();
+        ApplyRemote(db, null, remote);
+    }
+
+    /// <summary>
+    /// <see cref="ApplyRemote(BacklogItem)"/> for a whole page of a sync in one transaction: one connection and one
+    /// commit instead of one of each per album, and a page is applied completely or not at all. Returns how many
+    /// albums changed here (those that were older or missing, not the ones this PC already had in a newer version).
+    /// </summary>
+    public int ApplyRemoteBatch(IEnumerable<BacklogItem> remote)
+    {
+        int changed = 0;
+        using var db = Open();
+        using var tx = db.BeginTransaction(deferred: false);
+        foreach (var item in remote) changed += ApplyRemote(db, tx, item);
+        tx.Commit();
+        return changed;
+    }
+
+    private static int ApplyRemote(SqliteConnection db, SqliteTransaction? tx, BacklogItem remote)
+    {
+        using var cmd = db.CreateCommand();
+        cmd.Transaction = tx;
         if (remote.Deleted)
         {
-            using var del = db.CreateCommand();
-            del.CommandText = "DELETE FROM items WHERE uid = $uid AND updated_at < $updated";
-            del.Parameters.AddWithValue("$uid", remote.Uid);
-            del.Parameters.AddWithValue("$updated", Stamp(remote.UpdatedAt));
-            del.ExecuteNonQuery();
-            return;
+            cmd.CommandText = "DELETE FROM items WHERE uid = $uid AND updated_at < $updated";
+            cmd.Parameters.AddWithValue("$uid", remote.Uid);
+            cmd.Parameters.AddWithValue("$updated", StampUtc(remote.UpdatedAt));
+            return cmd.ExecuteNonQuery();
         }
 
         remote.Dirty = false;
-        using var cmd = db.CreateCommand();
         cmd.CommandText = $"""
             INSERT INTO items ({Columns[4..]})
             VALUES ($uid, $artist, $album, $year, $source, $cover, $spotify, $tidal, $added, $listened, $rating, $updated, $dirty, $deleted)
@@ -136,7 +182,64 @@ public sealed class BacklogStore
             WHERE items.updated_at < excluded.updated_at
             """;
         Bind(cmd, remote);
-        cmd.ExecuteNonQuery();
+        return cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Brings in albums from a backup in one transaction, keeping each album's own <c>UpdatedAt</c> (so "newest
+    /// wins" still means the album's last edit, not the day of the import). A new album is added; one already here
+    /// is overwritten only when the backup's copy is newer. An album deleted here is not brought back.
+    /// Returns how many were added and how many were already here.
+    /// </summary>
+    public (int Added, int AlreadyHere) MergeBackup(IEnumerable<BacklogItem> items)
+    {
+        int added = 0, here = 0;
+        using var db = Open();
+        // IMMEDIATE: the write lock is taken before anything is read. A deferred transaction that reads first and writes
+        // later is refused at once (no waiting) if a sync wrote in between.
+        using var tx = db.BeginTransaction(deferred: false);
+        foreach (var item in items)
+        {
+            if (item.Uid.Length == 0) item.Uid = Guid.NewGuid().ToString("N");
+            item.Dirty = true;   // queued for the server's sync stamp, so connected PCs receive the imported albums
+            item.Deleted = false;
+
+            using var find = db.CreateCommand();
+            find.Transaction = tx;
+            find.CommandText = "SELECT deleted, updated_at FROM items WHERE uid = $uid";
+            find.Parameters.AddWithValue("$uid", item.Uid);
+            using (var r = find.ExecuteReader())
+            {
+                if (r.Read())
+                {
+                    here++;
+                    if (r.GetInt64(0) != 0 || ParseDate(r.GetString(1)).ToUniversalTime() >= AsUtc(item.UpdatedAt)) continue;
+                    using var update = db.CreateCommand();
+                    update.Transaction = tx;
+                    update.CommandText = """
+                        UPDATE items SET artist = $artist, album = $album, year = $year, source = $source, cover_url = $cover,
+                            spotify_id = $spotify, tidal_id = $tidal, added_at = $added, listened_at = $listened, rating = $rating,
+                            updated_at = $updated, dirty = $dirty, deleted = 0
+                        WHERE uid = $uid
+                        """;
+                    Bind(update, item);
+                    update.ExecuteNonQuery();
+                    continue;
+                }
+            }
+
+            using var insert = db.CreateCommand();
+            insert.Transaction = tx;
+            insert.CommandText = $"""
+                INSERT INTO items ({Columns[4..]})
+                VALUES ($uid, $artist, $album, $year, $source, $cover, $spotify, $tidal, $added, $listened, $rating, $updated, $dirty, $deleted)
+                """;
+            Bind(insert, item);
+            insert.ExecuteNonQuery();
+            added++;
+        }
+        tx.Commit();
+        return (added, here);
     }
 
     /// <summary>
@@ -152,7 +255,7 @@ public sealed class BacklogStore
             DELETE FROM items WHERE uid = $uid AND deleted = 1 AND dirty = 0;
             """;
         cmd.Parameters.AddWithValue("$uid", item.Uid);
-        cmd.Parameters.AddWithValue("$updated", Stamp(item.UpdatedAt));
+        cmd.Parameters.AddWithValue("$updated", StampUtc(item.UpdatedAt));
         cmd.ExecuteNonQuery();
     }
 
@@ -243,7 +346,7 @@ public sealed class BacklogStore
         cmd.Parameters.AddWithValue("$added", Stamp(item.AddedAt));
         cmd.Parameters.AddWithValue("$listened", item.ListenedAt is DateTime l ? Stamp(l) : DBNull.Value);
         cmd.Parameters.AddWithValue("$rating", item.Rating);
-        cmd.Parameters.AddWithValue("$updated", Stamp(item.UpdatedAt));
+        cmd.Parameters.AddWithValue("$updated", StampUtc(item.UpdatedAt));
         cmd.Parameters.AddWithValue("$dirty", item.Dirty ? 1 : 0);
         cmd.Parameters.AddWithValue("$deleted", item.Deleted ? 1 : 0);
     }
@@ -253,6 +356,16 @@ public sealed class BacklogStore
     /// AddedAt/ListenedAt keep the local offset; they are only displayed, never compared.
     /// </summary>
     private static string Stamp(DateTime d) => d.ToString("O", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// <c>updated_at</c> is compared and matched as text, so it is always written as UTC ("Z"): a local time would
+    /// carry an offset and never equal what a query reads back, leaving the album dirty for ever. A time with no
+    /// zone is taken as UTC, like everywhere on the wire.
+    /// </summary>
+    private static string StampUtc(DateTime d) => Stamp(AsUtc(d));
+
+    private static DateTime AsUtc(DateTime d) =>
+        d.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(d, DateTimeKind.Utc) : d.ToUniversalTime();
 
     private static DateTime ParseDate(string s) =>
         DateTime.Parse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

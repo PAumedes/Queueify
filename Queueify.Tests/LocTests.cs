@@ -36,8 +36,8 @@ public partial class LocTests
         var root = RepoRoot();
         var used = new HashSet<string>();
         foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
-                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
-                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests")))
+                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml") || f.EndsWith(".razor")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests") && !f.Contains("Queueify.Web.Tests")))
         {
             var text = File.ReadAllText(file);
             foreach (Match m in CodeKey().Matches(text)) used.Add(m.Groups[1].Value);
@@ -143,7 +143,7 @@ public partial class LocTests
         Directory.EnumerateFiles(RepoRoot(), "*" + extension, SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                         && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
-                        && !f.Contains("Queueify.Tests") && !f.EndsWith("Strings.En.cs") && !f.EndsWith("Strings.Es.cs"));
+                        && !f.Contains("Queueify.Tests") && !f.Contains("Queueify.Web.Tests") && !f.EndsWith("Strings.En.cs") && !f.EndsWith("Strings.Es.cs"));
 
     [Fact]
     public void T_UsesTheCurrentLanguage_AndFallsBackToTheKey()
@@ -177,16 +177,16 @@ public partial class LocTests
     [GeneratedRegex(@"\{(\d+)(:[^}]*)?\}")]
     private static partial Regex Placeholder();
 
-    [GeneratedRegex(@"Loc\.[TF]\(""([a-z0-9_.]+)""")]
+    [GeneratedRegex(@"Loc\.[TF]\(""([A-Za-z0-9_.]+)""")]
     private static partial Regex CodeKey();
 
-    [GeneratedRegex(@"\{l:Tr Key=([a-z0-9_.]+)\}")]
+    [GeneratedRegex(@"\{l:Tr Key=([A-Za-z0-9_.]+)\}")]
     private static partial Regex XamlKey();
 
-    [GeneratedRegex(@"""([a-z]+\.[a-z0-9_.]+)""")]
+    [GeneratedRegex(@"""([a-zA-Z]+\.[A-Za-z0-9_.]+)""")]
     private static partial Regex KeyLike();
 
-    [GeneratedRegex(@"\[""([a-z0-9_.]+)""\] =")]
+    [GeneratedRegex(@"\[""([A-Za-z0-9_.]+)""\] =")]
     private static partial Regex TableKey();
 
     [GeneratedRegex(@"\.(json|db|rules|log|tmp|exe|ico|svg|png|pri|xbf)$")]

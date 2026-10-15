@@ -1,0 +1,31 @@
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using Queueify.Web.Data
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+
+@* Shown only when the server has Google or GitHub configured; the default is a password or a passkey. *@
+@if (externalLogins.Length > 0)
+{
+    <form class="q-form" action="Account/PerformExternalLogin" method="post">
+        <AntiforgeryToken />
+        <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+        @foreach (var provider in externalLogins)
+        {
+            <button type="submit" class="q-btn wide" name="provider" value="@provider.Name" title="@Loc.F("web.auth.external_using", provider.DisplayName)">@provider.DisplayName</button>
+        }
+    </form>
+}
+
+@code {
+    private AuthenticationScheme[] externalLogins = [];
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
+    }
+}

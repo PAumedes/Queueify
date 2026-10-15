@@ -1,0 +1,64 @@
+@implements IDisposable
+@inject Toasts Toasts
+
+<div class="q-snack">
+    @if (Toasts.Current is { } t)
+    {
+        <div class="q-snack-card">
+            <span class="q-snack-msg" role="status" aria-live="polite">@t.Message</span>
+            @if (t.Rate is { } rate)
+            {
+                <span class="q-stars" role="group" aria-label="@Loc.T("item.rating")">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        var stars = i;
+                        <button type="button" class="q-star" aria-label="@Stars.Label(stars)" title="@Stars.Label(stars)"
+                                @onclick="() => Rated(rate, stars)"><Ico Name="star" /></button>
+                    }
+                </span>
+            }
+            @if (t.Action is { } action)
+            {
+                <button type="button" class="q-btn" @onclick="() => Act(action)">@t.ActionText</button>
+            }
+            <button type="button" class="q-btn icon" aria-label="@Loc.T("web.toast.dismiss")" title="@Loc.T("web.toast.dismiss")" @onclick="Toasts.Dismiss"><Ico Name="close" /></button>
+        </div>
+    }
+</div>
+
+@code {
+    private CancellationTokenSource? _timer;
+
+    protected override void OnInitialized() => Toasts.Changed += OnChanged;
+
+    private void OnChanged()
+    {
+        _timer?.Cancel();
+        if (Toasts.Current != null)
+        {
+            var cts = _timer = new CancellationTokenSource();
+            var shown = Toasts.Current;
+            _ = Task.Delay(TimeSpan.FromSeconds(Toasts.Current.Action != null ? 15 : 9), cts.Token).ContinueWith(
+                _ => InvokeAsync(() => { if (ReferenceEquals(Toasts.Current, shown)) Toasts.Dismiss(); }), CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+        }
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Act(Action action)
+    {
+        Toasts.Dismiss();
+        action();
+    }
+
+    private void Rated(Action<double> rate, int stars)
+    {
+        Toasts.Dismiss();
+        rate(stars);
+    }
+
+    public void Dispose()
+    {
+        Toasts.Changed -= OnChanged;
+        _timer?.Cancel();
+    }
+}

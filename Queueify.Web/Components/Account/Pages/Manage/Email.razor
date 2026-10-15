@@ -1,0 +1,143 @@
+﻿@page "/Account/Manage/Email"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Queueify.Web.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>@Loc.T("web.acct.email.manage")</PageTitle>
+
+<h3>@Loc.T("web.acct.email.manage")</h3>
+
+<StatusMessage Message="@message"/>
+<div class="q-form-row">
+    <div class="q-col">
+        <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+            <AntiforgeryToken />
+        </form>
+        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="q-field-error" role="alert" />
+            @if (isEmailConfirmed)
+            {
+                <div class="q-field">
+                    <input type="text" value="@email" id="email" class="q-input" placeholder="@Loc.T("web.acct.email.enter")" disabled />
+                    <div>
+                        <span aria-hidden="true">✓</span>
+                    </div>
+                    <label for="email">@Loc.T("web.acct.email")</label>
+                </div>
+            }
+            else
+            {
+                <div class="q-field">
+                    <input type="text" value="@email" id="email" class="q-input" placeholder="@Loc.T("web.acct.email.enter")" disabled />
+                    <label for="email">@Loc.T("web.acct.email")</label>
+                    <button type="submit" class="q-linkbtn" form="send-verification-form">@Loc.T("web.acct.email.send_ver")</button>
+                </div>
+            }
+            <div class="q-field">
+                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="q-input" autocomplete="email" aria-required="true" placeholder="@Loc.T("web.acct.email.new.ph")" />
+                <label for="Input.NewEmail">@Loc.T("web.acct.email.new")</label>
+                <ValidationMessage For="() => Input.NewEmail" class="q-field-error" />
+            </div>
+            <button type="submit" class="q-btn primary wide">@Loc.T("web.acct.email.change")</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string? message;
+    private ApplicationUser? user;
+    private string? email;
+    private bool isEmailConfirmed;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "change-email")]
+    private InputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        email = await UserManager.GetEmailAsync(user);
+        isEmailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
+
+        Input.NewEmail ??= email;
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        if (Input.NewEmail is null || Input.NewEmail == email)
+        {
+            message = Loc.T("web.acct.m.email_same");
+            return;
+        }
+
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["email"] = Input.NewEmail, ["code"] = code });
+
+        await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = Loc.T("web.acct.m.email_link");
+    }
+
+    private async Task OnSendEmailVerificationAsync()
+    {
+        if (email is null)
+        {
+            return;
+        }
+
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+
+        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = Loc.T("web.acct.m.ver_sent");
+    }
+
+    private sealed class InputModel
+    {
+        [LocRequired]
+        [LocEmail]
+        [Display(Name = "New email")]
+        public string? NewEmail { get; set; }
+    }
+}

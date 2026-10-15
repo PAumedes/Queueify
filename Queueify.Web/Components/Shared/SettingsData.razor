@@ -1,0 +1,108 @@
+@implements IAsyncDisposable
+@using System.Text.Json
+@using Queueify.Services
+@using Queueify.Web.Services
+@inject IJSRuntime JS
+
+<div class="data">
+    <p class="actions">
+        <a class="download json" href="/api/export.json" download="queueify.json">@Loc.T("webData.export.json")</a>
+        <a class="download csv" href="/api/export.csv" download="queueify.csv">@Loc.T("webData.export.csv")</a>
+    </p>
+
+    <h3>@Loc.T("webData.import.title")</h3>
+    <p class="text">@Loc.T("webData.import.text")</p>
+    <div class="field">
+        <label for="import-file">@Loc.T("webData.import.choose")</label>
+        <input id="import-file" type="file" accept=".db,.sqlite,.json,application/json,application/octet-stream" @ref="_input" disabled="@_working" />
+    </div>
+    <button type="button" class="import" disabled="@(_fileId is null || _working)" @onclick="ImportAsync">
+        @Loc.T(_working ? "webData.import.working" : "webData.import.button")
+    </button>
+    @if (_fileName is not null)
+    {
+        <span class="name">@_fileName</span>
+    }
+    <p class="notice @(_result?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="import">@(_result is null ? "" : (_result.IsError ? "⚠︎ " : "✓ ") + _result.Text)</p>
+</div>
+
+@code {
+    private ElementReference _input;
+    private IJSObjectReference? _module, _watcher;
+    private DotNetObjectReference<SettingsData>? _self;
+    private string? _fileId, _fileName;
+    private bool _working;
+    private Notice? _result;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _self = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/queueify-upload.js");
+        _watcher = await _module.InvokeAsync<IJSObjectReference>("watch", new[] { _input }, null, _self);
+    }
+
+    /// <summary>Called from the browser when a file is chosen; nothing is sent until Import is pressed.</summary>
+    [JSInvokable]
+    public async Task OnFileChosen(string id, string name, long size, string? preview)
+    {
+        (_fileId, _fileName, _result) = (id, name, null);
+        if (size > Queueify.Web.Services.DataTransfer.MaxBytes) _result = new(Loc.F("webData.import.too_big", Queueify.Web.Services.DataTransfer.MaxBytes / (1024 * 1024)), true);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ImportAsync()
+    {
+        if (_fileId is null || _module is null) return;
+        _working = true;
+        _result = null;
+        try
+        {
+            var answer = await _module.InvokeAsync<UploadResult>("send", _fileId, "/api/import", "application/octet-stream");
+            _result = Describe(answer);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            _result = new(Loc.T("webData.import.failed"), true);
+        }
+        finally
+        {
+            _working = false;
+        }
+    }
+
+    private sealed record Report(int Added, int AlreadyHere, int Skipped);
+    private sealed record ErrorBody(string? Error);
+
+    private static Notice Describe(UploadResult answer)
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        try
+        {
+            if (answer.Status == 200 && JsonSerializer.Deserialize<Report>(answer.Body, options) is { } r)
+                return new(Loc.F("webData.import.done", r.Added, r.AlreadyHere, r.Skipped));
+            return JsonSerializer.Deserialize<ErrorBody>(answer.Body, options)?.Error switch
+            {
+                "tooLarge" => new(Loc.F("webData.import.too_big", Queueify.Web.Services.DataTransfer.MaxBytes / (1024 * 1024)), true),
+                "invalid" => new(Loc.T("webData.import.invalid"), true),
+                _ => new(Loc.T("webData.import.failed"), true),
+            };
+        }
+        catch (JsonException)
+        {
+            return new(Loc.T("webData.import.failed"), true);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null && _fileId is not null) await _module.InvokeVoidAsync("release", _fileId, null);
+            if (_watcher is not null) { await _watcher.InvokeVoidAsync("dispose"); await _watcher.DisposeAsync(); }
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException) { }
+        _self?.Dispose();
+    }
+}

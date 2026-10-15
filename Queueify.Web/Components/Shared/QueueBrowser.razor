@@ -1,0 +1,306 @@
+@implements IDisposable
+@inject UserQueue Queue
+@inject Toasts Toasts
+@inject IJSRuntime JS
+
+@{
+    var items = View();
+    var shown = items.Count > _shown ? items.GetRange(0, _shown) : items;
+}
+
+<header class="q-head">
+    <span class="q-head-ico"><Ico Name="@(Listened ? "listened" : "queue")" /></span>
+    <div>
+        <h1>@(Listened ? Loc.T("nav.listened") : Loc.T("nav.queue"))</h1>
+        <p class="q-sub">@(Listened ? QueueText.ListenedSummary(Queue.HeardItems) : QueueText.PendingSummary(Queue.PendingItems, DateTime.Now))</p>
+    </div>
+</header>
+
+<div class="q-bar" role="search">
+    <div class="q-grow q-searchbox">
+        <Ico Name="search" />
+        <label class="q-sr" for="q-filter">@Loc.T("queue.filter")</label>
+        <input id="q-filter" class="q-input" style="padding-inline-start:40px" type="search" data-q-filter autocomplete="off"
+               placeholder="@Loc.T("queue.filter.placeholder")" value="@_typed" @oninput="OnFilterInput"
+               @onkeydown="OnFilterKey" />
+    </div>
+    <label class="q-sr" for="q-sort">@Loc.T("sort.tip")</label>
+    <select id="q-sort" class="q-select" aria-label="@Loc.F("sort.name", SortLabel(_sort))" @onchange="OnSort">
+        @foreach (var key in QueueView.SortKeys)
+        {
+            <option value="@key" selected="@(key == _sort)">@SortLabel(key)</option>
+        }
+    </select>
+    <span class="q-switch" title="@Loc.T("queue.covers.tip")">
+        <FluentSwitch Value="_covers" ValueChanged="SetCovers" aria-labelledby="q-covers-label" />
+        <span id="q-covers-label">@Loc.T("queue.covers")</span>
+    </span>
+    @if (!Listened)
+    {
+        <button type="button" class="q-btn" title="@Loc.T("queue.surprise.tip")" @onclick="Surprise"><Ico Name="dice" />@Loc.T("queue.surprise")</button>
+    }
+</div>
+
+@if (items.Count == 0)
+{
+    <div class="q-empty">
+        <Ico Name="@(Listened ? "listened" : "queue")" />
+        <h2>@EmptyTitle</h2>
+        <p>@EmptyText</p>
+        @if (!Listened && _typed.Length == 0)
+        {
+            <a class="q-btn primary" href="add"><Ico Name="add" />@Loc.T("web.nav.add")</a>
+        }
+    </div>
+}
+else if (_covers)
+{
+    <ul class="q-grid">
+        @foreach (var item in shown)
+        {
+            <li id="a-@item.Uid" class="q-tile @(item.Uid == _picked ? "picked" : "")" @key="item.Uid">
+                <Cover Url="@item.CoverUrl" Artist="@item.Artist" Album="@item.Album" />
+                <div>
+                    <div class="q-title">@item.Album</div>
+                    <div class="q-meta">@item.ArtistLine</div>
+                    <div class="q-meta">@Subtitle(item)</div>
+                </div>
+                @if (Listened) { <Stars Item="item" OnRate="r => Queue.Rate(item, r)" /> }
+                <div class="q-actions">@Actions(item)</div>
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <ul class="q-list">
+        @foreach (var item in shown)
+        {
+            <li id="a-@item.Uid" class="q-row @(item.Uid == _picked ? "picked" : "")" @key="item.Uid">
+                <Cover Url="@item.CoverUrl" Artist="@item.Artist" Album="@item.Album" />
+                <div>
+                    <div class="q-title">@item.Album</div>
+                    <div class="q-meta">@item.ArtistLine</div>
+                    <div class="q-meta">@Subtitle(item)</div>
+                    @if (Listened) { <Stars Item="item" OnRate="r => Queue.Rate(item, r)" /> }
+                </div>
+                <div class="q-actions">@Actions(item)</div>
+            </li>
+        }
+    </ul>
+}
+
+@if (items.Count > shown.Count)
+{
+    <p class="q-more-row"><button type="button" class="q-btn q-showmore" @onclick="ShowMore">@Loc.T("web.nav.more") (@(items.Count - shown.Count))</button></p>
+}
+
+@code {
+    [Parameter] public bool Listened { get; set; }
+
+    /// <summary>Albums drawn per page; the rest wait behind a button, so a queue of tens of thousands stays light.</summary>
+    private const int PageSize = 100;
+
+    private string _typed = "";      // what the box shows, at once
+    private string _filter = "";     // what the list uses, after a pause in typing
+    private int _shown = PageSize;
+    private CancellationTokenSource? _pause;
+    private List<BacklogItem> _view = [];
+    private (int Version, bool Listened, string Filter, string Sort) _viewOf = (-1, false, "", "");
+    private string _sort = "oldest";
+    private bool _covers;
+    private string? _picked;
+
+    private RenderFragment Actions(BacklogItem item) => @<text>
+        @{
+            var link = PlayLinks.Of(item, Queue.Preferred);
+            var service = link != null && link.Web.Contains("tidal.com") ? "Tidal" : "Spotify";
+        }
+        @if (link != null)
+        {
+            <a class="q-btn primary" href="@link.Web" data-app="@link.App" target="_blank" rel="noopener noreferrer"
+               title="@Loc.T("item.play.tip")" aria-label="@Loc.F("toast.play_on", service) - @item.Album"><Ico Name="play" />@service</a>
+        }
+        else
+        {
+            <span class="q-meta">@Loc.T("item.no_link")</span>
+        }
+        <button type="button" class="q-check @(item.IsListened ? "done" : "")" @onclick="() => Toggle(item)"
+                aria-label="@Loc.T(item.IsListened ? "item.move_back" : "item.mark_listened") - @item.Album"
+                title="@Loc.T(item.IsListened ? "item.move_back" : "item.mark_listened")"><Ico Name="check" /></button>
+        <details class="q-menu">
+            <summary class="q-btn icon quiet" aria-label="@Loc.T("item.more") - @item.Album" title="@Loc.T("item.more.tip")"><Ico Name="more" /></summary>
+            <div class="q-menu-list">
+                @if (PlayLinks.Only(item, MusicService.Tidal) is { } tidal)
+                {
+                    <a class="q-btn" href="@tidal.Web" data-app="@tidal.App" target="_blank" rel="noopener noreferrer"><Ico Name="open" />@Loc.T("menu.open_tidal")</a>
+                }
+                @if (PlayLinks.Only(item, MusicService.Spotify) is { } spotify)
+                {
+                    <a class="q-btn" href="@spotify.Web" data-app="@spotify.App" target="_blank" rel="noopener noreferrer"><Ico Name="open" />@Loc.T("menu.open_spotify")</a>
+                }
+                <button type="button" class="q-btn" @onclick="() => Delete(item)"><Ico Name="trash" />@Loc.T("menu.delete")</button>
+            </div>
+        </details>
+    </text>;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Queue.Changed += OnChanged;   // before the await, so a disposal during the load cannot leave it attached
+        await Queue.LoadAsync();
+    }
+
+    /// <summary>The albums to list: worked out again only when the queue, the filter or the order changed.</summary>
+    private List<BacklogItem> View()
+    {
+        var of = (Queue.Version, Listened, _filter, _sort);
+        if (of != _viewOf)
+        {
+            _view = QueueView.Apply(Queue.Search(_filter), Listened, "", _sort);
+            _viewOf = of;
+        }
+        return _view;
+    }
+
+    private void ShowMore() => _shown += PageSize;
+
+    // Waits for a pause in typing; a newer keystroke cancels this wait. The box itself never lags.
+    private async Task OnFilterInput(ChangeEventArgs e)
+    {
+        _typed = e.Value?.ToString() ?? "";
+        _pause?.Cancel();
+        var pause = _pause = new CancellationTokenSource();
+        try { await Task.Delay(250, pause.Token); }
+        catch (OperationCanceledException) { return; }
+        _filter = _typed;
+        _shown = PageSize;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var saved = await JS.InvokeAsync<string?[]?>("queueify.getMany", (object)new[] { "q-sort", "q-covers" });
+            if (saved is [var sort, var covers])
+            {
+                if (sort != null && QueueView.SortKeys.Contains(sort)) _sort = sort;
+                _covers = covers == "1";
+                StateHasChanged();
+            }
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }   // the tab closed while the call was out
+        catch (InvalidOperationException) { }
+    }
+
+    private async void OnChanged()
+    {
+        try { await InvokeAsync(StateHasChanged); }
+        catch (ObjectDisposedException) { }   // the page went away first
+        catch (Exception ex) { await DispatchExceptionAsync(ex); }
+    }
+
+    private static string SortLabel(string key) => key switch
+    {
+        "newest" => Loc.T("sort.newest"),
+        "artist" => Loc.T("sort.artist"),
+        "year" => Loc.T("sort.year"),
+        "source" => Loc.T("sort.magazine"),
+        _ => Loc.T("sort.oldest"),
+    };
+
+    private string Subtitle(BacklogItem item) => item.Subtitle;
+
+    private string EmptyTitle => _typed.Length > 0 ? Loc.T("empty.filter.title") : Listened ? Loc.T("empty.listened.title") : Loc.T("empty.queue.title");
+    private string EmptyText => _typed.Length > 0 ? Loc.T("empty.filter.text") : Listened ? Loc.T("empty.listened.text") : Loc.T("empty.queue.text");
+
+    private async Task OnSort(ChangeEventArgs e)
+    {
+        _sort = e.Value?.ToString() ?? "oldest";
+        _shown = PageSize;
+        await Persist("q-sort", _sort);
+    }
+
+    private async Task SetCovers(bool on)
+    {
+        _covers = on;
+        await Persist("q-covers", on ? "1" : "0");
+    }
+
+    private async Task Persist(string key, string value)
+    {
+        try { await JS.InvokeVoidAsync("queueify.set", key, value); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    private void OnFilterKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Escape") return;
+        _pause?.Cancel();
+        _typed = _filter = "";
+        _shown = PageSize;
+    }
+
+    // A disk problem must reach the user as a message, not end the circuit.
+    private void Guarded(Action action)
+    {
+        try { action(); }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or Microsoft.Data.Sqlite.SqliteException)
+        {
+            Toasts.Show(new Toast(Loc.T("web.error.save"), Warning: true));
+        }
+    }
+
+    private void Toggle(BacklogItem item)
+    {
+        var listened = !item.IsListened;
+        Guarded(() =>
+        {
+            var undo = Queue.SetListened(item, listened);
+            Toasts.Show(new Toast(Loc.F(listened ? "toast.listened" : "toast.moved_back", item.Album), Loc.T("toast.undo"), undo,
+                Rate: listened ? stars => Guarded(() => Queue.Rate(item, stars)) : null));
+        });
+    }
+
+    private void Delete(BacklogItem item)
+    {
+        Guarded(() =>
+        {
+            var undo = Queue.Delete(item);
+            Toasts.Show(new Toast(Loc.F("toast.deleted", item.Album), Loc.T("toast.undo"), undo));
+        });
+    }
+
+    private async Task Surprise()
+    {
+        var pending = Queue.PendingItems;
+        if (pending.Count == 0)
+        {
+            Toasts.Show(new Toast(Loc.T("toast.surprise_empty")));
+            return;
+        }
+        var pick = pending[Random.Shared.Next(pending.Count)];
+        _pause?.Cancel();
+        _typed = _filter = "";
+        _picked = pick.Uid;
+        var at = View().FindIndex(i => i.Uid == pick.Uid);
+        if (at >= _shown) _shown = at + 1;   // the pick must be on the page to be scrolled to
+        var question = pick.Artist.Length > 0 ? Loc.F("toast.surprise_by", pick.Album, pick.Artist) : Loc.F("toast.surprise", pick.Album);
+        Toasts.Show(new Toast(question));
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("queueify.scrollTo", "a-" + pick.Uid); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
+    }
+
+    public void Dispose()
+    {
+        Queue.Changed -= OnChanged;
+        _pause?.Cancel();
+        _pause?.Dispose();
+    }
+}

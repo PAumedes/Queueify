@@ -1,0 +1,97 @@
+@implements IDisposable
+@inject UserQueue Queue
+@inject NavigationManager Nav
+
+@* One list of every page, drawn twice: the left rail on desktops, the bottom bar (with a More sheet) on phones. *@
+<nav class="q-rail" aria-label="@Loc.T("web.nav.main")">
+    <a class="q-brand" href="" aria-label="Queueify"><img src="icons/icon-192.png" alt="" width="40" height="40" /></a>
+    <ul class="q-navlist">
+        @foreach (var p in Pages)
+        {
+            <li>@Link(p)</li>
+        }
+    </ul>
+    <div class="q-spacer"></div>
+    <details class="q-menu">
+        <summary class="q-navitem" title="@Loc.T("web.pref.title")">
+            <span class="q-ico"><Ico Name="globe" /></span><span class="q-sr">@Loc.T("web.pref.title"): </span>@Loc.Language.ToUpperInvariant()
+        </summary>
+        <div class="q-menu-list"><PrefsMenu ReturnUrl="@ReturnUrl" /></div>
+    </details>
+    <ul class="q-navlist">
+        <li>@Link(Connect)</li>
+        <li><SignOut ReturnUrl="@ReturnUrl" /></li>
+    </ul>
+</nav>
+
+<nav class="q-tabs" aria-label="@Loc.T("web.nav.main")">
+    @Tab(Pages[0])
+    @Tab(Pages[2])
+    @Tab(Pages[1], "add")
+    @Tab(Pages[3])
+    <details class="q-more">
+        <summary class="q-navitem">
+            <span class="q-ico"><Ico Name="more" /></span>@Loc.T("web.nav.more")
+        </summary>
+        <div class="q-scrim"></div>
+        <div class="q-more-sheet">
+            @Link(Pages[4])
+            @Link(Pages[5])
+            @Link(Connect)
+            <SignOut ReturnUrl="@ReturnUrl" />
+            <PrefsMenu ReturnUrl="@ReturnUrl" />
+        </div>
+    </details>
+</nav>
+
+@code {
+    private sealed record Page(string Href, string Icon, string Label, string Tip, NavLinkMatch Match = NavLinkMatch.Prefix, int Count = 0, string? CountKey = null, string? Data = null);
+
+    private Page[] Pages => [
+        new("", "queue", Loc.T("nav.queue"), Loc.T("nav.queue.tip"), NavLinkMatch.All, Queue.Pending, "badge.waiting"),
+        new("add", "add", Loc.T("web.nav.add"), Loc.T("web.nav.add.tip")),
+        new("listened", "listened", Loc.T("nav.listened"), Loc.T("nav.listened.tip"), Count: Queue.Heard, CountKey: "badge.listened"),
+        new("photo", "photo", Loc.T("nav.photo"), Loc.T("nav.photo.tip")),
+        new("help", "help", Loc.T("nav.help"), Loc.T("nav.help.tip"), Data: "help"),
+        new("settings", "settings", Loc.T("nav.settings"), Loc.T("nav.settings.tip")),
+    ];
+
+    private Page Connect => new("connect", "connect", Loc.T("web.nav.connect"), Loc.T("web.nav.connect.tip"));
+
+    private string ReturnUrl => Nav.ToBaseRelativePath(Nav.Uri);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Queue.Changed += OnChanged;   // subscribed before the await, so a disposal during the load cannot leave it attached
+        Nav.LocationChanged += OnLocation;
+        await Queue.LoadAsync();
+    }
+
+    private void OnChanged() => Redraw();
+
+    private void OnLocation(object? sender, LocationChangedEventArgs e) => Redraw();
+
+    private async void Redraw()
+    {
+        try { await InvokeAsync(StateHasChanged); }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { await DispatchExceptionAsync(ex); }
+    }
+
+    public void Dispose()
+    {
+        Queue.Changed -= OnChanged;
+        Nav.LocationChanged -= OnLocation;
+    }
+
+    private RenderFragment Link(Page p, string? extra = null) => @<NavLink class="@($"q-navitem {extra}")" href="@p.Href" Match="@p.Match"
+                                  title="@p.Tip" aria-label="@Name(p)" data-q-nav="@p.Data">
+        <span class="q-ico"><Ico Name="@p.Icon" />@if (p.Count > 0){<span class="q-badge" aria-hidden="true">@p.Count</span>}</span>@p.Label
+    </NavLink>;
+
+    private RenderFragment Tab(Page p, string? extra = null) => Link(p, extra);
+
+    // The badge is read out too: "To listen, 12 waiting".
+    private static string Name(Page p) =>
+        p.Count > 0 && p.CountKey != null ? Loc.F(p.Count == 1 ? p.CountKey + ".one" : p.CountKey, p.Label, p.Count) : p.Label;
+}

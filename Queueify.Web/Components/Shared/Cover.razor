@@ -1,0 +1,35 @@
+@using Queueify.Services
+@* The album cover, or a tinted sleeve with the artist's initials when there is none (or it can't load). *@
+<div class="q-cover @Class" style="--q-hue:@Hue(Artist + Album)">
+    <span class="q-sleeve-fallback" aria-hidden="true">@Initials(Artist, Album)</span>
+    @if (Src is { } src)
+    {
+        <img src="@src" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()" />
+    }
+</div>
+
+@code {
+    [Parameter] public string? Url { get; set; }
+    [Parameter] public string Artist { get; set; } = "";
+    [Parameter] public string Album { get; set; } = "";
+    [Parameter] public string? Class { get; set; }
+
+    // Covers come from catalogs and from sync: web addresses only, and never plain http inside an https page.
+    private string? Src => CoverUrls.Loadable(Url) is { } uri ? new UriBuilder(uri) { Scheme = Uri.UriSchemeHttps, Port = uri.IsDefaultPort ? -1 : uri.Port }.Uri.AbsoluteUri : null;
+
+    /// <summary>A hue from the name, the same on every run (string.GetHashCode is not), so a sleeve keeps its colour.</summary>
+    public static int Hue(string s)
+    {
+        uint h = 2166136261;
+        foreach (var c in s) h = (h ^ c) * 16777619;
+        return 250 + (int)(h % 100);   // violet to pink to red, the logo's range
+    }
+
+    public static string Initials(string artist, string album)
+    {
+        var words = (artist.Length > 0 ? artist : album).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var letters = words.Take(2).Select(w => w.FirstOrDefault(char.IsLetterOrDigit)).Where(c => c != '\0');
+        var text = string.Concat(letters).ToUpperInvariant();
+        return text.Length > 0 ? text : "♪";
+    }
+}

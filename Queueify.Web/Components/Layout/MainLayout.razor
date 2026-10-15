@@ -1,0 +1,67 @@
+﻿@inherits LayoutComponentBase
+
+<a class="q-skip" href="@(Nav.Uri)#main">@Loc.T("web.nav.skip")</a>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="q-shell">
+            <NavMenu />
+            <main id="main" class="q-main" tabindex="-1">
+                @* Account pages other than Manage (which has its own card) are narrow forms: give them a card too. *@
+                <div class="q-page @(PlainAccountPage ? "q-narrow" : "")">
+                    @if (PlainAccountPage) { <div class="q-card stack">@Body</div> } else { @Body }
+                </div>
+            </main>
+        </div>
+        <Snackbar />
+        <HelpTour />
+    </Authorized>
+    <NotAuthorized>
+        <div class="q-bare">
+            <main id="main" class="q-auth">
+                <div class="q-auth-brand">
+                    <img src="icons/icon-192.png" alt="" width="44" height="44" />
+                    <h2>Queueify</h2>
+                </div>
+                <div class="q-card stack">@Body</div>
+            </main>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @Loc.T("web.error.unhandled")
+    <a href="." class="reload">@Loc.T("web.error.reload")</a>
+    <button type="button" class="dismiss" aria-label="@Loc.T("web.toast.dismiss")">x</button>
+</div>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private bool PlainAccountPage
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri);
+            return path.StartsWith("Account", StringComparison.OrdinalIgnoreCase) && !path.StartsWith("Account/Manage", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+    [Inject] private IThemeService Themes { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    // Fluent components keep their own theme tokens; give them the same mode and violet as the rest of the page.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var chosen = await JS.InvokeAsync<string?>("queueify.theme");
+            var mode = chosen switch { "light" => ThemeMode.Light, "dark" => ThemeMode.Dark, _ => ThemeMode.System };
+            await Themes.SetThemeAsync(new ThemeSettings { Color = "#6544E6", Mode = mode, IsExact = true });
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
+    }
+}
+

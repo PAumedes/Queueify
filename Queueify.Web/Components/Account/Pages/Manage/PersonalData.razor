@@ -1,0 +1,42 @@
+﻿@page "/Account/Manage/PersonalData"
+
+@using Microsoft.AspNetCore.Identity
+@using Queueify.Web.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>@Loc.T("web.acct.pd.title")</PageTitle>
+
+<StatusMessage />
+<h3>@Loc.T("web.acct.pd.title")</h3>
+
+<div class="q-form-row">
+    <div class="q-col">
+        <p>@Loc.T("web.acct.pd.text")</p>
+        <p>
+            <strong>@Loc.T("web.acct.delete.warn")</strong>
+        </p>
+        <form action="Account/Manage/DownloadPersonalData" method="post">
+            <AntiforgeryToken />
+            <button class="q-btn primary" type="submit">@Loc.T("web.acct.pd.download")</button>
+        </form>
+        <p>
+            <a href="Account/Manage/DeletePersonalData" class="q-btn danger">@Loc.T("web.acct.pk.delete")</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user  = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+        }
+    }
+}
