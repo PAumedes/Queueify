@@ -107,6 +107,26 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task The_registration_confirmation_page_tells_nothing_about_who_has_an_account()
+    {
+        using var factory = Factory();
+        await RegisterAsync(Client(factory), "owner@example.com");
+        var anonymous = Client(factory);
+
+        var known = await anonymous.GetAsync("/Account/RegisterConfirmation?email=owner@example.com", TestContext.Current.CancellationToken);
+        var unknown = await anonymous.GetAsync("/Account/RegisterConfirmation?email=nobody@example.com", TestContext.Current.CancellationToken);
+
+        Assert.Equal(unknown.StatusCode, known.StatusCode);
+        var knownHtml = await known.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var unknownHtml = await unknown.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        // The page links to itself (skip link), so only the address in that link may differ.
+        string Plain(string html, string address) => Regex.Replace(Regex.Replace(html.Replace(address, "X"), "<!--Blazor:.*?-->", ""), "[-A-Za-z0-9_+/=]{40,}", "T");   // antiforgery tokens and component state differ per response
+        Assert.Equal(Plain(unknownHtml, "nobody@example.com"), Plain(knownHtml, "owner@example.com"));
+        Assert.DoesNotContain("ConfirmEmail", knownHtml);
+        Assert.DoesNotContain("userId", knownHtml);
+    }
+
+    [Fact]
     public async Task Two_simultaneous_first_registrations_make_one_owner()
     {
         using var factory = Factory(allowRegistration: false);
