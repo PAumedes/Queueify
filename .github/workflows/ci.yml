@@ -48,12 +48,12 @@ jobs:
         timeout-minutes: 15
         env:
           QUEUEIFY_FIRESTORE_EMULATOR: 127.0.0.1:8080
-        run: dotnet test --project Queueify.Tests --report-xunit-trx --results-directory TestResults/unit
+        run: dotnet test --project Queueify.Tests --report-xunit-trx --results-directory "$env:GITHUB_WORKSPACE/TestResults/unit"
 
       - name: Web tests
         shell: pwsh
         timeout-minutes: 15
-        run: dotnet test --project Queueify.Web.Tests --report-xunit-trx --results-directory TestResults/web
+        run: dotnet test --project Queueify.Web.Tests --report-xunit-trx --results-directory "$env:GITHUB_WORKSPACE/TestResults/web"
 
       # The shipped web app must publish (it is what the Docker image builds); the tests do not catch a broken publish.
       - name: Publish the web app

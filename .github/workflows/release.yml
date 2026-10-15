@@ -56,11 +56,11 @@ jobs:
         shell: pwsh
         env:
           QUEUEIFY_FIRESTORE_EMULATOR: 127.0.0.1:8080
-        run: dotnet test --project Queueify.Tests --report-xunit-trx --results-directory TestResults/unit
+        run: dotnet test --project Queueify.Tests --report-xunit-trx --results-directory "$env:GITHUB_WORKSPACE/TestResults/unit"
 
       - name: Web tests
         shell: pwsh
-        run: dotnet test --project Queueify.Web.Tests --report-xunit-trx --results-directory TestResults/web
+        run: dotnet test --project Queueify.Web.Tests --report-xunit-trx --results-directory "$env:GITHUB_WORKSPACE/TestResults/web"
 
       - name: Publish the web app
         shell: pwsh

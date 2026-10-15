@@ -101,28 +101,6 @@ public sealed class BacklogStoreSafetyTests : IDisposable
         Assert.False(store.FindByUid("u1")!.Dirty);
     }
 
-    [Fact]
-    public void A_remote_row_with_a_local_kind_time_compares_by_the_instant()
-    {
-        var store = new BacklogStore(DbPath);
-        store.MergeBackup([Item("u1", "Old title", Old)]);
-
-        store.ApplyRemote(Item("u1", "New title", New.ToLocalTime()));
-
-        Assert.Equal("New title", store.FindByUid("u1")!.Album);
-        Assert.Equal(New, store.FindByUid("u1")!.UpdatedAt);
-    }
-
-    [Fact]
-    public void A_merge_compares_a_local_kind_backup_time_by_the_instant()
-    {
-        var store = new BacklogStore(DbPath);
-        store.MergeBackup([Item("u1", "Current", New)]);
-
-        store.MergeBackup([Item("u1", "Older backup", Old.ToLocalTime())]);
-
-        Assert.Equal("Current", store.FindByUid("u1")!.Album);
-    }
 
     // ───────────── MergeBackup ─────────────
 

@@ -7,3 +7,4 @@ publish/
 dist/
 Queueify.Web/App_Data/
 .scratch/
+TestResults/
