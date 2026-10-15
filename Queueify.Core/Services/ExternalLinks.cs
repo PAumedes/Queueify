@@ -1,17 +1,16 @@
 using System.Diagnostics;
-using Queueify.Models;
 using Windows.System;
 
 namespace Queueify.Services;
 
-/// <summary>Opens albums in the installed Spotify / Tidal app, falling back to the web player.</summary>
+/// <summary>
+/// Opens albums in the installed Spotify / Tidal app, falling back to the web player. It takes a
+/// <see cref="PlayLink"/>, which <see cref="PlayLinks.Only"/> builds only from a plain id: ids can arrive from a sync
+/// server, and nothing else may reach the OS protocol launcher.
+/// </summary>
 public static class ExternalLinks
 {
-    public static Task OpenSpotifyAsync(string id) => OpenAsync(PlayLinks.For(MusicService.Spotify, id));
-
-    public static Task OpenTidalAsync(string id) => OpenAsync(PlayLinks.For(MusicService.Tidal, id));
-
-    private static async Task OpenAsync(PlayLink link)
+    public static async Task OpenAsync(PlayLink link)
     {
         var app = new Uri(link.App);
         try

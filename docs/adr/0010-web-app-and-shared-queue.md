@@ -46,8 +46,8 @@ SHA-256 hashes, revocable, per user. The text a PC is given is `queueify-web|<ht
 ```
 
 Rules: newest `updatedAt` wins per `uid` (ties keep the server's row); the server stamps `serverTime`; text
-fields are cut at 500 characters as in the Firestore rules; at most 1,000 albums per request, and the client
-repeats until the response is empty; unknown fields are ignored; a bad token is 401 and nothing else is said.
+fields are cut at 500 characters as in the Firestore rules; years outside 1000-3000 are dropped on both sides (`AlbumYear`), and a service id that is not letters and digits (at most 64) is dropped by the client; at most 1,000 albums per request, and the client
+repeats until the response is empty or short (a page of 1,000 albums means "maybe more", even when nothing on it was new to the PC); unknown fields are ignored; a bad token is 401 and nothing else is said.
 Deletions stay as soft rows. This is the same shape `CloudSync` already uses, so `BacklogStore`'s
 `dirty`/`updated_at` columns are enough on the PC.
 

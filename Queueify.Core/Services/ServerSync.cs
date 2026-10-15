@@ -33,15 +33,16 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
     /// <summary>Largest answer read (about 50,000 albums); a bigger one is not a Queueify server.</summary>
     public const long MaxAnswerBytes = 16L * 1024 * 1024;
 
-    private const int MaxExtraRounds = 20;
+    // A full queue (50,000 albums) arrives in 50 pages, so the limit that stops a server that never ends must be above that.
+    private const int MaxExtraRounds = 60;
     private const int MaxUidLength = 64;
     private static readonly TimeSpan FutureTolerance = TimeSpan.FromMinutes(5);
 
     /// <summary>The client for a web server: it never follows a redirect, so the token can't be handed to another host.</summary>
     public static HttpClient CreateClient()
     {
-        var http = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Queueify/1.0");
+        var http = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, PooledConnectionLifetime = TimeSpan.FromMinutes(5) }) { Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Queueify/" + AppInfo.Version);
         return http;
     }
 
@@ -82,17 +83,15 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
                 settingsToSend = null;
             }
 
-            int applied = 0;
+            // One transaction per page. The store keeps the newer of the two versions of each album, and tells how
+            // many changed here, so rows already known (the overlap, or ones just sent) don't count.
+            var remotes = new List<BacklogItem>(answer.Albums.Count);
             foreach (var wire in answer.Albums)
             {
                 if (wire.Uid is not { Length: > 0 and <= MaxUidLength }) continue;
-                var remote = ToItem(wire, now);
-                var local = store.FindByUid(remote.Uid);
-                if (local == null && remote.Deleted) continue;                       // deleted before this PC saw it
-                if (local != null && local.UpdatedAt >= remote.UpdatedAt) continue;  // same or newer here
-                store.ApplyRemote(remote);
-                applied++;
+                remotes.Add(ToItem(wire, now));
             }
+            int applied = store.ApplyRemoteBatch(remotes);
             downloaded += applied;
 
             if (answer.Settings is { } shared)
@@ -105,11 +104,14 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
                 }
             }
 
+            // The server answers at most MaxBatch albums and then says where it stopped, so a full page that moved the
+            // position means "maybe more" even when nothing on it was new to this PC (deletions it never had, say).
+            bool fullPage = answer.Albums.Count >= MaxBatch && answer.ServerTime > (since ?? DateTime.MinValue);
             since = answer.ServerTime;
             s.WebLastServerTime = since;
 
             // Rows already known (the overlap, or ones just sent) don't count, or an idle sync would never end.
-            bool more = sent < dirty.Count || applied > 0;
+            bool more = sent < dirty.Count || applied > 0 || fullPage;
             if (!more && firstConnection && !serverHadSettings && s.SharedSettingsUpdatedAt == null
                 && (s.SpotifyConfigured || s.TidalConfigured))
             {
@@ -214,11 +216,11 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
         Uid = a.Uid,
         Artist = Cut(a.Artist) ?? "",
         Album = Cut(a.Album) ?? "",
-        Year = a.Year is >= 1000 and <= 3000 ? a.Year : null,
+        Year = AlbumYear.OrNull(a.Year),
         Source = Cut(a.Source),
         CoverUrl = Cut(a.CoverUrl),
-        SpotifyId = Cut(a.SpotifyId),
-        TidalId = Cut(a.TidalId),
+        SpotifyId = PlainId(a.SpotifyId),
+        TidalId = PlainId(a.TidalId),
         AddedAt = Utc(a.AddedAt).ToLocalTime(),
         ListenedAt = a.ListenedAt is DateTime l ? Utc(l).ToLocalTime() : null,
         Rating = double.IsNaN(a.Rating) || a.Rating < 0 ? -1 : Math.Min(a.Rating, 5),
@@ -235,6 +237,9 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
         var utc = Utc(t);
         return utc > now + FutureTolerance ? now : utc;   // one fixed "now" per sync, so the same row isn't "newer" every round
     }
+    /// <summary>A service id is kept only when it is a plain token (it ends up in a link the OS opens), as the server checks uids.</summary>
+    private static string? PlainId(string? id) => PlayLinks.IsPlainId(id) ? id : null;
+
 
     private static string? Cut(string? text) =>
         text is { Length: > MaxTextLength } ? text[..MaxTextLength] : text;

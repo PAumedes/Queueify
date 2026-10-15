@@ -157,7 +157,9 @@ public sealed class ServerSyncTests : IDisposable
 
         var got = Assert.Single(store.LoadAll());
         Assert.Equal("ok1", got.Uid);
-        Assert.All(new[] { got.Artist, got.Album, got.Source!, got.CoverUrl!, got.SpotifyId!, got.TidalId! }, x => Assert.Equal(500, x.Length));
+        Assert.All(new[] { got.Artist, got.Album, got.Source!, got.CoverUrl! }, x => Assert.Equal(500, x.Length));
+        Assert.Null(got.SpotifyId);   // a service id that is not a plain token is not kept
+        Assert.Null(got.TidalId);
         Assert.Null(got.Year);
         Assert.Equal(5, got.Rating);
     }
@@ -275,7 +277,6 @@ public sealed class ServerSyncTests : IDisposable
         var ex = await Assert.ThrowsAsync<SyncException>(() => Client(server).SyncAsync(NewStore(), Connected(), CancellationToken.None));
 
         Assert.Equal(Loc.T("webSync.err.bad_reply"), ex.Message);
-        Assert.True(ServerSync.MaxAnswerBytes <= 16 * 1024 * 1024);
     }
 
     [Fact]

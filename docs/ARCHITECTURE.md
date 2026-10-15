@@ -44,7 +44,8 @@ flowchart LR
 
 | Service | Responsibility |
 | --- | --- |
-| `BacklogStore` | SQLite queue. Rows carry a stable `uid`, `updated_at`, `dirty` and soft `deleted`, for sync. |
+| `BacklogStore` | SQLite queue. Rows carry a stable `uid`, `updated_at` (always UTC), `dirty` and soft `deleted`, for sync. Schema work and the switch to WAL run once per database file and process; a sync page is applied in one transaction (`ApplyRemoteBatch`) and `MergeBackup` takes the write lock first. |
+| `AlbumYear` | The one rule for which release years are believed (1000-3000), used by the PC app, the sync client and the web server. |
 | `Matcher` | Splits a typed line into text and year, merges Spotify and Tidal results, scores them. |
 | `SpotifyCatalog`, `TidalCatalog` | Album search with the Client Credentials flow; tokens cached per ID and secret. |
 | `CloudSync` | Firestore REST: uploads dirty rows, downloads rows newer than the last server time, shared settings. |

@@ -33,6 +33,6 @@ public static class PlayLinks
         return IsPlainId(id) ? For(service, id!) : null;
     }
 
-    private static bool IsPlainId(string? id) =>
+    public static bool IsPlainId(string? id) =>
         !string.IsNullOrEmpty(id) && id.Length <= 64 && id.All(char.IsAsciiLetterOrDigit);
 }

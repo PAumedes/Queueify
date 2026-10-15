@@ -672,12 +672,9 @@ public sealed partial class MainWindow : Window
     }
 
     private static Task PlayAsync(BacklogItem item, MusicService? service = null) =>
-        (service ?? item.PlayService) switch
-        {
-            MusicService.Spotify when item.SpotifyId != null => ExternalLinks.OpenSpotifyAsync(item.SpotifyId),
-            MusicService.Tidal when item.TidalId != null => ExternalLinks.OpenTidalAsync(item.TidalId),
-            _ => Task.CompletedTask,
-        };
+        (service ?? item.PlayService) is { } which && PlayLinks.Only(item, which) is { } link
+            ? ExternalLinks.OpenAsync(link)
+            : Task.CompletedTask;
 
     private void OnToggleListened(object sender, RoutedEventArgs e)
     {

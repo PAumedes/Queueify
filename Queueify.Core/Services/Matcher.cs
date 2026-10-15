@@ -118,7 +118,7 @@ public static partial class Matcher
         }
 
         s = NonAlphanumeric().Replace(sb.ToString(), " ").Trim();
-        if (s.StartsWith("the ")) s = s[4..];
+        if (s.StartsWith("the ", StringComparison.Ordinal)) s = s[4..];
         return s;
     }
 
