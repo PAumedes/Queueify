@@ -106,6 +106,7 @@
     private List<AlbumResult> _results = [];
     private List<string> _errors = [];
     private CancellationTokenSource? _cts;
+    private bool _prefillPending, _focusPending;
     private string _qArtist = "", _qAlbum = "", _qYear = "";
 
     /// <summary>/add?q=Artist - Album 1999 fills the box and searches at once (a link from a note, a share, a shortcut).</summary>
@@ -119,16 +120,26 @@
         if (Prefill is { Length: > 0 } q && q.Trim().Length > 0)
         {
             _query = q.Trim().Length > 200 ? q.Trim()[..200] : q.Trim();
-            await RunSearch(_cts = new CancellationTokenSource());
+            _prefillPending = true;   // searched once the page is live: OnInitializedAsync also runs while the server draws the page
         }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
-        try { await JS.InvokeAsync<bool>("queueify.focus", "[data-q-search]"); }
-        catch (JSException) { }
-        catch (InvalidOperationException) { }
+        if (firstRender) _focusPending = true;
+        if (_focusPending)
+        {
+            _focusPending = false;
+            try { await JS.InvokeAsync<bool>("queueify.focus", "[data-q-search]"); }
+            catch (JSException) { }
+            catch (JSDisconnectedException) { }
+            catch (InvalidOperationException) { }
+        }
+        if (_prefillPending)
+        {
+            _prefillPending = false;
+            await RunSearch(_cts = new CancellationTokenSource());
+        }
     }
 
     private async Task OnInput(ChangeEventArgs e)
@@ -235,7 +246,7 @@
         }
         _query = "";
         Toasts.Show(new Toast(Loc.F("toast.added", item.Album), Loc.T("toast.undo"), () => Queue.Remove(item)));
-        _ = JS.InvokeVoidAsync("queueify.focus", "[data-q-search]").AsTask().ContinueWith(_ => { }, TaskScheduler.Default);
+        _focusPending = true;   // done after the next render, where errors are caught
     }
 
     public void Dispose() => _cts?.Cancel();
