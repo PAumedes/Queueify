@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,47 @@ public sealed class PersonalAccessTokenTests(SyncFactory app) : IClassFixture<Sy
         var (userId, token) = await app.NewUserAsync("last-used");
         await app.SyncAsync(token, new Queueify.Services.SyncRequest(null, [], null));
         Assert.NotNull(await WithTokens(async (tokens, _) => (await tokens.ListAsync(userId)).Single().LastUsedAt));
+    }
+
+    private async Task WithUsers(string userId, Func<Microsoft.AspNetCore.Identity.UserManager<ApplicationUser>, ApplicationUser, Task> body)
+    {
+        using var scope = app.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<ApplicationUser>>();
+        await body(users, (await users.FindByIdAsync(userId))!);
+    }
+
+    [Fact]
+    public async Task A_token_stops_working_when_the_password_is_changed()
+    {
+        var (userId, token) = await app.NewUserAsync("pw-change");
+        Assert.Equal(HttpStatusCode.OK, (await app.SyncAsync(token, new Queueify.Services.SyncRequest(null, [], null))).Status);
+
+        await WithUsers(userId, async (users, user) =>
+            Assert.True((await users.ChangePasswordAsync(user, "Passw0rd!-" + user.UserName!.Split('@')[0], "An0ther-Passw0rd!")).Succeeded));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await app.SyncAsync(token, new Queueify.Services.SyncRequest(null, [], null))).Status);
+    }
+
+    [Fact]
+    public async Task A_token_stops_working_when_the_password_is_reset()
+    {
+        var (userId, token) = await app.NewUserAsync("pw-reset");
+
+        await WithUsers(userId, async (users, user) =>
+            Assert.True((await users.ResetPasswordAsync(user, await users.GeneratePasswordResetTokenAsync(user), "An0ther-Passw0rd!")).Succeeded));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await app.SyncAsync(token, new Queueify.Services.SyncRequest(null, [], null))).Status);
+    }
+
+    [Fact]
+    public async Task Signing_out_everywhere_also_ends_the_tokens_and_a_new_token_works_again()
+    {
+        var (userId, token) = await app.NewUserAsync("stamp");
+        await WithUsers(userId, async (users, user) => Assert.True((await users.UpdateSecurityStampAsync(user)).Succeeded));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await app.SyncAsync(token, new Queueify.Services.SyncRequest(null, [], null))).Status);
+
+        var fresh = await WithTokens(async (tokens, _) => (await tokens.CreateAsync(userId, "after")).Token);
+        Assert.Equal(HttpStatusCode.OK, (await app.SyncAsync(fresh, new Queueify.Services.SyncRequest(null, [], null))).Status);
     }
 
     [Fact]

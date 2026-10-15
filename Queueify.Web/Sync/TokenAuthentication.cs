@@ -29,7 +29,7 @@ public sealed class TokenAuthenticationHandler(
         const string bearer = "Bearer ";
         if (!header.StartsWith(bearer, StringComparison.Ordinal)) return AuthenticateResult.NoResult();
 
-        var userId = await tokens.ValidateAsync(header[bearer.Length..].Trim());
+        var userId = await tokens.ValidateAsync(header[bearer.Length..].Trim(), Context.RequestAborted);
         if (userId == null) return AuthenticateResult.Fail("bad token");
 
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], Scheme);

@@ -36,6 +36,7 @@ public static class SyncExtensions
             sp.GetRequiredService<IConfiguration>().GetValue("Queueify:Sync:MaxAlbumsPerUser", SyncEngine.DefaultMaxRowsPerUser)));
         services.AddSingleton<SyncLimits>();
         services.AddScoped<PersonalAccessTokens>();
+        services.AddScoped<Reauthentication>();
         services.AddHostedService<IdentityMigrator>();
         services.AddTransient<IStartupFilter, ProxyStartupFilter>();
 

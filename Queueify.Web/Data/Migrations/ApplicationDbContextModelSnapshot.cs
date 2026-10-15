@@ -251,6 +251,9 @@ namespace Queueify.Web.Migrations
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("TEXT");
+
                     b.Property<byte[]>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(32)

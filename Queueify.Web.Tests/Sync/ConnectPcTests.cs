@@ -21,6 +21,8 @@ public sealed class ConnectPcTests : BunitContext
             Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, id)], "test"))));
     }
 
+    private const string Password = "Passw0rd!-secret";
+
     private readonly SqliteConnection _db = new("DataSource=:memory:");
 
     private IRenderedComponent<ConnectPc> Open(string userId)
@@ -29,13 +31,16 @@ public sealed class ConnectPcTests : BunitContext
         Services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(_db));
         Services.AddSingleton(TimeProvider.System);
         Services.AddScoped<PersonalAccessTokens>();
+        Services.AddScoped<Reauthentication>();
+        Services.AddLogging();
+        Services.AddIdentityCore<ApplicationUser>().AddEntityFrameworkStores<ApplicationDbContext>();
         Services.AddSingleton<AuthenticationStateProvider>(new SignedIn(userId));
         using (var scope = Services.BuildServiceProvider().CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureCreated();
-            context.Users.Add(new ApplicationUser { Id = userId, UserName = "u", NormalizedUserName = "U", SecurityStamp = "s" });
-            context.SaveChanges();
+            var users = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<ApplicationUser>>();
+            Assert.True(users.CreateAsync(new ApplicationUser { Id = userId, UserName = "u" }, Password).GetAwaiter().GetResult().Succeeded);
         }
         return Render<ConnectPc>();
     }
@@ -45,6 +50,7 @@ public sealed class ConnectPcTests : BunitContext
     {
         var page = Open("user-1");
         page.Find("#token-name").Input("Studio PC");
+        page.Find("#token-password").Input(Password);
         page.Find("form").Submit();
 
         var text = page.Find("#connect-text").GetAttribute("value")!;
@@ -56,6 +62,47 @@ public sealed class ConnectPcTests : BunitContext
         Assert.Empty(page.FindAll("li.q-row .q-actions button"));
         Assert.Contains(Loc.T("connect.revoked"), page.Markup);
         Assert.DoesNotContain("qw_", page.Markup);
+    }
+
+    [Fact]
+    public void A_wrong_password_makes_no_token_and_says_so()
+    {
+        var page = Open("user-2");
+        page.Find("#token-name").Input("Studio PC");
+        page.Find("#token-password").Input("not-the-password");
+        page.Find("form").Submit();
+
+        Assert.Empty(page.FindAll("#connect-text"));
+        Assert.Contains(Loc.T("web.acct.m.bad_pw"), page.Markup);
+        Assert.Empty(page.FindAll("li.q-row"));
+    }
+
+    [Fact]
+    public void An_empty_password_makes_no_token()
+    {
+        var page = Open("user-3");
+        page.Find("#token-name").Input("Studio PC");
+        page.Find("form").Submit();
+
+        Assert.Empty(page.FindAll("#connect-text"));
+        Assert.Empty(page.FindAll("li.q-row"));
+    }
+
+    [Fact]
+    public void Wrong_passwords_here_count_towards_the_accounts_lockout()
+    {
+        var page = Open("user-4");
+        for (var i = 0; i < 6; i++)
+        {
+            page.Find("#token-name").Input("PC");
+            page.Find("#token-password").Input("wrong-" + i);
+            page.Find("form").Submit();
+        }
+
+        page.Find("#token-name").Input("PC");
+        page.Find("#token-password").Input(Password);
+        page.Find("form").Submit();
+        Assert.Empty(page.FindAll("#connect-text"));
     }
 
     [Fact]
