@@ -406,12 +406,7 @@ public sealed partial class MainWindow : Window
 
     private string? QueueStateOf(AlbumResult r)
     {
-        var titleKey = Matcher.Normalize(r.Title);
-        var artistKey = Matcher.Normalize(r.Artist);
-        var saved = _all.FirstOrDefault(i =>
-            (r.Spotify != null && i.SpotifyId == r.Spotify.Id) ||
-            (r.Tidal != null && i.TidalId == r.Tidal.Id) ||
-            (Matcher.Normalize(i.Album) == titleKey && Matcher.Normalize(i.Artist) == artistKey));
+        var saved = QueueView.FindSaved(r, _all);
         return saved == null ? null : saved.IsListened ? Loc.T("search.state.listened") : Loc.T("search.state.queued");
     }
 
@@ -445,17 +440,8 @@ public sealed partial class MainWindow : Window
 
     private void OnAddWithoutLink(object sender, RoutedEventArgs e)
     {
-        var (text, year) = Matcher.ExtractYear(SearchBox.Text.Trim());
-        if (text.Length == 0) return;
-
-        // "Artist - Album" is split; anything else is kept whole as the album line.
-        var parts = text.Split([" - ", " – ", " — "], 2, StringSplitOptions.TrimEntries);
-        AddItem(new BacklogItem
-        {
-            Artist = parts.Length == 2 ? parts[0] : "",
-            Album = parts.Length == 2 ? parts[1] : text,
-            Year = year,
-        });
+        if (QueueView.ParseTyped(SearchBox.Text) is not { } typed) return;
+        AddItem(new BacklogItem { Artist = typed.Artist, Album = typed.Album, Year = typed.Year });
     }
 
     private void AddItem(BacklogItem item)
@@ -500,20 +486,8 @@ public sealed partial class MainWindow : Window
 
         bool queuePage = _page is Page.Queue or Page.Listened;
         bool listened = _page == Page.Listened;
-        var filter = Matcher.Normalize(FilterBox.Text);
-
-        var items = _all
-            .Where(i => i.IsListened == listened)
-            .Where(i => filter.Length == 0 || Matcher.Normalize($"{i.Artist} {i.Album} {i.Source} {i.Year}").Contains(filter));
-        items = _ui.Sort switch
-        {
-            "newest" => items.OrderByDescending(i => i.AddedAt),
-            "artist" => items.OrderBy(i => i.Artist, StringComparer.CurrentCultureIgnoreCase).ThenBy(i => i.Year),
-            "year" => items.OrderBy(i => i.Year ?? int.MaxValue).ThenBy(i => i.Artist),
-            "source" => items.OrderBy(i => i.Source ?? "￿", StringComparer.CurrentCultureIgnoreCase).ThenBy(i => i.AddedAt),
-            _ => listened ? items.OrderByDescending(i => i.ListenedAt) : items.OrderBy(i => i.AddedAt),
-        };
-        var list = items.ToList();
+        bool filtering = Matcher.Normalize(FilterBox.Text).Length > 0;
+        var list = QueueView.Apply(_all, listened, FilterBox.Text, _ui.Sort);
 
         QueueList.ItemsSource = _ui.CoverView ? null : Items(list);
         QueueGrid.ItemsSource = _ui.CoverView ? Items(list) : null;
@@ -549,7 +523,7 @@ public sealed partial class MainWindow : Window
 
         EmptyState.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         (EmptyIcon.Glyph, EmptyTitle.Text, EmptyText.Text) =
-            filter.Length > 0 ? ("", Loc.T("empty.filter.title"), Loc.T("empty.filter.text"))
+            filtering ? ("", Loc.T("empty.filter.title"), Loc.T("empty.filter.text"))
             : listened ? ("", Loc.T("empty.listened.title"), Loc.T("empty.listened.text"))
             : ("", Loc.T("empty.queue.title"), Loc.T("empty.queue.text"));
     }
