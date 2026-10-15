@@ -5,6 +5,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Queueify.Services;
 using Queueify.Web.Components.Pages;
@@ -25,15 +26,16 @@ public sealed class ConnectPcTests : BunitContext
 
     private readonly SqliteConnection _db = new("DataSource=:memory:");
 
-    private IRenderedComponent<ConnectPc> Open(string userId)
+    private IRenderedComponent<ConnectPc> Open(string userId, string? publicUrl = null)
     {
         _db.Open();
         Services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(_db));
         Services.AddSingleton(TimeProvider.System);
+        Services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(publicUrl is null ? [] : new Dictionary<string, string?> { ["Queueify:PublicBaseUrl"] = publicUrl }).Build());
         Services.AddScoped<PersonalAccessTokens>();
         Services.AddScoped<Reauthentication>();
         Services.AddLogging();
-        Services.AddIdentityCore<ApplicationUser>().AddEntityFrameworkStores<ApplicationDbContext>();
+        Services.AddIdentityCore<ApplicationUser>(o => o.Stores.SchemaVersion = Microsoft.AspNetCore.Identity.IdentitySchemaVersions.Version3).AddEntityFrameworkStores<ApplicationDbContext>();   // same model as the app: the model is cached per process
         Services.AddSingleton<AuthenticationStateProvider>(new SignedIn(userId));
         using (var scope = Services.BuildServiceProvider().CreateScope())
         {
@@ -103,6 +105,17 @@ public sealed class ConnectPcTests : BunitContext
         page.Find("#token-password").Input(Password);
         page.Find("form").Submit();
         Assert.Empty(page.FindAll("#connect-text"));
+    }
+
+    [Fact]
+    public void The_connect_text_uses_the_configured_public_address_not_the_one_the_request_claims()
+    {
+        var page = Open("user-5", publicUrl: "https://queue.example.org");
+        page.Find("#token-name").Input("PC");
+        page.Find("#token-password").Input(Password);
+        page.Find("form").Submit();
+
+        Assert.StartsWith("queueify-web|https://queue.example.org|qw_", page.Find("#connect-text").GetAttribute("value")!);
     }
 
     [Fact]

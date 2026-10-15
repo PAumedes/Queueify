@@ -19,12 +19,18 @@ public static class QueueifyUi
 
     /// <summary>
     /// Everything comes from this site, except album covers (any https host, as catalogs choose them). Styles allow
-    /// inline because Fluent's components set them; scripts do not.
+    /// inline because Fluent's components set them; scripts do not. <c>blob:</c> images are the photo preview, made in the
+    /// browser from the file the user picked.
     /// </summary>
-    public const string ContentSecurityPolicy =
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; " +
-        "font-src 'self' data:; connect-src 'self' ws: wss:; manifest-src 'self'; worker-src 'self'; " +
-        "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    public static string ContentSecurityPolicy(string? publicUrl)
+    {
+        // 'self' covers the circuit's WebSocket in current browsers; older Safari needs the ws origin spelled out.
+        var connect = publicUrl is not null && Uri.TryCreate(publicUrl, UriKind.Absolute, out var origin)
+            ? $"'self' {(origin.Scheme == Uri.UriSchemeHttps ? "wss" : "ws")}://{origin.Authority}" : "'self'";
+        return $"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; " +
+            $"font-src 'self' data:; connect-src {connect}; manifest-src 'self'; worker-src 'self'; " +
+            "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    }
 
     /// <summary>
     /// Cookies carry the Secure flag everywhere except Development, whatever the proxy forwards: behind a TLS-terminating
@@ -80,12 +86,13 @@ public static class QueueifyUi
     {
         // Each request answers in the language of the cookie, or of the browser; circuits do the same
         // through LocCircuitHandler. Loc keeps it per async flow, so two users never swap languages.
+        var csp = ContentSecurityPolicy(PublicUrl.Of(app.Configuration));
         app.Use(async (context, next) =>
         {
             context.Response.OnStarting(() =>
             {
                 var headers = context.Response.Headers;
-                headers["Content-Security-Policy"] = ContentSecurityPolicy;
+                headers["Content-Security-Policy"] = csp;
                 headers["X-Content-Type-Options"] = "nosniff";
                 headers["Referrer-Policy"] = "no-referrer";
                 return Task.CompletedTask;

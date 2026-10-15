@@ -1,11 +1,13 @@
 @page "/connect"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using Queueify.Web.Services
 @using Queueify.Web.Sync
 @inject PersonalAccessTokens Tokens
 @inject Reauthentication Reauth
 @inject AuthenticationStateProvider Auth
 @inject NavigationManager Navigation
+@inject IConfiguration Config
 
 <PageTitle>@Loc.T("connect.title") - Queueify</PageTitle>
 
@@ -112,7 +114,7 @@
         try
         {
             var created = await Tokens.CreateAsync(_userId, _name);
-            _connectText = SyncConnect.Format(Navigation.BaseUri, created.Token);
+            _connectText = SyncConnect.Format(PublicUrl.Of(Config) ?? Navigation.BaseUri, created.Token);
             _name = "";
         }
         catch (InvalidOperationException)

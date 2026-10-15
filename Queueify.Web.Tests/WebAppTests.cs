@@ -234,6 +234,16 @@ public sealed partial class WebAppTests : IDisposable
     }
 
     [Fact]
+    public async Task Pages_carry_no_inline_script_because_the_policy_would_block_it()
+    {
+        using var factory = Factory();
+        var html = await Client(factory).GetStringAsync("/Account/Login", TestContext.Current.CancellationToken);
+
+        // An inline <script> (the import map was one) is refused by script-src 'self' and only fills the console with errors.
+        Assert.DoesNotMatch(@"<script(?![^>]*\bsrc=)", html);
+    }
+
+    [Fact]
     public async Task Two_simultaneous_first_registrations_make_one_owner()
     {
         using var factory = Factory(allowRegistration: false);
