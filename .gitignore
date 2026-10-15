@@ -8,3 +8,8 @@ dist/
 Queueify.Web/App_Data/
 .scratch/
 TestResults/
+
+# Databases hold accounts and queues: never commit them
+*.db
+*.db-shm
+*.db-wal

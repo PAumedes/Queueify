@@ -114,11 +114,88 @@ public sealed class QueuePageTests : WebComponentTests
         var cut = Open();
 
         cut.Find("#q-filter").Input("garcia");
-        Assert.Equal(["Clics Modernos"], Titles(cut));
+        cut.WaitForAssertion(() => Assert.Equal(["Clics Modernos"], Titles(cut)));
 
         cut.Find("#q-filter").Input("zzz");
-        Assert.Empty(Titles(cut));
+        cut.WaitForAssertion(() => Assert.Empty(Titles(cut)));
         Assert.Contains(Loc.T("empty.filter.title"), cut.Markup);
+    }
+
+    [Fact]
+    public void The_filter_waits_for_a_pause_in_typing_and_only_the_last_text_counts()
+    {
+        Seed("Soda Stereo", "Signos");
+        Seed("Charly García", "Clics Modernos");
+        var cut = Open();
+
+        cut.Find("#q-filter").Input("s");
+        cut.Find("#q-filter").Input("so");
+        cut.Find("#q-filter").Input("soda");
+
+        Assert.Equal(2, Titles(cut).Length);                       // nothing was recomputed per keystroke
+        Assert.Equal("soda", cut.Find("#q-filter").GetAttribute("value"));   // and the box keeps what was typed
+        cut.WaitForAssertion(() => Assert.Equal(["Signos"], Titles(cut)));
+    }
+
+    [Fact]
+    public void Escape_clears_the_filter()
+    {
+        Seed("Soda Stereo", "Signos");
+        Seed("Charly García", "Clics Modernos");
+        var cut = Open();
+        cut.Find("#q-filter").Input("soda");
+        cut.WaitForAssertion(() => Assert.Single(Titles(cut)));
+
+        cut.Find("#q-filter").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
+
+        cut.WaitForAssertion(() => Assert.Equal(2, Titles(cut).Length), TimeSpan.FromSeconds(2));
+
+        Assert.Equal("", cut.Find("#q-filter").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_long_queue_draws_one_page_and_more_on_request()
+    {
+        var store = Stores.QueueOf("alice");
+        for (var i = 0; i < 250; i++) store.Insert(new BacklogItem { Artist = "Artist " + i, Album = "Album " + i, AddedAt = DateTime.Now.AddMinutes(-1000 + i) });
+        var cut = Open();
+
+        Assert.Equal(100, cut.FindAll("li.q-row").Count);
+        Assert.Contains("250", cut.Find(".q-sub").TextContent);       // the summary still counts every album
+
+        cut.Find("button.q-showmore").Click();
+        Assert.Equal(200, cut.FindAll("li.q-row").Count);
+        cut.Find("button.q-showmore").Click();
+        Assert.Equal(250, cut.FindAll("li.q-row").Count);
+        Assert.Empty(cut.FindAll("button.q-showmore"));
+    }
+
+    [Fact]
+    public void A_new_filter_starts_again_from_the_first_page()
+    {
+        var store = Stores.QueueOf("alice");
+        for (var i = 0; i < 250; i++) store.Insert(new BacklogItem { Artist = "Artist", Album = "Album " + i, AddedAt = DateTime.Now.AddMinutes(-1000 + i) });
+        var cut = Open();
+        cut.Find("button.q-showmore").Click();
+        Assert.Equal(200, cut.FindAll("li.q-row").Count);
+
+        cut.Find("#q-filter").Input("album");
+        cut.WaitForAssertion(() => Assert.Equal(100, cut.FindAll("li.q-row").Count));
+    }
+
+    [Fact]
+    public void The_remembered_sort_and_covers_choice_come_back_in_one_browser_call()
+    {
+        Seed("Soda Stereo", "Signos", 1986, daysAgo: 1);
+        Seed("Charly García", "Clics Modernos", 1983, daysAgo: 5);
+        JSInterop.Setup<string?[]>("queueify.getMany", _ => true).SetResult(["year", "1"]);
+
+        var cut = Open();
+
+        cut.WaitForAssertion(() => Assert.Equal(["Clics Modernos", "Signos"], Titles(cut)));
+        Assert.NotEmpty(cut.FindAll("ul.q-grid"));
+        Assert.Single(JSInterop.Invocations.Where(i => i.Identifier is "queueify.getMany"));
+        Assert.Empty(JSInterop.Invocations.Where(i => i.Identifier is "queueify.get"));
     }
 
     [Fact]

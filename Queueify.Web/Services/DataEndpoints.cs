@@ -10,7 +10,6 @@ public static class DataEndpoints
     /// <summary>Settings, preferences, key tests, and export and import of the queue.</summary>
     public static IServiceCollection AddQueueifyData(this IServiceCollection services)
     {
-        services.AddHttpClient("catalogs", c => c.Timeout = TimeSpan.FromSeconds(20));
         services.AddSingleton<DataTransfer>();
         services.AddSingleton<PreferencesStore>();
         services.AddScoped<TourService>();

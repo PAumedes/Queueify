@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -104,6 +105,142 @@ public sealed partial class WebAppTests : IDisposable
 
         using var scope = factory.Services.CreateScope();
         Assert.Single(scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().Users.ToList());
+    }
+
+    [Fact]
+    public async Task The_registration_confirmation_page_tells_nothing_about_who_has_an_account()
+    {
+        using var factory = Factory();
+        await RegisterAsync(Client(factory), "owner@example.com");
+        var anonymous = Client(factory);
+
+        var known = await anonymous.GetAsync("/Account/RegisterConfirmation?email=owner@example.com", TestContext.Current.CancellationToken);
+        var unknown = await anonymous.GetAsync("/Account/RegisterConfirmation?email=nobody@example.com", TestContext.Current.CancellationToken);
+
+        Assert.Equal(unknown.StatusCode, known.StatusCode);
+        var knownHtml = await known.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var unknownHtml = await unknown.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        // The page links to itself (skip link), so only the address in that link may differ.
+        string Plain(string html, string address) => Regex.Replace(Regex.Replace(html.Replace(address, "X"), "<!--Blazor:.*?-->", ""), "[-A-Za-z0-9_+/=]{40,}", "T");   // antiforgery tokens and component state differ per response
+        Assert.Equal(Plain(unknownHtml, "nobody@example.com"), Plain(knownHtml, "owner@example.com"));
+        Assert.DoesNotContain("ConfirmEmail", knownHtml);
+        Assert.DoesNotContain("userId", knownHtml);
+    }
+
+    [Fact]
+    public async Task Deleting_the_only_account_does_not_hand_the_server_to_the_next_visitor()
+    {
+        using var factory = Factory(allowRegistration: false);
+        await RegisterAsync(Client(factory), "owner@example.com");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await users.DeleteAsync((await users.FindByEmailAsync("owner@example.com"))!)).Succeeded);
+            Assert.Empty(users.Users.ToList());
+        }
+
+        var visitor = Client(factory);
+        Assert.DoesNotContain("Input.Email", await visitor.GetStringAsync("/Account/Register", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task An_existing_server_without_the_marker_gets_it_the_first_time_the_gate_is_asked()
+    {
+        using var factory = Factory(allowRegistration: false);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            Assert.True((await users.CreateAsync(new ApplicationUser { UserName = "old@example.com", Email = "old@example.com" }, "Passw0rd!x")).Succeeded);
+            Assert.False(await scope.ServiceProvider.GetRequiredService<Queueify.Web.Services.RegistrationGate>().IsOpenAsync());
+            await users.DeleteAsync((await users.FindByEmailAsync("old@example.com"))!);
+            Assert.False(await scope.ServiceProvider.GetRequiredService<Queueify.Web.Services.RegistrationGate>().IsOpenAsync());
+        }
+    }
+
+    private WebApplicationFactory<Program> ProductionFactory(bool allowInsecureCookies = false) =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        {
+            Directory.CreateDirectory(_root);
+            b.UseEnvironment("Production");
+            b.UseSetting("ConnectionStrings:DefaultConnection", $"DataSource={Path.Combine(_root, "prod.db")}");
+            b.UseSetting("Queueify:DataDir", Path.Combine(_root, "prod-users"));
+            if (allowInsecureCookies) b.UseSetting("Queueify:AllowInsecureCookies", "true");
+        });
+
+    // A secure cookie is not stored by a client talking http, so the test hands it back by hand, like a browser behind the proxy would.
+    private static HttpClient PlainHttpClient(WebApplicationFactory<Program> factory) =>
+        factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = false, BaseAddress = new Uri("http://localhost") });
+
+    private static void SendBack(HttpClient client, IEnumerable<string> setCookies) =>
+        client.DefaultRequestHeaders.Add("Cookie", string.Join("; ", setCookies.Select(c => c.Split(';')[0])));
+
+    private static async Task<List<string>> CookiesSetBySigningUpOverPlainHttpAsync(WebApplicationFactory<Program> factory)
+    {
+        var client = PlainHttpClient(factory);
+        var cookies = new List<string>();
+        var page = await client.GetAsync("/Account/Register", TestContext.Current.CancellationToken);
+        cookies.AddRange(page.Headers.TryGetValues("Set-Cookie", out var first) ? first : []);
+        SendBack(client, cookies);
+        var token = Token().Match(await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Groups[1].Value;
+        var signUp = await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["_handler"] = "register", ["Input.Email"] = "owner@example.com",
+            ["Input.Password"] = "Passw0rd!x", ["Input.ConfirmPassword"] = "Passw0rd!x",
+        }), TestContext.Current.CancellationToken);
+        cookies.AddRange(signUp.Headers.TryGetValues("Set-Cookie", out var second) ? second : []);
+        return cookies;
+    }
+
+    [Fact]
+    public async Task In_production_the_sign_in_and_antiforgery_cookies_are_secure_even_when_the_proxy_hides_https()
+    {
+        using var factory = ProductionFactory();
+        var cookies = await CookiesSetBySigningUpOverPlainHttpAsync(factory);
+
+        var session = Assert.Single(cookies, c => c.StartsWith(".AspNetCore.Identity.Application=", StringComparison.Ordinal));
+        var antiforgery = Assert.Single(cookies, c => c.StartsWith(".AspNetCore.Antiforgery."));
+        Assert.Contains("secure", session, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", antiforgery, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("httponly", session, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task A_server_kept_on_plain_http_on_purpose_can_say_so()
+    {
+        using var factory = ProductionFactory(allowInsecureCookies: true);
+        var cookies = await CookiesSetBySigningUpOverPlainHttpAsync(factory);
+
+        Assert.DoesNotContain(cookies, c => c.Contains("secure", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task The_language_and_theme_cookies_are_secure_in_production_too()
+    {
+        using var factory = ProductionFactory();
+        var client = PlainHttpClient(factory);
+        var login = await client.GetAsync("/Account/Login", TestContext.Current.CancellationToken);
+        SendBack(client, login.Headers.GetValues("Set-Cookie"));
+        var token = Token().Match(await login.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Groups[1].Value;
+
+        var response = await client.PostAsync("/prefs", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token, ["language"] = "es", ["theme"] = "dark",
+        }), TestContext.Current.CancellationToken);
+
+        var set = response.Headers.GetValues("Set-Cookie").Where(c => c.StartsWith("qlang=") || c.StartsWith("qtheme=")).ToList();
+        Assert.Equal(2, set.Count);
+        Assert.All(set, c => Assert.Contains("secure", c, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Pages_carry_no_inline_script_because_the_policy_would_block_it()
+    {
+        using var factory = Factory();
+        var html = await Client(factory).GetStringAsync("/Account/Login", TestContext.Current.CancellationToken);
+
+        // An inline <script> (the import map was one) is refused by script-src 'self' and only fills the console with errors.
+        Assert.DoesNotMatch(@"<script(?![^>]*\bsrc=)", html);
     }
 
     [Fact]

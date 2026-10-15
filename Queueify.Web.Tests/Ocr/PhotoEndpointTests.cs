@@ -7,8 +7,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Queueify.Services;
 using Queueify.Web.Ocr;
 using Queueify.Web.Tests.Support;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Queueify.Web.Tests.Ocr;
 
@@ -42,10 +40,7 @@ public sealed class PhotoEndpointTests : IClassFixture<WebApplicationFactory<Pro
 
     private static byte[] Png(int w = 100, int h = 50)
     {
-        using var image = new Image<Rgb24>(w, h);
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
+        return Support.TestImages.Png(w, h);
     }
 
     private static ByteArrayContent Body(byte[] bytes, string type = "image/png")

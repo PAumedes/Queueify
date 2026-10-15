@@ -1,10 +1,7 @@
 using System.Text;
 using Queueify.Web.Ocr;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.PixelFormats;
+using Queueify.Web.Tests.Support;
+using SkiaSharp;
 
 namespace Queueify.Web.Tests.Ocr;
 
@@ -12,17 +9,17 @@ public class ImageGuardTests
 {
     private static readonly OcrOptions Defaults = new();
 
-    private static byte[] Picture(int w, int h, string format = "png")
+    private static byte[] Picture(int w, int h, string format = "png") => TestImages.Encode(w, h, format switch
     {
-        using var image = new Image<Rgb24>(w, h, new Rgb24(200, 30, 30));
-        using var ms = new MemoryStream();
-        switch (format)
-        {
-            case "jpeg": image.SaveAsJpeg(ms); break;
-            case "webp": image.SaveAsWebp(ms); break;
-            default: image.SaveAsPng(ms); break;
-        }
-        return ms.ToArray();
+        "jpeg" => SKEncodedImageFormat.Jpeg,
+        "webp" => SKEncodedImageFormat.Webp,
+        _ => SKEncodedImageFormat.Png,
+    });
+
+    private static SKImageInfo Info(byte[] bytes)
+    {
+        using var codec = SKCodec.Create(new MemoryStream(bytes));
+        return codec.Info;
     }
 
     private static PhotoProblem ProblemOf(byte[] bytes, OcrOptions? options = null) =>
@@ -43,17 +40,14 @@ public class ImageGuardTests
     [Fact]
     public void Metadata_such_as_GPS_does_not_survive_the_re_encode()
     {
-        using var image = new Image<Rgb24>(20, 20);
-        image.Metadata.ExifProfile = new SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifProfile();
-        image.Metadata.ExifProfile.SetValue(SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag.Make, "SecretCamera");
-        using var jpeg = new MemoryStream();
-        image.SaveAsJpeg(jpeg);
-        Assert.Contains("SecretCamera", Encoding.Latin1.GetString(jpeg.ToArray()));   // the test input does carry it
+        var jpeg = TestImages.JpegWithExif(20, 20, make: "SecretCamera");
+        Assert.Contains("SecretCamera", Encoding.Latin1.GetString(jpeg));   // the test input does carry it
 
-        var prepared = ImageGuard.Prepare(new MemoryStream(jpeg.ToArray()), Defaults);
+        var prepared = ImageGuard.Prepare(new MemoryStream(jpeg), Defaults);
 
         Assert.DoesNotContain("SecretCamera", Encoding.Latin1.GetString(prepared.Png));
-        Assert.Null(Image.Load(prepared.Png).Metadata.ExifProfile);
+        Assert.DoesNotContain("Exif", Encoding.Latin1.GetString(prepared.Png));
+        Assert.Equal((20, 20), (Info(prepared.Png).Width, Info(prepared.Png).Height));
     }
 
     [Fact]
@@ -73,15 +67,29 @@ public class ImageGuardTests
     [Fact]
     public void A_phone_photo_stored_rotated_is_turned_upright()
     {
-        using var image = new Image<Rgb24>(60, 20);
-        image.Metadata.ExifProfile = new SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifProfile();
-        image.Metadata.ExifProfile.SetValue(SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag.Orientation, (ushort)6);   // rotate 90 clockwise
-        using var jpeg = new MemoryStream();
-        image.SaveAsJpeg(jpeg);
+        var jpeg = TestImages.JpegWithExif(60, 20, orientation: 6);   // rotate 90 clockwise
 
-        var prepared = ImageGuard.Prepare(new MemoryStream(jpeg.ToArray()), Defaults);
+        var prepared = ImageGuard.Prepare(new MemoryStream(jpeg), Defaults);
 
         Assert.Equal((20, 60), (prepared.Width, prepared.Height));
+    }
+
+    [Theory]
+    [InlineData(1, "TL")]
+    [InlineData(6, "TR")]   // rotate 90 clockwise: the stored top-left ends at the top-right
+    [InlineData(3, "BR")]
+    [InlineData(8, "BL")]
+    public void The_upright_turn_moves_the_pixels_not_just_the_size(int orientation, string blueCorner)
+    {
+        var jpeg = TestImages.JpegWithExif(80, 40, (ushort)orientation, baseJpeg: TestImages.JpegWithBlueTopLeft(80, 40));
+
+        var prepared = ImageGuard.Prepare(new MemoryStream(jpeg), Defaults);
+
+        using var bitmap = SKBitmap.Decode(prepared.Png);
+        bool Blue(int x, int y) { var c = bitmap.GetPixel(x, y); return c.Blue > 200 && c.Red < 80; }
+        var (w, h) = (bitmap.Width, bitmap.Height);
+        var corners = new Dictionary<string, bool> { ["TL"] = Blue(2, 2), ["TR"] = Blue(w - 3, 2), ["BL"] = Blue(2, h - 3), ["BR"] = Blue(w - 3, h - 3) };
+        Assert.Equal([blueCorner], corners.Where(c => c.Value).Select(c => c.Key));
     }
 
     [Fact]

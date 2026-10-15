@@ -19,17 +19,37 @@ public static class QueueifyUi
 
     /// <summary>
     /// Everything comes from this site, except album covers (any https host, as catalogs choose them). Styles allow
-    /// inline because Fluent's components set them; scripts do not.
+    /// inline because Fluent's components set them; scripts do not. <c>blob:</c> images are the photo preview, made in the
+    /// browser from the file the user picked.
     /// </summary>
-    public const string ContentSecurityPolicy =
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; " +
-        "font-src 'self' data:; connect-src 'self' ws: wss:; manifest-src 'self'; worker-src 'self'; " +
-        "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    public static string ContentSecurityPolicy(string? publicUrl)
+    {
+        // 'self' covers the circuit's WebSocket in current browsers; older Safari needs the ws origin spelled out.
+        var connect = publicUrl is not null && Uri.TryCreate(publicUrl, UriKind.Absolute, out var origin)
+            ? $"'self' {(origin.Scheme == Uri.UriSchemeHttps ? "wss" : "ws")}://{origin.Authority}" : "'self'";
+        return $"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; " +
+            $"font-src 'self' data:; connect-src {connect}; manifest-src 'self'; worker-src 'self'; " +
+            "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    }
+
+    /// <summary>
+    /// Cookies carry the Secure flag everywhere except Development, whatever the proxy forwards: behind a TLS-terminating
+    /// proxy that is not a trusted hop the app sees plain http and would otherwise issue cookies a plain-http hit could read.
+    /// A server that really is kept on plain http (a home LAN) says so with <c>Queueify:AllowInsecureCookies</c>.
+    /// </summary>
+    public static bool SecureCookies(IConfiguration config, IHostEnvironment env) =>
+        !env.IsDevelopment() && !config.GetValue("Queueify:AllowInsecureCookies", false);
 
     public static WebApplicationBuilder AddQueueifyUi(this WebApplicationBuilder builder)
     {
         var services = builder.Services;
         services.AddFluentUIComponents();
+
+        if (SecureCookies(builder.Configuration, builder.Environment))
+        {
+            services.PostConfigureAll<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(o => o.Cookie.SecurePolicy = CookieSecurePolicy.Always);
+            services.AddAntiforgery(o => o.Cookie.SecurePolicy = CookieSecurePolicy.Always);
+        }
 
         services.AddHttpClient(HttpCatalogs.ClientName, c =>
         {
@@ -51,21 +71,37 @@ public static class QueueifyUi
         return builder;
     }
 
+    /// <summary>
+    /// Outside Development (unless <c>Queueify:AllowInsecureCookies</c>) every request counts as https: TLS is meant to end at a
+    /// reverse proxy, and the antiforgery and sign-in cookies insist on a secure request. Must run before anything that reads the scheme.
+    /// </summary>
+    /// <summary>False for static files and framework scripts, which carry no language or theme.</summary>
+    public static bool NeedsPreferences(PathString path) =>
+        !path.StartsWithSegments("/_framework") && !path.StartsWithSegments("/_content") && !Path.HasExtension(path.Value);
+
+    public static WebApplication UseQueueifySecureScheme(this WebApplication app)
+    {
+        if (SecureCookies(app.Configuration, app.Environment))
+            app.Use((context, next) => { context.Request.Scheme = "https"; return next(context); });
+        return app;
+    }
+
     public static WebApplication MapQueueifyUi(this WebApplication app)
     {
         // Each request answers in the language of the cookie, or of the browser; circuits do the same
         // through LocCircuitHandler. Loc keeps it per async flow, so two users never swap languages.
+        var csp = ContentSecurityPolicy(PublicUrl.Of(app.Configuration));
         app.Use(async (context, next) =>
         {
             context.Response.OnStarting(() =>
             {
                 var headers = context.Response.Headers;
-                headers["Content-Security-Policy"] = ContentSecurityPolicy;
+                headers["Content-Security-Policy"] = csp;
                 headers["X-Content-Type-Options"] = "nosniff";
                 headers["Referrer-Policy"] = "no-referrer";
                 return Task.CompletedTask;
             });
-            var account = context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } id
+            var account = NeedsPreferences(context.Request.Path) && context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } id
                 ? context.RequestServices.GetRequiredService<PreferencesStore>().Load(id) : null;
             var language = Prefs.Language(account?.Language, context.Request.Cookies[Prefs.LanguageCookie], context.Request.Headers.AcceptLanguage);
             context.Items[nameof(Prefs.Language)] = language;
@@ -76,7 +112,7 @@ public static class QueueifyUi
         // [FromForm] parameters make the endpoint require the antiforgery token, like every other form post.
         app.MapPost("/prefs", (HttpContext context, [FromForm] string? language, [FromForm] string? theme, [FromForm] string? returnUrl) =>
         {
-            var options = new CookieOptions { MaxAge = TimeSpan.FromDays(365), SameSite = SameSiteMode.Lax, IsEssential = true, Secure = context.Request.IsHttps, HttpOnly = true };
+            var options = new CookieOptions { MaxAge = TimeSpan.FromDays(365), SameSite = SameSiteMode.Lax, IsEssential = true, Secure = context.Request.IsHttps || SecureCookies(context.RequestServices.GetRequiredService<IConfiguration>(), context.RequestServices.GetRequiredService<IHostEnvironment>()), HttpOnly = true };
             if (language is "en" or "es") context.Response.Cookies.Append(Prefs.LanguageCookie, language, options);
             if (theme is "light" or "dark" or "system") context.Response.Cookies.Append(Prefs.ThemeCookie, theme, options);
             // A signed-in account keeps its choice for every browser it uses; Settings shows and changes the same values.

@@ -150,7 +150,7 @@ public sealed partial class DataTransfer(UserStores stores)
         var path = Path.Combine(Path.GetTempPath(), $"queueify-import-{Guid.NewGuid():N}.db");
         try
         {
-            using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) file.Write(upload);
+            using (var file = PrivateFile.CreateNew(path)) file.Write(upload);
 
             // immutable: no journal or side files are looked for or created; read-only: nothing can be written.
             var uri = "file:" + path.Replace('\\', '/').Replace("%", "%25").Replace("?", "%3f").Replace("#", "%23");
@@ -233,7 +233,7 @@ public sealed partial class DataTransfer(UserStores stores)
             Uid = SafeId(row.Uid, 64) ?? Fingerprint(artist, album, added),
             Artist = artist,
             Album = album,
-            Year = row.Year is >= 1900 and <= 2100 ? (int)row.Year : null,
+            Year = AlbumYear.OrNull(row.Year),
             Source = Tidy(row.Source) is { Length: > 0 } source ? source : null,
             CoverUrl = row.CoverUrl is { } cover && cover.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && Uri.TryCreate(cover, UriKind.Absolute, out _) ? cover : null,
             SpotifyId = SafeId(row.SpotifyId, 64),

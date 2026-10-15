@@ -37,6 +37,54 @@ public sealed class PreferencesStoreTests : IDisposable
         Assert.Throws<ArgumentException>(() => store.Save("alice", new Preferences("neon", "es", "auto", false)));
     }
 
+    // ── the file is parsed once, not on every request ──
+
+    [Fact]
+    public void An_unchanged_file_is_not_read_and_parsed_again()
+    {
+        var stores = new UserStores(_root);
+        var store = new PreferencesStore(stores);
+        store.Save("alice", new Preferences("dark", "es", "auto", false));
+        var path = stores.FileOf("alice", "prefs.json");
+        Assert.Equal("dark", store.Load("alice").Theme);
+
+        // Same length, same time stamp, other content: only a re-read would notice.
+        var stamp = File.GetLastWriteTimeUtc(path);
+        File.WriteAllText(path, File.ReadAllText(path).Replace("dark", "dusk").Replace("\"dusk\"", "\"lite\""));
+        File.SetLastWriteTimeUtc(path, stamp);
+
+        Assert.Equal("dark", store.Load("alice").Theme);
+    }
+
+    [Fact]
+    public void A_file_changed_by_someone_else_is_read_again()
+    {
+        var stores = new UserStores(_root);
+        var store = new PreferencesStore(stores);
+        store.Save("alice", new Preferences("dark", "es", "auto", false));
+        Assert.Equal("dark", store.Load("alice").Theme);
+
+        var path = stores.FileOf("alice", "prefs.json");
+        File.WriteAllText(path, """{"Theme":"light","Language":"es","OcrLanguage":"auto","TourSeen":true}""");
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(5));
+
+        Assert.Equal(new Preferences("light", "es", "auto", true), store.Load("alice"));
+    }
+
+    [Fact]
+    public void Saving_shows_at_once_and_deleting_the_folder_gives_the_defaults_again()
+    {
+        var stores = new UserStores(_root);
+        var store = new PreferencesStore(stores);
+        store.Save("alice", new Preferences("dark", "es", "auto", false));
+        store.Save("alice", new Preferences("light", "en", "auto", true));
+        Assert.Equal(new Preferences("light", "en", "auto", true), store.Load("alice"));
+
+        stores.Delete("alice");
+
+        Assert.Equal(Preferences.Default, store.Load("alice"));
+    }
+
     [Fact]
     public void A_damaged_file_gives_the_defaults()
     {

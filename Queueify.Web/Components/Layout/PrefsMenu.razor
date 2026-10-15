@@ -35,6 +35,7 @@
             StateHasChanged();
         }
         catch (JSException) { }
+        catch (JSDisconnectedException) { }
         catch (InvalidOperationException) { }
     }
 }

@@ -80,7 +80,7 @@ secrets needs real accounts.
 | `IOcr` + implementation | Windows OCR does not exist on Linux hosts. Options: **Tesseract** (NuGet `Tesseract`, `spa`/`eng` traineddata, free, runs anywhere); **Azure AI Vision Read** (best quality for magazine photos, small cost); or host on Windows and keep `Windows.Media.Ocr`. Recommended: Tesseract first, Azure behind the same interface later. |
 | `ILinkOpener` | Web: plain `<a href="spotify:..." target="_blank">`; deep links `https://open.spotify.com/...` and `https://tidal.com/browse/album/...` work in browsers. |
 | Per-request localization | `Loc` is static today. Wrap in a scoped `ILocalizer` (same string tables) keyed on the user's language; keeps Rioplatense ES. |
-| Photo upload limits | Max size, content-type check, `ImageSharp`-based re-encode, delete after OCR (nothing stored). |
+| Photo upload limits | Max size, content-type check, `SkiaSharp`-based re-encode (ADR-0011), delete after OCR (nothing stored). |
 | Backup / export | Download `queueify.db` as JSON/CSV; **import** from desktop (see §5). |
 | Health + logging | `/healthz`, structured logs, no secrets in logs. |
 

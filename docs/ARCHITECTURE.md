@@ -66,7 +66,7 @@ referencing `Queueify.Core` for matching, catalogs, `BacklogStore`, `QueueText` 
 | Part | Responsibility |
 | --- | --- |
 | `Services/QueueifyUi` | `AddQueueifyUi()` and `MapQueueifyUi()`: the only lines `Program.cs` needs. Registers the services, the 20 s catalog `HttpClient`, the per-request language and the `/prefs` form endpoint. |
-| `Services/UserQueue` | The signed-in user's queue for one circuit: every change is written at once to that user's `queueify.db` (`UserStores`), undo re-reads the stored album, `Changed` redraws the nav badges. |
+| `Services/UserQueue` | The signed-in user's queue for one circuit: every change is written at once to that user's `queueify.db` (`UserStores`), undo re-reads the stored album, `Changed` redraws the nav badges. A change updates only that album in memory (`LoadAsync` is the full refresh) and keeps a normalised search key per album, so filtering a queue of tens of thousands does not normalise every album per keystroke; the queue pages debounce the filter and draw 100 albums at a time. |
 | `Services/AlbumSearch`, `HttpCatalogs` | Both catalogs at once with the user's own keys, the year retry, errors as readable messages; one catalog object per user so tokens are reused but never shared. |
 | `Services/Prefs` | Language (cookie, then `Accept-Language`), theme, same-site return paths, where a phone lands after sign-in. |
 | `LocCircuitHandler` | `Loc` keeps its language per async flow; each call into a circuit runs with the circuit's language, so two users never swap languages. |
@@ -123,7 +123,8 @@ reads its texts while it loads.
 
 `Queueify.Web` (Blazor Web App, Interactive Server, [ADR-0010](adr/0010-web-app-and-shared-queue.md)) keeps
 one folder per user under the data root (`Queueify:DataDir`, default `App_Data`): `queueify.db`,
-`settings.json` and `prefs.json`. `UserStores` is the only door to them; with Data Protection (key ring in
+`settings.json` and `prefs.json`; the same root holds the account database `identity.db` (created and migrated at start;
+nothing ships with the app, `ConnectionStrings:DefaultConnection` can move it). `UserStores` is the only door to them; with Data Protection (key ring in
 `keys/`) it keeps the two client secrets encrypted in `secrets.dat`, bound to the user, never in `settings.json`.
 
 | Piece | Responsibility |

@@ -100,8 +100,9 @@ dotnet run --project Queueify.Web          # then open the address it prints
 
 The first account that registers owns the server; after that registration is closed unless the server's
 configuration sets `Queueify:AllowRegistration` to `true`. Data lives under `Queueify:DataDir`
-(default `./data`, one folder per user). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
-the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md).
+(default `App_Data` beside the app: one folder per user, the Data Protection keys and `identity.db`, the account
+database, created on first run; back the whole folder up as one). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
+the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md). To host it (Docker, a home PC behind a tunnel, a free VM) see [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Magazine photos
 
@@ -155,3 +156,6 @@ Conventional Commits, pull requests with adversarial review). Design documents l
 
 [GPL-3.0-or-later](LICENSE). Spotify and Tidal are trademarks of their owners; Queueify isn't affiliated
 with either. Their logos in the app come from [Simple Icons](https://simpleicons.org) (CC0).
+The web app decodes photos with [SkiaSharp](https://github.com/mono/SkiaSharp) (MIT) and Tesseract
+(Apache-2.0, run as a separate program); both are permissive and need no license key to build a release
+([ADR-0011](docs/adr/0011-web-ocr.md)).

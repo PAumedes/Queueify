@@ -25,10 +25,11 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+var connectionString = QueueifyStorageExtensions.AccountConnectionString(builder.Configuration, builder.Environment);
+// A factory for component code (one short context per call), and a scoped context built from it for Identity.
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options => options.UseSqlite(connectionString));
+builder.Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
+if (builder.Environment.IsDevelopment()) builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -46,6 +47,7 @@ builder.Services.AddQueueifyData();
 builder.Services.AddQueueifySync();
 
 var app = builder.Build();
+app.UseQueueifySecureScheme();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

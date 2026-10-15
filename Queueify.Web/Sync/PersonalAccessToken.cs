@@ -14,6 +14,9 @@ public sealed class PersonalAccessToken
     public DateTime? LastUsedAt { get; set; }
     public DateTime? RevokedAt { get; set; }
 
+    /// <summary>The owner's Identity security stamp when the token was made. A password change or reset, or "sign out everywhere", changes the stamp and so ends every older token.</summary>
+    public string? SecurityStamp { get; set; }
+
     internal static void Configure(ModelBuilder model) =>
         model.Entity<PersonalAccessToken>(t =>
         {

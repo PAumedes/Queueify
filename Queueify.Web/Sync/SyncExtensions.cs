@@ -36,6 +36,7 @@ public static class SyncExtensions
             sp.GetRequiredService<IConfiguration>().GetValue("Queueify:Sync:MaxAlbumsPerUser", SyncEngine.DefaultMaxRowsPerUser)));
         services.AddSingleton<SyncLimits>();
         services.AddScoped<PersonalAccessTokens>();
+        services.AddScoped<Reauthentication>();
         services.AddHostedService<IdentityMigrator>();
         services.AddTransient<IStartupFilter, ProxyStartupFilter>();
 
@@ -74,7 +75,7 @@ public static class SyncExtensions
         int read;
         try
         {
-            while ((read = await http.Request.Body.ReadAsync(buffer)) > 0)
+            while ((read = await http.Request.Body.ReadAsync(buffer, http.RequestAborted)) > 0)
             {
                 body.Write(buffer, 0, read);
                 if (body.Length > limits.MaxBodyBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
@@ -85,6 +86,10 @@ public static class SyncExtensions
             // Kestrel enforces the cap itself on chunked bodies; its answer must not reach the error page.
             return Results.StatusCode(e.StatusCode);
         }
+        catch (OperationCanceledException)
+        {
+            return Results.StatusCode(499);   // the client went away; nobody reads this answer
+        }
 
         SyncRequest? request;
         try { request = JsonSerializer.Deserialize(body.GetBuffer().AsSpan(0, (int)body.Length), SyncJson.Default.SyncRequest); }
@@ -92,8 +97,9 @@ public static class SyncExtensions
         if (request == null) return Results.StatusCode(StatusCodes.Status400BadRequest);
 
         SyncResponse? response;
-        try { response = await engine.RunAsync(userId, request); }
+        try { response = await engine.RunAsync(userId, request, http.RequestAborted); }
         catch (SyncQuotaException) { return Results.StatusCode(StatusCodes.Status413PayloadTooLarge); }
+        catch (OperationCanceledException) { return Results.StatusCode(499); }
         return response == null
             ? Results.StatusCode(StatusCodes.Status400BadRequest)
             : Results.Text(JsonSerializer.Serialize(response, SyncJson.Default.SyncResponse), "application/json");

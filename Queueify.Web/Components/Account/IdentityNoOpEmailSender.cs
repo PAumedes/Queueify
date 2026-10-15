@@ -4,7 +4,7 @@ using Queueify.Web.Data;
 
 namespace Queueify.Web.Components.Account;
 
-// Remove the "else if (EmailSender is IdentityNoOpEmailSender)" block from RegisterConfirmation.razor after updating with a real implementation.
+// This server sends no mail; a real sender must also bring back a confirmation flow that does not reveal which addresses have accounts.
 internal sealed class IdentityNoOpEmailSender : IEmailSender<ApplicationUser>
 {
     private readonly IEmailSender emailSender = new NoOpEmailSender();

@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+.git/
+.claude/
+.cache/
+dist/
+*.db
+Queueify.Web/App_Data/

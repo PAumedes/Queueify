@@ -1,10 +1,13 @@
 @page "/connect"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using Queueify.Web.Services
 @using Queueify.Web.Sync
 @inject PersonalAccessTokens Tokens
+@inject Reauthentication Reauth
 @inject AuthenticationStateProvider Auth
 @inject NavigationManager Navigation
+@inject IConfiguration Config
 
 <PageTitle>@Loc.T("connect.title") - Queueify</PageTitle>
 
@@ -34,10 +37,19 @@
         <div class="q-alert bad" role="alert"><Ico Name="warn" /><p>@Loc.T("connect.limit")</p></div>
     }
 
+    @if (_wrongPassword)
+    {
+        <div class="q-alert bad" role="alert"><Ico Name="warn" /><p>@Loc.T("web.acct.m.bad_pw")</p></div>
+    }
+
     <form class="q-card stack" @onsubmit="CreateAsync" @onsubmit:preventDefault>
         <div class="q-field">
             <label for="token-name">@Loc.T("connect.name")</label>
             <input id="token-name" class="q-input" maxlength="@PersonalAccessTokens.MaxNameLength" @bind="_name" @bind:event="oninput" />
+        </div>
+        <div class="q-field">
+            <label for="token-password">@Loc.T("web.acct.password")</label>
+            <input id="token-password" type="password" class="q-input" autocomplete="current-password" @bind="_password" />
         </div>
         <button type="submit" class="q-btn primary" disabled="@(string.IsNullOrWhiteSpace(_name))"><Ico Name="add" />@Loc.T("connect.create")</button>
     </form>
@@ -78,6 +90,8 @@
     private string _name = "";
     private string? _connectText;
     private bool _limitReached;
+    private bool _wrongPassword;
+    private string _password = "";
     private string? _userId;
 
     protected override async Task OnInitializedAsync()
@@ -92,10 +106,15 @@
     {
         if (_userId == null || string.IsNullOrWhiteSpace(_name)) return;
         _limitReached = false;
+        // A token outlives this session, so a session alone cannot make one.
+        var password = _password;
+        _password = "";
+        _wrongPassword = !await Reauth.ConfirmPasswordAsync(_userId, password);
+        if (_wrongPassword) return;
         try
         {
             var created = await Tokens.CreateAsync(_userId, _name);
-            _connectText = SyncConnect.Format(Navigation.BaseUri, created.Token);
+            _connectText = SyncConnect.Format(PublicUrl.Of(Config) ?? Navigation.BaseUri, created.Token);
             _name = "";
         }
         catch (InvalidOperationException)

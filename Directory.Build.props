@@ -10,8 +10,7 @@
   <PropertyGroup Condition="'$(CI)' == 'true' Or '$(ContinuousIntegrationBuild)' == 'true'">
     <WarningsAsErrors>$(WarningsAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
   </PropertyGroup>
-  <!-- Queueify.Web.Tests is left out until the possible-null dereferences in its AlbumSearchTests are fixed (CS8602). -->
-  <PropertyGroup Condition="('$(CI)' == 'true' Or '$(ContinuousIntegrationBuild)' == 'true') And '$(MSBuildProjectName)' != 'Queueify.Web.Tests'">
+  <PropertyGroup Condition="'$(CI)' == 'true' Or '$(ContinuousIntegrationBuild)' == 'true'">
     <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
   </PropertyGroup>
 </Project>

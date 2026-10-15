@@ -62,14 +62,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await Queue.LoadAsync();
-        Queue.Changed += OnChanged;
+        Queue.Changed += OnChanged;   // subscribed before the await, so a disposal during the load cannot leave it attached
         Nav.LocationChanged += OnLocation;
+        await Queue.LoadAsync();
     }
 
-    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+    private void OnChanged() => Redraw();
 
-    private void OnLocation(object? sender, LocationChangedEventArgs e) => _ = InvokeAsync(StateHasChanged);
+    private void OnLocation(object? sender, LocationChangedEventArgs e) => Redraw();
+
+    private async void Redraw()
+    {
+        try { await InvokeAsync(StateHasChanged); }
+        catch (ObjectDisposedException) { }
+        catch (Exception ex) { await DispatchExceptionAsync(ex); }
+    }
 
     public void Dispose()
     {

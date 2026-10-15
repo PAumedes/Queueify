@@ -1,7 +1,4 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 
 namespace Queueify.Web.Ocr;
 
@@ -29,29 +26,58 @@ public static class ImageGuard
 
         try
         {
-            var info = Image.Identify(bytes);
-            if ((long)info.Width * info.Height > options.MaxPixels) throw new PhotoException(PhotoProblem.TooManyPixels);
+            // The codec reads the header only; nothing is decoded before the pixel budget is checked.
+            using var data = SKData.CreateCopy(bytes);
+            using var codec = SKCodec.Create(data) ?? throw new PhotoException(PhotoProblem.Corrupt);
+            var size = codec.Info;
+            if (size.Width <= 0 || size.Height <= 0) throw new PhotoException(PhotoProblem.Corrupt);
+            if ((long)size.Width * size.Height > options.MaxPixels) throw new PhotoException(PhotoProblem.TooManyPixels);
 
-            using var image = Image.Load(new DecoderOptions { MaxFrames = 1 }, bytes);
-            image.Mutate(x =>
-            {
-                x.AutoOrient();
-                if (Math.Max(image.Width, image.Height) > options.MaxSide)
-                    x.Resize(new ResizeOptions { Mode = ResizeMode.Max, Size = new Size(options.MaxSide, options.MaxSide) });
-            });
-            image.Metadata.ExifProfile = null;
-            image.Metadata.IccProfile = null;
-            image.Metadata.XmpProfile = null;
+            using var decoded = new SKBitmap(new SKImageInfo(size.Width, size.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+            // Only a complete decode counts: a truncated file is corrupt, not a half-grey picture.
+            if (codec.GetPixels(decoded.Info, decoded.GetPixels()) != SKCodecResult.Success) throw new PhotoException(PhotoProblem.Corrupt);
 
-            using var png = new MemoryStream();
-            image.Save(png, new PngEncoder());
-            return new PreparedImage(png.ToArray(), image.Width, image.Height);
+            var origin = codec.EncodedOrigin;
+            var (width, height) = origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom
+                ? (size.Height, size.Width) : (size.Width, size.Height);
+            var scale = Math.Max(width, height) > options.MaxSide ? (double)options.MaxSide / Math.Max(width, height) : 1;
+            var outW = Math.Max(1, (int)Math.Round(width * scale));
+            var outH = Math.Max(1, (int)Math.Round(height * scale));
+
+            // A fresh opaque surface: transparency becomes white (like the printed page) and none of the source
+            // metadata can be carried over, because only pixels are drawn.
+            using var surface = SKSurface.Create(new SKImageInfo(outW, outH, SKColorType.Rgba8888, SKAlphaType.Opaque))
+                ?? throw new PhotoException(PhotoProblem.Corrupt);
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.White);
+            canvas.Scale((float)outW / width, (float)outH / height);
+            canvas.Concat(Upright(size.Width, size.Height, origin));
+            decoded.SetImmutable();   // lets the image share the pixels instead of copying them
+            using var source = SKImage.FromBitmap(decoded);
+            canvas.DrawImage(source, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell));
+
+            using var image = surface.Snapshot();
+            using var png = image.Encode(SKEncodedImageFormat.Png, 100) ?? throw new PhotoException(PhotoProblem.Corrupt);
+            return new PreparedImage(png.ToArray(), outW, outH);
         }
-        catch (Exception ex) when (ex is ImageFormatException or InvalidOperationException or NotSupportedException or EndOfStreamException or IOException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException or EndOfStreamException or IOException or OutOfMemoryException)
         {
             throw new PhotoException(PhotoProblem.Corrupt);
         }
     }
+
+    /// <summary>Maps the stored pixels to the way the camera was held (EXIF orientation values 1 to 8).</summary>
+    private static SKMatrix Upright(int w, int h, SKEncodedOrigin origin) => origin switch
+    {
+        SKEncodedOrigin.TopRight => new SKMatrix(-1, 0, w, 0, 1, 0, 0, 0, 1),
+        SKEncodedOrigin.BottomRight => new SKMatrix(-1, 0, w, 0, -1, h, 0, 0, 1),
+        SKEncodedOrigin.BottomLeft => new SKMatrix(1, 0, 0, 0, -1, h, 0, 0, 1),
+        SKEncodedOrigin.LeftTop => new SKMatrix(0, 1, 0, 1, 0, 0, 0, 0, 1),
+        SKEncodedOrigin.RightTop => new SKMatrix(0, -1, h, 1, 0, 0, 0, 0, 1),
+        SKEncodedOrigin.RightBottom => new SKMatrix(0, -1, h, -1, 0, w, 0, 0, 1),
+        SKEncodedOrigin.LeftBottom => new SKMatrix(0, 1, 0, -1, 0, w, 0, 0, 1),
+        _ => SKMatrix.Identity,
+    };
 
     private static byte[] ReadCapped(Stream input, long max)
     {

@@ -34,15 +34,34 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock, in
     [GeneratedRegex("^[A-Za-z0-9_-]{1,64}$")]
     private static partial Regex UidPattern();
 
-    /// <summary>The answer to a sync, or null when the request is malformed (the endpoint answers 400).</summary>
-    public async Task<SyncResponse?> RunAsync(string userId, SyncRequest request)
+    /// <summary>The answer to a sync, or null when the request is malformed (the endpoint answers 400). A caller that gave up while waiting for its turn costs nothing.</summary>
+    public async Task<SyncResponse?> RunAsync(string userId, SyncRequest request, CancellationToken ct = default)
     {
         var clean = Clean(request);
         if (clean == null) return null;
 
-        var gate = _gates.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync();
-        try { return await Task.Run(() => Apply(userId, clean)); }
+        var gate = GateOf(userId);
+        await gate.WaitAsync(ct);
+        try { return await Task.Run(() => Apply(userId, clean), CancellationToken.None); }
+        finally { gate.Release(); }
+    }
+
+    private SemaphoreSlim GateOf(string userId) => _gates.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
+
+    /// <summary>
+    /// Removes everything stored for the user, once a running sync for them is finished, and forgets that their file was
+    /// prepared: the pages create a plain desktop-schema file again on the next visit, and the next sync must add the
+    /// server columns to that one.
+    /// </summary>
+    public async Task DeleteUserDataAsync(string userId, CancellationToken ct = default)
+    {
+        var gate = GateOf(userId);
+        await gate.WaitAsync(ct);
+        try
+        {
+            _prepared.TryRemove(stores.QueuePathOf(userId), out _);
+            stores.Delete(userId);
+        }
         finally { gate.Release(); }
     }
 
@@ -59,7 +78,7 @@ public sealed partial class SyncEngine(UserStores stores, TimeProvider clock, in
         {
             if (a == null || a.Uid == null || !UidPattern().IsMatch(a.Uid)) return null;
             clean.Add(new SyncAlbum(
-                a.Uid, Cut(a.Artist), Cut(a.Album), a.Year is >= 1 and <= 9999 ? a.Year : null,
+                a.Uid, Cut(a.Artist), Cut(a.Album), AlbumYear.OrNull(a.Year),
                 CutOrNull(a.Source), CutOrNull(a.CoverUrl), CutOrNull(a.SpotifyId), CutOrNull(a.TidalId),
                 Utc(a.AddedAt), a.ListenedAt is DateTime l ? Utc(l) : null, Rating(a.Rating),
                 Min(Utc(a.UpdatedAt), latest), a.Deleted));
