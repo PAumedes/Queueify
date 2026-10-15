@@ -31,6 +31,9 @@ public static class ScratchHost
         factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("Queueify:DataDir", dataRoot);
+            // Each host gets its own account database: hosts sharing one file migrate it at the same time and fail.
+            Directory.CreateDirectory(dataRoot);
+            builder.UseSetting("ConnectionStrings:DefaultConnection", $"DataSource={Path.Combine(dataRoot, "app.db")}");
             builder.ConfigureTestServices(services =>
             {
                 services.AddAuthentication(o => o.DefaultScheme = HeaderUserAuthHandler.Scheme)
