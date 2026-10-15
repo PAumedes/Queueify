@@ -42,6 +42,13 @@ public sealed partial class CloudSync(HttpClient http) : ISyncProvider
     /// <summary>Longest text the security rules accept per field; longer text is shortened on upload.</summary>
     public const int MaxTextLength = 500;
 
+    /// <summary>The text cut to <see cref="MaxTextLength"/>, never in the middle of a surrogate pair (a lone half would not survive JSON).</summary>
+    public static string CutText(string text)
+    {
+        if (text.Length <= MaxTextLength) return text;
+        return char.IsHighSurrogate(text[MaxTextLength - 1]) ? text[..(MaxTextLength - 1)] : text[..MaxTextLength];
+    }
+
     /// <summary>Re-check a few seconds before the last seen change, in case of near-simultaneous commits.</summary>
     private static readonly TimeSpan Overlap = TimeSpan.FromSeconds(5);
 
@@ -285,7 +292,7 @@ public sealed partial class CloudSync(HttpClient http) : ISyncProvider
     private static JsonObject Null() => new() { ["nullValue"] = null };
 
     private static JsonObject TextValue(string? value) =>
-        value == null ? Null() : new JsonObject { ["stringValue"] = value.Length <= MaxTextLength ? value : value[..MaxTextLength] };
+        value == null ? Null() : new JsonObject { ["stringValue"] = CutText(value) };
 
     private static JsonObject TimeValue(DateTime utc) => new()
     {

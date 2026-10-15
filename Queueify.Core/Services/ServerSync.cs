@@ -242,7 +242,7 @@ public sealed class ServerSync(HttpClient http, int maxBatch = ServerSync.MaxBat
 
 
     private static string? Cut(string? text) =>
-        text is { Length: > MaxTextLength } ? text[..MaxTextLength] : text;
+        text == null ? null : CloudSync.CutText(text);
 
     /// <summary>A time with no zone is taken as UTC, the zone every time on the wire is in.</summary>
     private static DateTime Utc(DateTime t) =>

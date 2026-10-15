@@ -180,3 +180,54 @@ public sealed class ServerSyncPagingTests : IDisposable
         Assert.Equal(Loc.T("webSync.err.bad_reply"), ex.Message);
     }
 }
+
+public class TextCutTests
+{
+    [Fact]
+    public void Text_within_the_limit_is_untouched() =>
+        Assert.Equal("short", CloudSync.CutText("short"));
+
+    [Fact]
+    public void Longer_text_is_cut_at_the_limit() =>
+        Assert.Equal(new string('a', CloudSync.MaxTextLength), CloudSync.CutText(new string('a', 900)));
+
+    [Fact]
+    public void A_cut_never_leaves_half_a_surrogate_pair()
+    {
+        var text = new string('a', CloudSync.MaxTextLength - 1) + "\U0001F600" + "tail";
+
+        var cut = CloudSync.CutText(text);
+
+        Assert.Equal(new string('a', CloudSync.MaxTextLength - 1), cut);
+    }
+
+    [Fact]
+    public async Task What_goes_up_is_cut_at_a_character_boundary()
+    {
+        var sent = new List<SyncRequest>();
+        var server = new Scripted2(sent);
+        var dir = Path.Combine(Path.GetTempPath(), "queueify-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new BacklogStore(Path.Combine(dir, "q.db"));
+            store.Insert(new BacklogItem { Artist = "A", Album = new string('a', CloudSync.MaxTextLength - 1) + "\U0001F600", AddedAt = DateTime.Now });
+
+            await new ServerSync(new HttpClient(server)).SyncAsync(store, new AppSettings { WebServerUrl = "https://queue.example.com", WebToken = "qw_TOKEN" }, CancellationToken.None);
+
+            Assert.Equal(new string('a', CloudSync.MaxTextLength - 1), sent[0].Albums[0].Album);
+        }
+        finally { SqliteConnection.ClearAllPools(); if (Directory.Exists(dir)) Directory.Delete(dir, true); }
+    }
+
+    private sealed class Scripted2(List<SyncRequest> sent) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            sent.Add(JsonSerializer.Deserialize(await request.Content!.ReadAsStringAsync(ct), SyncJson.Default.SyncRequest)!);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new SyncResponse(new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc), [], null), SyncJson.Default.SyncResponse), Encoding.UTF8, "application/json"),
+            };
+        }
+    }
+}
