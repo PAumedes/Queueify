@@ -1,15 +1,12 @@
-.keys { padding-block: 12px; border-top: 1px solid var(--colorNeutralStroke2, #e0e0e0); }
+.keys { padding-block: 12px; border-top: 1px solid var(--q-hair); }
 .keys:first-of-type { border-top: none; }
-h3 { font-size: 1rem; margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }
-.state { font-size: 0.8125rem; font-weight: 400; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--colorNeutralStroke1, #d1d1d1); }
-.state.on { border-color: var(--colorPaletteGreenBorder2, #107c10); }
-.steps { white-space: pre-line; margin: 8px 0; color: var(--colorNeutralForeground2, #424242); }
+h3 { font-size: 1rem; margin: 0 0 6px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.steps { white-space: pre-line; margin: 8px 0; color: var(--q-muted); }
+summary { cursor: pointer; }
+summary:focus-visible { outline: 2px solid var(--q-violet-text); outline-offset: 2px; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-block: 8px; max-width: 28rem; }
-.field label { font-weight: 600; }
-input { min-height: 44px; font: inherit; padding: 0 10px; border-radius: var(--borderRadiusMedium, 4px); border: 1px solid var(--colorNeutralStroke1, #d1d1d1); background: var(--colorNeutralBackground1, #fff); color: inherit; }
+.field label { font-weight: 600; font-size: 13px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-button { min-height: 44px; padding: 0 16px; font: inherit; border-radius: var(--borderRadiusMedium, 4px); border: 1px solid var(--colorNeutralStroke1, #d1d1d1); background: var(--colorNeutralBackground1, #fff); color: inherit; }
-button:disabled { opacity: 0.6; }
-input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--colorStrokeFocus2, #000); outline-offset: 2px; }
-.notice { min-height: 1.5rem; margin: 8px 0 0; }
-.notice.error { color: var(--colorPaletteRedForeground1, #b10e1c); }
+.notice { margin: 8px 0 0; }
+.notice:empty { margin: 0; }
+.notice.error { color: var(--q-danger); }

@@ -1,16 +1,9 @@
 h3 { font-size: 1rem; margin: 16px 0 4px; }
-.text { margin: 0 0 8px; color: var(--colorNeutralForeground2, #424242); }
+.text { margin: 0 0 8px; color: var(--q-muted); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
-.download, .import {
-    display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; font: inherit;
-    border-radius: var(--borderRadiusMedium, 4px); border: 1px solid var(--colorNeutralStroke1, #d1d1d1);
-    background: var(--colorNeutralBackground1, #fff); color: inherit; text-decoration: none;
-}
-.import:disabled { opacity: 0.6; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; max-width: 28rem; }
-.field label { font-weight: 600; }
-input { min-height: 44px; font: inherit; }
+.field label { font-weight: 600; font-size: 13px; }
 .name { margin-inline-start: 12px; overflow-wrap: anywhere; }
-.notice { min-height: 1.5rem; margin: 8px 0 0; }
-.notice.error { color: var(--colorPaletteRedForeground1, #b10e1c); }
-a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--colorStrokeFocus2, #000); outline-offset: 2px; }
+.notice { margin: 8px 0 0; }
+.notice:empty { margin: 0; }
+.notice.error { color: var(--q-danger); }

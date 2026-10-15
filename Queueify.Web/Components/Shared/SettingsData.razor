@@ -6,8 +6,8 @@
 
 <div class="data">
     <p class="actions">
-        <a class="download json" href="/api/export.json" download="queueify.json">@Loc.T("webData.export.json")</a>
-        <a class="download csv" href="/api/export.csv" download="queueify.csv">@Loc.T("webData.export.csv")</a>
+        <a class="q-btn download json" href="/api/export.json" download="queueify.json">@Loc.T("webData.export.json")</a>
+        <a class="q-btn download csv" href="/api/export.csv" download="queueify.csv">@Loc.T("webData.export.csv")</a>
     </p>
 
     <h3>@Loc.T("webData.import.title")</h3>
@@ -16,7 +16,7 @@
         <label for="import-file">@Loc.T("webData.import.choose")</label>
         <input id="import-file" type="file" accept=".db,.sqlite,.json,application/json,application/octet-stream" @ref="_input" disabled="@_working" />
     </div>
-    <button type="button" class="import" disabled="@(_fileId is null || _working)" @onclick="ImportAsync">
+    <button type="button" class="q-btn import" disabled="@(_fileId is null || _working)" @onclick="ImportAsync">
         @Loc.T(_working ? "webData.import.working" : "webData.import.button")
     </button>
     @if (_fileName is not null)

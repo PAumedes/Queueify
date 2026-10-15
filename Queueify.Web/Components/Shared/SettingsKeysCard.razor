@@ -2,7 +2,7 @@
 @using Queueify.Web.Services
 
 <div class="keys" data-service="@Service">
-    <h3>@Name <span class="state @(Configured ? "on" : "off")">@(Configured ? "✓ " : "○ ")@Loc.T(Configured ? "webSettings.keys.on" : "webSettings.keys.off")</span></h3>
+    <h3>@Name <span class="q-pill state @(Configured ? "configured" : "missing")">@(Configured ? "✓ " : "○ ")@Loc.T(Configured ? "webSettings.keys.on" : "webSettings.keys.off")</span></h3>
     <details>
         <summary>@Loc.T("webSettings.steps")</summary>
         <p class="steps">@Steps</p>
@@ -10,23 +10,23 @@
 
     <div class="field">
         <label for="@Service-id">@Loc.T("webSettings.client_id")</label>
-        <input id="@Service-id" type="text" autocomplete="off" spellcheck="false" maxlength="300"
+        <input id="@Service-id" class="q-input" type="text" autocomplete="off" spellcheck="false" maxlength="300"
                @bind="ClientId" @bind:after="() => ClientIdChanged.InvokeAsync(ClientId)" />
     </div>
     <div class="field">
         <label for="@Service-secret">@Loc.T("webSettings.client_secret")</label>
-        <input id="@Service-secret" type="password" autocomplete="new-password" spellcheck="false" maxlength="300"
+        <input id="@Service-secret" class="q-input" type="password" autocomplete="new-password" spellcheck="false" maxlength="300"
                placeholder="@Loc.T(Configured ? "webSettings.secret.saved" : "webSettings.secret.empty")"
                @bind="Secret" @bind:event="oninput" @bind:after="() => SecretChanged.InvokeAsync(Secret)" />
     </div>
 
     <div class="actions">
-        <button type="button" class="test-@Service" disabled="@Testing" @onclick="OnTest">
+        <button type="button" class="q-btn test-@Service" disabled="@Testing" @onclick="OnTest">
             @(Testing ? Loc.T("webSettings.testing") : Loc.F("webSettings.test", Name))
         </button>
         @if (Configured)
         {
-            <button type="button" class="remove-@Service" @onclick="OnRemove">@Loc.F("webSettings.remove", Name)</button>
+            <button type="button" class="q-btn remove-@Service" @onclick="OnRemove">@Loc.F("webSettings.remove", Name)</button>
         }
     </div>
     <p class="notice @(Result?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="@Service">@(Result is null ? "" : (Result.IsError ? "⚠︎ " : "✓ ") + Result.Text)</p>

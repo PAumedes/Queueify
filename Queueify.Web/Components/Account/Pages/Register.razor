@@ -4,6 +4,7 @@
 @using System.Text
 @using System.Text.Encodings.Web
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Options
 @using Microsoft.AspNetCore.WebUtilities
 @using Queueify.Web.Data
 
@@ -15,6 +16,7 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 @inject RegistrationGate Registration
+@inject IOptions<IdentityOptions> IdentityConfig
 
 <PageTitle>@Loc.T("web.auth.register") - Queueify</PageTitle>
 
@@ -41,8 +43,9 @@ else
             <ValidationMessage For="() => Input.Email" class="q-field-error" />
         </div>
         <div class="q-field">
-            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="new-password" aria-required="true" placeholder="password" />
+            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="new-password" aria-required="true" aria-describedby="password-rules" placeholder="password" />
             <label for="Input.Password">@Loc.T("web.auth.password")</label>
+            <p class="q-hint" id="password-rules">@PasswordRules.Hint(PasswordOptions)</p>
             <ValidationMessage For="() => Input.Password" class="q-field-error" />
         </div>
         <div class="q-field">
@@ -61,6 +64,8 @@ else
     private IEnumerable<IdentityError>? identityErrors;
     private bool open = true;
     private bool first;
+
+    private PasswordOptions PasswordOptions => IdentityConfig.Value.Password;
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;

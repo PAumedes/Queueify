@@ -91,8 +91,9 @@ redirect to another host.
 add an album from your phone the moment someone recommends it, and see it on your PCs. On a phone the
 **Add** page is the first thing you see after signing in, and the site installs to the home screen (PWA).
 It has the same pages as the desktop app (To listen, Listened, Magazine photo, Help, Settings), English and
-Rioplatense Spanish (chosen with the language button, otherwise by the browser), and light, dark or system
-theme. The Spotify and Tidal keys stay on the server and are never sent to the browser.
+Rioplatense Spanish and light, dark or system theme (both under the *Language and theme* button; the
+language otherwise follows the browser). Registration shows the password rules before you type.
+The Spotify and Tidal keys stay on the server and are never sent to the browser.
 
 ```powershell
 dotnet run --project Queueify.Web          # then open the address it prints

@@ -6,6 +6,7 @@
 @using System.Text.Json
 @using Microsoft.AspNetCore.Authorization
 @using Queueify.Services
+@using Queueify.Web.Components.Shared
 @using Queueify.Web.Ocr
 @using Queueify.Web.Services
 @inject IJSRuntime JS
@@ -15,8 +16,13 @@
 
 <PageTitle>@Loc.T("webPhoto.title")</PageTitle>
 
-<h1>@Loc.T("webPhoto.title")</h1>
-<p class="summary">@Loc.T("webPhoto.summary")</p>
+<header class="q-head">
+    <span class="q-head-ico"><Ico Name="photo" /></span>
+    <div>
+        <h1>@Loc.T("webPhoto.title")</h1>
+        <p class="q-sub">@Loc.T("webPhoto.summary")</p>
+    </div>
+</header>
 
 <div class="zone" @ref="_zone">
     <p class="hint">@Loc.T("webPhoto.drop")</p>
@@ -31,7 +37,7 @@
         </div>
         <div class="pick">
             <label for="photo-lang">@Loc.T("webPhoto.language")</label>
-            <select id="photo-lang" value="@_language" @onchange="LanguageChanged" disabled="@_reading">
+            <select id="photo-lang" class="q-select" value="@_language" @onchange="LanguageChanged" disabled="@_reading">
                 <option value="auto">@Loc.T("webSettings.ocr.auto")</option>
                 <option value="es">@Loc.T("webSettings.ocr.es")</option>
                 <option value="en">@Loc.T("webSettings.ocr.en")</option>
@@ -88,8 +94,8 @@
     @if (_picked.Count > 0 && SearchText.Trim().Length > 0)
     {
         <div class="searchbar">
-            <a class="go" href="@SearchHref">@Loc.F("webPhoto.search", SearchText)</a>
-            <button type="button" class="plain" @onclick="() => _picked.Clear()">@Loc.T("webPhoto.clear")</button>
+            <a class="q-btn primary go" href="@SearchHref">@Loc.F("webPhoto.search", SearchText)</a>
+            <button type="button" class="q-linkbtn plain" @onclick="() => _picked.Clear()">@Loc.T("webPhoto.clear")</button>
         </div>
     }
 }

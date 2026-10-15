@@ -70,7 +70,7 @@ referencing `Queueify.Core` for matching, catalogs, `BacklogStore`, `QueueText` 
 | `Services/AlbumSearch`, `HttpCatalogs` | Both catalogs at once with the user's own keys, the year retry, errors as readable messages; one catalog object per user so tokens are reused but never shared. |
 | `Services/Prefs` | Language (cookie, then `Accept-Language`), theme, same-site return paths, where a phone lands after sign-in. |
 | `LocCircuitHandler` | `Loc` keeps its language per async flow; each call into a circuit runs with the circuit's language, so two users never swap languages. |
-| `Components/Layout` | `NavMenu` is one list of every page drawn as the left rail and the phone tab bar; `MainLayout` is the shell, or a bare centred card when signed out. |
+| `Components/Layout` | `NavMenu` is one list of every page drawn as the left rail and the phone tab bar; its *Language and theme* button holds both preference forms; `MainLayout` is the shell, or a bare centred card when signed out. |
 | `Components/Shared`, `Pages` | `QueueBrowser` (To listen and Listened), `Add`, `Cover`, `Stars`, `Snackbar`. Decisions live in Core: `QueueView` (filter, order, the "Artist - Album" split, already-saved check) and `PlayLinks` (`spotify:` / `tidal:` with an https fallback; the desktop `ExternalLinks` uses it, and `MainWindow` can call `QueueView` instead of its own copy of the filter and order). |
 | `Components/Account` | The ASP.NET Core Identity pages, restyled; registration follows `RegistrationGate`. |
 

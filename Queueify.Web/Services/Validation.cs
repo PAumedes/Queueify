@@ -48,3 +48,19 @@ public sealed class LocalizedIdentityErrors : IdentityErrorDescriber
     public override IdentityError UserLockoutNotEnabled() => E(nameof(UserLockoutNotEnabled), "web.idn.default");
     public override IdentityError LoginAlreadyAssociated() => E(nameof(LoginAlreadyAssociated), "web.idn.linked");
 }
+
+/// <summary>The password rules the server enforces, as one line shown before anyone types.</summary>
+public static class PasswordRules
+{
+    public static string Hint(Microsoft.AspNetCore.Identity.PasswordOptions options)
+    {
+        var needs = new List<string>();
+        if (options.RequireUppercase) needs.Add(Loc.T("web.pw.upper"));
+        if (options.RequireLowercase) needs.Add(Loc.T("web.pw.lower"));
+        if (options.RequireDigit) needs.Add(Loc.T("web.pw.digit"));
+        if (options.RequireNonAlphanumeric) needs.Add(Loc.T("web.pw.symbol"));
+        if (needs.Count == 0) return Loc.F("web.pw.length", options.RequiredLength);
+        var list = needs.Count == 1 ? needs[0] : Loc.F("web.pw.and", string.Join(", ", needs[..^1]), needs[^1]);
+        return Loc.F("web.pw.rules", options.RequiredLength, list);
+    }
+}

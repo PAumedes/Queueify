@@ -37,7 +37,7 @@ public partial class LocTests
         var used = new HashSet<string>();
         foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
                      .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml") || f.EndsWith(".razor")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
-                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests") && !f.Contains("Queueify.Web.Tests")))
+                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests") && !f.Contains("Queueify.Web.Tests") && !f.Contains($"{Path.DirectorySeparatorChar}.claude{Path.DirectorySeparatorChar}")))
         {
             var text = File.ReadAllText(file);
             foreach (Match m in CodeKey().Matches(text)) used.Add(m.Groups[1].Value);
