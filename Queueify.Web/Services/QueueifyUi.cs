@@ -26,10 +26,24 @@ public static class QueueifyUi
         "font-src 'self' data:; connect-src 'self' ws: wss:; manifest-src 'self'; worker-src 'self'; " +
         "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
+    /// <summary>
+    /// Cookies carry the Secure flag everywhere except Development, whatever the proxy forwards: behind a TLS-terminating
+    /// proxy that is not a trusted hop the app sees plain http and would otherwise issue cookies a plain-http hit could read.
+    /// A server that really is kept on plain http (a home LAN) says so with <c>Queueify:AllowInsecureCookies</c>.
+    /// </summary>
+    public static bool SecureCookies(IConfiguration config, IHostEnvironment env) =>
+        !env.IsDevelopment() && !config.GetValue("Queueify:AllowInsecureCookies", false);
+
     public static WebApplicationBuilder AddQueueifyUi(this WebApplicationBuilder builder)
     {
         var services = builder.Services;
         services.AddFluentUIComponents();
+
+        if (SecureCookies(builder.Configuration, builder.Environment))
+        {
+            services.PostConfigureAll<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(o => o.Cookie.SecurePolicy = CookieSecurePolicy.Always);
+            services.AddAntiforgery(o => o.Cookie.SecurePolicy = CookieSecurePolicy.Always);
+        }
 
         services.AddHttpClient(HttpCatalogs.ClientName, c =>
         {
@@ -49,6 +63,17 @@ public static class QueueifyUi
         services.Configure<IdentityOptions>(o => o.SignIn.RequireConfirmedAccount = false);
         services.Replace(ServiceDescriptor.Scoped<IdentityErrorDescriber, LocalizedIdentityErrors>());
         return builder;
+    }
+
+    /// <summary>
+    /// Outside Development (unless <c>Queueify:AllowInsecureCookies</c>) every request counts as https: TLS is meant to end at a
+    /// reverse proxy, and the antiforgery and sign-in cookies insist on a secure request. Must run before anything that reads the scheme.
+    /// </summary>
+    public static WebApplication UseQueueifySecureScheme(this WebApplication app)
+    {
+        if (SecureCookies(app.Configuration, app.Environment))
+            app.Use((context, next) => { context.Request.Scheme = "https"; return next(context); });
+        return app;
     }
 
     public static WebApplication MapQueueifyUi(this WebApplication app)
@@ -76,7 +101,7 @@ public static class QueueifyUi
         // [FromForm] parameters make the endpoint require the antiforgery token, like every other form post.
         app.MapPost("/prefs", (HttpContext context, [FromForm] string? language, [FromForm] string? theme, [FromForm] string? returnUrl) =>
         {
-            var options = new CookieOptions { MaxAge = TimeSpan.FromDays(365), SameSite = SameSiteMode.Lax, IsEssential = true, Secure = context.Request.IsHttps, HttpOnly = true };
+            var options = new CookieOptions { MaxAge = TimeSpan.FromDays(365), SameSite = SameSiteMode.Lax, IsEssential = true, Secure = context.Request.IsHttps || SecureCookies(context.RequestServices.GetRequiredService<IConfiguration>(), context.RequestServices.GetRequiredService<IHostEnvironment>()), HttpOnly = true };
             if (language is "en" or "es") context.Response.Cookies.Append(Prefs.LanguageCookie, language, options);
             if (theme is "light" or "dark" or "system") context.Response.Cookies.Append(Prefs.ThemeCookie, theme, options);
             // A signed-in account keeps its choice for every browser it uses; Settings shows and changes the same values.

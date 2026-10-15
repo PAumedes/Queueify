@@ -46,6 +46,7 @@ builder.Services.AddQueueifyData();
 builder.Services.AddQueueifySync();
 
 var app = builder.Build();
+app.UseQueueifySecureScheme();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
