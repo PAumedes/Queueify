@@ -57,6 +57,6 @@ folder, keeps its data in local app data (default mode), and a taskbar pin would
   decisions that would start something (an install) are pure functions tested on their own.
 - Texts asserted in English run under `Loc.Override("en")` when they contain numbers or dates, so the
   machine's regional format can't change them.
-- Web tests never touch real data: `SyncFactory` points `Queueify:DataDir` and the Identity database at a scratch
-  folder and gives every test its own user, so tests share one server without seeing each other's data.
+- Web tests never touch real data or the source tree: every host (smoke test included) points `Queueify:DataDir` and the Identity database at a scratch
+  folder (`SyncFactory`, `ScratchHost`) and gives every test its own user, so tests share one server without seeing each other's data.
 - Could the test pass with a wrong implementation? Flip a comparison mentally; a test should fail.

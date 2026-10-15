@@ -122,7 +122,8 @@ reads its texts while it loads.
 
 `Queueify.Web` (Blazor Web App, Interactive Server, [ADR-0010](adr/0010-web-app-and-shared-queue.md)) keeps
 one folder per user under the data root (`Queueify:DataDir`, default `App_Data`): `queueify.db`,
-`settings.json` and `prefs.json`. `UserStores` is the only door to them; with Data Protection (key ring in
+`settings.json` and `prefs.json`; the same root holds the account database `identity.db` (created and migrated at start;
+nothing ships with the app, `ConnectionStrings:DefaultConnection` can move it). `UserStores` is the only door to them; with Data Protection (key ring in
 `keys/`) it keeps the two client secrets encrypted in `secrets.dat`, bound to the user, never in `settings.json`.
 
 | Piece | Responsibility |
