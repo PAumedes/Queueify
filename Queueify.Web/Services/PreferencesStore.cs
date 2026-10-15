@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Queueify.Web.Storage;
 
@@ -22,18 +23,27 @@ public sealed record Preferences(string Theme, string Language, string OcrLangua
 /// <summary>prefs.json in the user's folder. Anything unreadable or out of range reads as the default.</summary>
 public sealed class PreferencesStore(UserStores stores)
 {
+    // Every signed-in request asks for the language and theme, so the parsed file is kept and trusted for as long as
+    // its size and time stamp are the ones it was read at. That still sees a save, a deletion or an edit from outside.
+    private readonly ConcurrentDictionary<string, (long Ticks, long Length, Preferences Value)> _cache = new();
+
     public Preferences Load(string userId)
     {
         try
         {
             var path = stores.FileOf(userId, "prefs.json");
-            if (!File.Exists(path)) return Preferences.Default;
+            var info = new FileInfo(path);
+            if (!info.Exists) { _cache.TryRemove(path, out _); return Preferences.Default; }
+            if (_cache.TryGetValue(path, out var cached) && cached.Ticks == info.LastWriteTimeUtc.Ticks && cached.Length == info.Length) return cached.Value;
+
             var read = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path)) ?? Preferences.Default;
-            return new Preferences(
+            var value = new Preferences(
                 Pick(read.Theme, Preferences.Themes, "system"),
                 Pick(read.Language, Preferences.Languages, "system"),
                 Pick(read.OcrLanguage, Preferences.OcrLanguages, "auto"),
                 read.TourSeen);
+            _cache[path] = (info.LastWriteTimeUtc.Ticks, info.Length, value);
+            return value;
         }
         catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException)
         {
@@ -50,6 +60,7 @@ public sealed class PreferencesStore(UserStores stores)
         var partial = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         File.WriteAllText(partial, JsonSerializer.Serialize(preferences));
         File.Move(partial, path, overwrite: true);
+        _cache.TryRemove(path, out _);   // the next read parses what was just written
     }
 
     private static string Pick(string? value, string[] choices, string fallback) => value is not null && choices.Contains(value) ? value : fallback;

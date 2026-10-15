@@ -75,6 +75,10 @@ public static class QueueifyUi
     /// Outside Development (unless <c>Queueify:AllowInsecureCookies</c>) every request counts as https: TLS is meant to end at a
     /// reverse proxy, and the antiforgery and sign-in cookies insist on a secure request. Must run before anything that reads the scheme.
     /// </summary>
+    /// <summary>False for static files and framework scripts, which carry no language or theme.</summary>
+    public static bool NeedsPreferences(PathString path) =>
+        !path.StartsWithSegments("/_framework") && !path.StartsWithSegments("/_content") && !Path.HasExtension(path.Value);
+
     public static WebApplication UseQueueifySecureScheme(this WebApplication app)
     {
         if (SecureCookies(app.Configuration, app.Environment))
@@ -97,7 +101,7 @@ public static class QueueifyUi
                 headers["Referrer-Policy"] = "no-referrer";
                 return Task.CompletedTask;
             });
-            var account = context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } id
+            var account = NeedsPreferences(context.Request.Path) && context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } id
                 ? context.RequestServices.GetRequiredService<PreferencesStore>().Load(id) : null;
             var language = Prefs.Language(account?.Language, context.Request.Cookies[Prefs.LanguageCookie], context.Request.Headers.AcceptLanguage);
             context.Items[nameof(Prefs.Language)] = language;
