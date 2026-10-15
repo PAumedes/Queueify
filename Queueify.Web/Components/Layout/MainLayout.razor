@@ -60,6 +60,7 @@
             await Themes.SetThemeAsync(new ThemeSettings { Color = "#6544E6", Mode = mode, IsExact = true });
         }
         catch (JSException) { }
+        catch (JSDisconnectedException) { }
         catch (InvalidOperationException) { }
     }
 }

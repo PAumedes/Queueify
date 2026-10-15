@@ -29,7 +29,8 @@ public sealed class ConnectPcTests : BunitContext
     private IRenderedComponent<ConnectPc> Open(string userId, string? publicUrl = null)
     {
         _db.Open();
-        Services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(_db));
+        Services.AddDbContextFactory<ApplicationDbContext>(o => o.UseSqlite(_db));
+        Services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
         Services.AddSingleton(TimeProvider.System);
         Services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(publicUrl is null ? [] : new Dictionary<string, string?> { ["Queueify:PublicBaseUrl"] = publicUrl }).Build());
         Services.AddScoped<PersonalAccessTokens>();

@@ -8,7 +8,8 @@ namespace Queueify.Web.Sync;
 public sealed record NewToken(PersonalAccessToken Info, string Token);
 
 /// <summary>Creates, lists, revokes and checks the personal access tokens that let a PC sync one user's queue.</summary>
-public sealed class PersonalAccessTokens(ApplicationDbContext db, TimeProvider clock)
+/// A short-lived context per call: in a Blazor circuit a scoped context would live for hours and pile up tracked rows.
+public sealed class PersonalAccessTokens(IDbContextFactory<ApplicationDbContext> contexts, TimeProvider clock)
 {
     public const int MaxPerUser = 20;
     public const int MaxNameLength = 100;
@@ -24,6 +25,7 @@ public sealed class PersonalAccessTokens(ApplicationDbContext db, TimeProvider c
     /// <summary>The token text is returned here and nowhere else: only its hash is stored.</summary>
     public async Task<NewToken> CreateAsync(string userId, string name, CancellationToken ct = default)
     {
+        await using var db = await contexts.CreateDbContextAsync(ct);
         name = name.Trim();
         if (name.Length > MaxNameLength) name = name[..MaxNameLength];
         if (await db.PersonalAccessTokens.CountAsync(t => t.UserId == userId && t.RevokedAt == null, ct) >= MaxPerUser)
@@ -42,12 +44,16 @@ public sealed class PersonalAccessTokens(ApplicationDbContext db, TimeProvider c
         return new NewToken(row, token);
     }
 
-    public async Task<IReadOnlyList<PersonalAccessToken>> ListAsync(string userId, CancellationToken ct = default) =>
-        await db.PersonalAccessTokens.AsNoTracking().Where(t => t.UserId == userId).OrderBy(t => t.CreatedAt).ToListAsync(ct);
+    public async Task<IReadOnlyList<PersonalAccessToken>> ListAsync(string userId, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        return await db.PersonalAccessTokens.AsNoTracking().Where(t => t.UserId == userId).OrderBy(t => t.CreatedAt).ToListAsync(ct);
+    }
 
     /// <summary>Revokes one of the user's own tokens; false when it isn't theirs or doesn't exist.</summary>
     public async Task<bool> RevokeAsync(string userId, Guid id, CancellationToken ct = default)
     {
+        await using var db = await contexts.CreateDbContextAsync(ct);
         var now = clock.GetUtcNow().UtcDateTime;
         // One statement, and an already revoked token keeps its first revocation time.
         var revoked = await db.PersonalAccessTokens.Where(t => t.Id == id && t.UserId == userId && t.RevokedAt == null)
@@ -58,6 +64,7 @@ public sealed class PersonalAccessTokens(ApplicationDbContext db, TimeProvider c
     /// <summary>The id of the user a live token belongs to, or null for anything else (unknown, revoked, or older than the owner's last security-stamp change).</summary>
     public async Task<string?> ValidateAsync(string token, CancellationToken ct = default)
     {
+        await using var db = await contexts.CreateDbContextAsync(ct);
         if (!LooksLikeToken(token)) return null;
         var hash = Hash(token);
         var row = await (from t in db.PersonalAccessTokens.AsNoTracking()
