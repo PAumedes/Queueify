@@ -13,7 +13,7 @@ public interface ISyncProvider
 
 public static class SyncProviders
 {
-    public static ISyncProvider For(SyncKind kind, CloudSync cloud, ServerSync web) => kind switch
+    public static ISyncProvider For(SyncKind kind, ISyncProvider cloud, ISyncProvider web) => kind switch
     {
         SyncKind.Web => web,
         SyncKind.Cloud => cloud,

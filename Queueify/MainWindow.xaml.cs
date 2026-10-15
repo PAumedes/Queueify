@@ -1158,6 +1158,7 @@ public sealed partial class MainWindow : Window
 
     private Task<string?>? _syncTask;
     private Task<string?>? _followUpSync;
+    private bool _syncSetupRunning;   // the setup dialog is trying a connection: no other sync may run
 
     /// <summary>
     /// Downloads other PCs' changes and uploads this PC's. Returns an error message, or null when it
@@ -1167,7 +1168,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Task<string?> SyncNowAsync()
     {
-        if (!_settings.SyncConfigured) return Task.FromResult<string?>(null);
+        if (!_settings.SyncConfigured || _syncSetupRunning) return Task.FromResult<string?>(null);
         if (_syncTask is { IsCompleted: false } running)
             return _followUpSync ??= AfterAsync(running);
         return _syncTask = RunSyncAsync();
@@ -1378,38 +1379,36 @@ public sealed partial class MainWindow : Window
                     key = CloudSync.NewQueueKey();
                 }
 
-                // Try the connection on a copy; the live settings only change if the first sync works.
-                var trial = _settings.Clone();
-                if (toWeb) trial.ConnectWeb(webUrl, webToken);
-                else trial.ConnectCloud(project, key);
-                // Creating: this PC's keys go up. Joining: the online queue's keys win (or this PC's,
-                // if the queue has none yet).
-                trial.SharedSettingsUpdatedAt = joined ? null
-                    : trial.SpotifyConfigured || trial.TidalConfigured ? BacklogStore.Now() : null;
+                SyncTarget target = toWeb ? SyncTarget.Web(webUrl, webToken)
+                    : joined ? SyncTarget.JoinCloud(project, key)
+                    : SyncTarget.CreateCloud(project, key);
 
                 progress.Visibility = Visibility.Visible;
                 error.IsOpen = false;
                 d.IsPrimaryButtonEnabled = false;
                 string? problem = null;
+                AppSettings? trial = null;
+                // A debounced sync of the old queue must not run between "mark everything" and the first sync here.
+                _syncDebounce.Stop();
+                _syncSetupRunning = true;
                 try
                 {
-                    // A sync for the previous queue may still be finishing; let it end first, or its
-                    // "uploaded" marks could undo the next line.
-                    if (_syncTask is { } previous) await previous;
-                    // Albums synced to an earlier queue are marked clean; this queue needs all of them.
-                    _store.MarkAllDirty();
-                    await Task.Run(() => SyncProviders.For(trial.ActiveSync, _cloud, _web).SyncAsync(_store, trial, CancellationToken.None));
+                    trial = await SyncSetup.TryConnectAsync(_store, _settings, target, _cloud, _web, _syncTask, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
                     problem = DescribeSyncError(ex);
                 }
+                finally
+                {
+                    _syncSetupRunning = false;
+                }
                 progress.Visibility = Visibility.Collapsed;
                 d.IsPrimaryButtonEnabled = true;
 
-                if (problem != null)
+                if (trial == null)
                 {
-                    Fail(problem);
+                    Fail(problem!);
                     return;
                 }
 
