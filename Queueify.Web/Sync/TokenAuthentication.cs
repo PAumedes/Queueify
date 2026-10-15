@@ -39,7 +39,16 @@ public sealed class TokenAuthenticationHandler(
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)
     {
         SyncExtensions.Quiet(Context);
-        Response.StatusCode = Context.Items.ContainsKey(ThrottledKey) ? StatusCodes.Status429TooManyRequests : StatusCodes.Status401Unauthorized;
+        if (Context.Items.ContainsKey(ThrottledKey))
+        {
+            Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            Response.Headers.RetryAfter = "60";   // the limiter's window is a minute
+        }
+        else
+        {
+            Response.StatusCode = StatusCodes.Status401Unauthorized;
+            Response.Headers.WWWAuthenticate = "Bearer";
+        }
         return Task.CompletedTask;
     }
 
@@ -47,6 +56,7 @@ public sealed class TokenAuthenticationHandler(
     {
         SyncExtensions.Quiet(Context);
         Response.StatusCode = StatusCodes.Status401Unauthorized;
+        Response.Headers.WWWAuthenticate = "Bearer";
         return Task.CompletedTask;
     }
 }
