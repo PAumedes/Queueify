@@ -1,4 +1,5 @@
 using Queueify.Models;
+using Queueify.Services;
 using Queueify.Web.Services;
 using Queueify.Web.Storage;
 
@@ -181,6 +182,96 @@ public sealed class UserQueueTests : IDisposable
         var b = q.Add(new BacklogItem { Album = "b" }, "");
         q.SetListened(b, true);
         Assert.Equal((1, 1), (q.Pending, q.Heard));
+    }
+
+    // ── a change updates the one album in memory; it does not read the whole queue again ──
+
+    [Fact]
+    public async Task AChange_UpdatesTheShownAlbumWithoutReadingEveryAlbumAgain()
+    {
+        var q = QueueOf("alice");
+        await q.LoadAsync();
+        var item = q.Add(new BacklogItem { Album = "mine" }, "");
+        // Written behind this queue's back: a full reload would show it, a one-album update does not.
+        new UserStores(_root).QueueOf("alice").Insert(new BacklogItem { Album = "elsewhere", AddedAt = DateTime.Now });
+
+        q.Rate(item, 4);
+        Assert.Equal(["mine"], q.All.Select(i => i.Album));
+        Assert.Equal(4, q.All.Single().Rating);
+
+        var undo = q.SetListened(item, true);
+        Assert.True(q.All.Single().IsListened);
+        undo();
+        Assert.True(q.All.Single().IsPending);
+
+        var undoDelete = q.Delete(item);
+        Assert.Empty(q.All);
+        undoDelete();
+        Assert.Equal(["mine"], q.All.Select(i => i.Album));
+
+        q.Remove(item);
+        Assert.Empty(q.All);
+    }
+
+    [Fact]
+    public async Task LoadAsync_IsTheExplicitRefresh_AndSeesWhatWasWrittenElsewhere()
+    {
+        var q = QueueOf("alice");
+        await q.LoadAsync();
+        new UserStores(_root).QueueOf("alice").Insert(new BacklogItem { Album = "elsewhere", AddedAt = DateTime.Now });
+        await q.LoadAsync();
+        Assert.Equal(["elsewhere"], q.All.Select(i => i.Album));
+    }
+
+    [Fact]
+    public async Task Counts_AreKeptInStepWithTheChanges()
+    {
+        var q = QueueOf("alice");
+        await q.LoadAsync();
+        var a = q.Add(new BacklogItem { Album = "a" }, "");
+        q.Add(new BacklogItem { Album = "b" }, "");
+        q.SetListened(a, true);
+        q.Delete(a);
+        Assert.Equal((1, 0), (q.Pending, q.Heard));
+        Assert.Equal(["b"], q.PendingItems.Select(i => i.Album));
+        Assert.Empty(q.HeardItems);
+    }
+
+    // ── searching with a key worked out once per album ──
+
+    [Theory]
+    [InlineData("garcia")]
+    [InlineData("GARCÍA")]
+    [InlineData("clics 1983")]
+    [InlineData("pelo")]
+    [InlineData("  ")]
+    [InlineData("zzz")]
+    [InlineData("charly clics")]
+    public async Task Search_FindsWhatTheSharedQueueViewFinds(string typed)
+    {
+        var q = QueueOf("alice");
+        await q.LoadAsync();
+        q.Add(new BacklogItem { Artist = "Charly García", Album = "Clics Modernos", Year = 1983 }, "Pelo");
+        q.Add(new BacklogItem { Artist = "Soda Stereo", Album = "Signos", Year = 1986 }, "Rolling Stone");
+        var heard = q.Add(new BacklogItem { Artist = "Spinetta", Album = "Artaud", Year = 1973 }, "");
+        q.SetListened(heard, true);
+
+        var expected = QueueView.Apply(q.All, false, typed, "oldest").Select(i => i.Uid);
+        var actual = QueueView.Apply(q.Search(typed), false, "", "oldest").Select(i => i.Uid);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task Search_SeesAnAlbumAddedOrChangedLater()
+    {
+        var q = QueueOf("alice");
+        await q.LoadAsync();
+        Assert.Empty(q.Search("signos"));
+        var item = q.Add(new BacklogItem { Artist = "Soda Stereo", Album = "Signos" }, "");
+        Assert.Single(q.Search("signos"));
+        q.Delete(item);
+        Assert.Empty(q.Search("signos"));
     }
 
     private sealed class FixedUser(string? id) : IUserContext

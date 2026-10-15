@@ -67,6 +67,7 @@
     focus: function (selector) { return focusFirst(selector); },
     theme: function () { return document.documentElement.dataset.qTheme || 'system'; },
     get: function (key) { try { return localStorage.getItem(key); } catch (_) { return null; } },
+    getMany: function (keys) { return keys.map(function (key) { try { return localStorage.getItem(key); } catch (_) { return null; } }); },
     set: function (key, value) { try { localStorage.setItem(key, value); } catch (_) { } },
   };
 
