@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
@@ -64,8 +65,11 @@ public static class QueueifyUi
                 headers["Referrer-Policy"] = "no-referrer";
                 return Task.CompletedTask;
             });
-            var language = Prefs.Language(context.Request.Cookies[Prefs.LanguageCookie], context.Request.Headers.AcceptLanguage);
+            var account = context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } id
+                ? context.RequestServices.GetRequiredService<PreferencesStore>().Load(id) : null;
+            var language = Prefs.Language(account?.Language, context.Request.Cookies[Prefs.LanguageCookie], context.Request.Headers.AcceptLanguage);
             context.Items[nameof(Prefs.Language)] = language;
+            context.Items[nameof(Prefs.Theme)] = Prefs.Theme(account?.Theme, context.Request.Cookies[Prefs.ThemeCookie]);
             using (Loc.Override(language)) await next();
         });
 
@@ -75,6 +79,13 @@ public static class QueueifyUi
             var options = new CookieOptions { MaxAge = TimeSpan.FromDays(365), SameSite = SameSiteMode.Lax, IsEssential = true, Secure = context.Request.IsHttps, HttpOnly = true };
             if (language is "en" or "es") context.Response.Cookies.Append(Prefs.LanguageCookie, language, options);
             if (theme is "light" or "dark" or "system") context.Response.Cookies.Append(Prefs.ThemeCookie, theme, options);
+            // A signed-in account keeps its choice for every browser it uses; Settings shows and changes the same values.
+            if (context.User.Identity?.IsAuthenticated == true && context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { Length: > 0 } id)
+            {
+                var store = context.RequestServices.GetRequiredService<PreferencesStore>();
+                var now = store.Load(id);
+                store.Save(id, now with { Language = language is "en" or "es" ? language : now.Language, Theme = theme is "light" or "dark" or "system" ? theme : now.Theme });
+            }
             return Results.LocalRedirect(Prefs.LocalReturn(returnUrl));
         }).AllowAnonymous();
 

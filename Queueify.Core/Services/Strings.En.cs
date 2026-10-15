@@ -707,5 +707,7 @@ public static partial class Loc
         ["connect.revoked"] = "Revoked",
         ["connect.revoke"] = "Revoke",
         ["connect.limit"] = "You have reached the limit of tokens. Revoke one to create another.",
+
+        ["web.keys.ctrl_k"] = "Go to Add and its search box",
     };
 }

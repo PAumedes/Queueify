@@ -454,6 +454,20 @@ public sealed class AddPageTests : WebComponentTests
     }
 
     [Fact]
+    public void A_link_with_q_fills_the_box_and_searches_at_once()
+    {
+        SaveKeys(tidal: false);
+        Catalogs.Spotify = [Match(MusicService.Spotify, "sp1", "Signos", "Soda Stereo", 1986)];
+        Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().NavigateTo("/add?q=soda%20stereo%20signos");
+
+        var cut = Open();
+
+        cut.WaitForAssertion(() => Assert.Single(cut.FindAll("li.q-result")));
+        Assert.Equal("soda stereo signos", cut.Find("#q-search").GetAttribute("value"));
+        Assert.Contains("soda stereo signos", Catalogs.Queries);
+    }
+
+    [Fact]
     public void A_remembered_magazine_is_filled_in_for_the_next_visit()
     {
         Stores.SaveSettings("alice", new AppSettings { LastSource = "Rolling Stone" });

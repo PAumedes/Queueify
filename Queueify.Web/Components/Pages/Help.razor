@@ -27,7 +27,7 @@
             <tr><th scope="col">@Loc.T("webHelp.col.keys")</th><th scope="col">@Loc.T("webHelp.col.does")</th></tr>
         </thead>
         <tbody>
-            @foreach (var shortcut in Shortcuts.All)
+            @foreach (var shortcut in Shortcuts.Web)
             {
                 <tr>
                     <th scope="row"><kbd>@shortcut.Keys</kbd></th>

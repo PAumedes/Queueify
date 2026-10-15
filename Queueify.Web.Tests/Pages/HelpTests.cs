@@ -40,8 +40,8 @@ public sealed class HelpTests : BunitContext
         var cut = Render<Help>();
 
         var rows = cut.FindAll("table.shortcuts tbody tr");
-        Assert.Equal(Shortcuts.All.Count, rows.Count);
-        foreach (var shortcut in Shortcuts.All)
+        Assert.Equal(Shortcuts.Web.Count, rows.Count);
+        foreach (var shortcut in Shortcuts.Web)
             Assert.Contains(rows, r => r.TextContent.Contains(shortcut.Keys) && r.TextContent.Contains(shortcut.Description));
         Assert.NotEmpty(cut.FindAll("kbd"));
     }

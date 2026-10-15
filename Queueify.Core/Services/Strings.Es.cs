@@ -708,5 +708,7 @@ public static partial class Loc
         ["connect.revoked"] = "Revocada",
         ["connect.revoke"] = "Revocar",
         ["connect.limit"] = "Llegaste al límite de fichas. Revocá una para crear otra.",
+
+        ["web.keys.ctrl_k"] = "Ir a Agregar y a su cuadro de búsqueda",
     };
 }

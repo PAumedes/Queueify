@@ -1,4 +1,4 @@
-@page "/add"
+﻿@page "/add"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @implements IDisposable
 @inject UserQueue Queue
@@ -108,11 +108,19 @@
     private CancellationTokenSource? _cts;
     private string _qArtist = "", _qAlbum = "", _qYear = "";
 
+    /// <summary>/add?q=Artist - Album 1999 fills the box and searches at once (a link from a note, a share, a shortcut).</summary>
+    [SupplyParameterFromQuery(Name = "q")] public string? Prefill { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         await Queue.LoadAsync();
         _magazine = Queue.Settings.LastSource;
         _needsKeys = !Queue.Settings.SpotifyConfigured && !Queue.Settings.TidalConfigured;
+        if (Prefill is { Length: > 0 } q && q.Trim().Length > 0)
+        {
+            _query = q.Trim().Length > 200 ? q.Trim()[..200] : q.Trim();
+            await RunSearch(_cts = new CancellationTokenSource());
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

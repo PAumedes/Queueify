@@ -14,6 +14,12 @@ public static class Prefs
         return first.StartsWith("es", StringComparison.OrdinalIgnoreCase) ? "es" : "en";
     }
 
+    /// <summary>The account's own choice (Settings, or the shell menu) comes first; "system" or nothing leaves it to the cookie and the browser.</summary>
+    public static string Language(string? account, string? cookie, string? acceptLanguage) =>
+        account is "en" or "es" ? account : Language(cookie, acceptLanguage);
+
+    public static string Theme(string? account, string? cookie) => account is "light" or "dark" ? account : Theme(cookie);
+
     public static string Theme(string? cookie) => cookie is "light" or "dark" ? cookie : "system";
 
     /// <summary>The same-site path to go back to, or "/" for anything that could lead elsewhere.</summary>

@@ -8,6 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
+@inject Queueify.Web.Storage.UserStores Stores
 
 <PageTitle>@Loc.T("web.acct.delete.title")</PageTitle>
 
@@ -84,6 +85,8 @@
         await SignInManager.SignOutAsync();
 
         var userId = await UserManager.GetUserIdAsync(user);
+        // The account is gone, so is everything kept for it: queue, settings, keys, preferences.
+        Stores.Delete(userId);
         Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
 
         RedirectManager.RedirectToCurrentPage();

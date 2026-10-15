@@ -33,7 +33,7 @@
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
 
     private string Lang => HttpContext.Items[nameof(Prefs.Language)] as string ?? "en";
-    private string Theme => Prefs.Theme(HttpContext.Request.Cookies[Prefs.ThemeCookie]);
+    private string Theme => HttpContext.Items[nameof(Prefs.Theme)] as string ?? "system";
 
     private IComponentRenderMode? PageRenderMode =>
         HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
