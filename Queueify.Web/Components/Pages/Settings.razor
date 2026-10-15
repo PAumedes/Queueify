@@ -6,11 +6,11 @@
 @using Queueify.Services
 @using Queueify.Web.Components.Shared
 @using Queueify.Web.Services
-@using Queueify.Web.Storage
+@using Queueify.Web.Sync
 @inject AuthenticationStateProvider Auth
 @inject SettingsService Music
 @inject PreferencesStore Prefs
-@inject UserStores Stores
+@inject SyncEngine Engine
 @inject NavigationManager Nav
 
 <PageTitle>@Loc.T("webSettings.title")</PageTitle>
@@ -215,12 +215,13 @@
         }
     }
 
-    private void DeleteAll()
+    private async Task DeleteAll()
     {
         if (!_sure) return;
         try
         {
-            Stores.Delete(_uid!);
+            // Through the sync engine: it waits for a running sync and forgets the file it had prepared.
+            await Engine.DeleteUserDataAsync(_uid!);
             _sure = false;
             Reload();
             _deleteNotice = new(Loc.T("webSettings.delete.done"));

@@ -8,7 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
-@inject Queueify.Web.Storage.UserStores Stores
+@inject Queueify.Web.Sync.SyncEngine Engine
 
 <PageTitle>@Loc.T("web.acct.delete.title")</PageTitle>
 
@@ -86,7 +86,12 @@
 
         var userId = await UserManager.GetUserIdAsync(user);
         // The account is gone, so is everything kept for it: queue, settings, keys, preferences.
-        Stores.Delete(userId);
+        try { await Engine.DeleteUserDataAsync(userId); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The account is already gone and its sync tokens with it, so nothing can write there any more.
+            Logger.LogWarning(ex, "Could not remove the data folder of deleted user {UserId}.", userId);
+        }
         Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
 
         RedirectManager.RedirectToCurrentPage();

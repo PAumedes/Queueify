@@ -37,6 +37,7 @@ public sealed class SettingsPageTests : BunitContext
         _prefs = new PreferencesStore(_stores);
         Services.AddSingleton(_stores);
         Services.AddSingleton(_prefs);
+        Services.AddSingleton(new Queueify.Web.Sync.SyncEngine(_stores, TimeProvider.System));
         Services.AddSingleton(new SettingsService(_stores, () => new HttpClient(new FakeApi(() => _token))));
         Services.AddSingleton(new Queueify.Web.Services.DataTransfer(_stores));
         Services.AddSingleton(new OcrOptions());
