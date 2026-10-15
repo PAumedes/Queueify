@@ -150,7 +150,7 @@ public sealed partial class DataTransfer(UserStores stores)
         var path = Path.Combine(Path.GetTempPath(), $"queueify-import-{Guid.NewGuid():N}.db");
         try
         {
-            using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) file.Write(upload);
+            using (var file = PrivateFile.CreateNew(path)) file.Write(upload);
 
             // immutable: no journal or side files are looked for or created; read-only: nothing can be written.
             var uri = "file:" + path.Replace('\\', '/').Replace("%", "%25").Replace("?", "%3f").Replace("#", "%23");
