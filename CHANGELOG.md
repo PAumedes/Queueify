@@ -6,6 +6,98 @@ Each release section is written by `tools\release.ps1` from the
 [Conventional Commits](https://www.conventionalcommits.org/) since the previous tag. Don't edit released
 sections by hand; to change what the next release says, write better commit messages.
 
+## [1.5.0] - 2026-10-15
+
+### Features
+
+- **web:** account prefs in the shell, tour, /add?q, user data deleted (7ed3e5e)
+- **web:** translated account pages, CSP, atomic first registration (a70f828)
+- **web:** Settings page with write-only keys, key test and data tools (fae56d8)
+- **web:** Photo page with line boxes and a link to the Add search (da632eb)
+- **web:** export and defensive import of the queue (fe99034)
+- **web:** restyle identity pages, add registration rule (ddd04b1)
+- **web:** settings and preferences services (51fd278)
+- **web:** fluent-token shell, nav, queue and add pages, PWA (0c30696)
+- **web:** trusted proxy settings and a 90-day tombstone purge (6310bb8)
+- **web:** strings for Settings, Help, Photo and data pages (c759aa8)
+- **web:** queue view, play links, user queue, search and prefs services (6a6d91e)
+- **web:** sync server, personal access tokens and the connect page (707c8f7)
+- **web:** photo reading with Tesseract and encrypted secrets (cef9cdb)
+- **sync:** desktop client for the Queueify web server (bd59513)
+- **core:** IOcr, a Windows adapter and CleanLine on net10.0 (3948616)
+- **web:** sync contract, connect text and per-user stores (0ecf84e)
+- **web:** scaffold Queueify.Web, Core on net10.0, ADR-0010 (4f74c0a)
+
+### Fixes
+
+- **web:** review follow-ups: health check host, password field, notes (1f2dabd)
+- **web:** album years are 1000 to 3000; clear AlbumSearch warnings (2e5e43d)
+- **web:** deleting a user's data goes through the sync engine (3e75ac0)
+- **web:** sync 401 and 429 answers say what to do next (032e0da)
+- **web:** create the import temp file readable by its owner only (cc605c4)
+- **web:** tighten the CSP, allow blob previews, public connect address (0137622)
+- **web:** force Secure cookies outside Development (dd07219)
+- **web:** sync tokens need the password and end with a credential change (cbaec30)
+- **web:** deleting the last account no longer reopens registration (54653c1)
+- **core:** keep sync pages going, one transaction per page, UTC stamps (4a7adff)
+- **web:** keep the account database in the data folder, not in git (fbdb099)
+- **web:** registration confirmation answers the same for all addresses (18d0d7c)
+- **web:** decode photos with SkiaSharp so Release publish works (193aa89)
+- **web:** load the component stylesheet bundle again (3c87f1f)
+- **web:** cover tiles on phones, account pages in the shell (7cdf2ca)
+- **web:** imported albums are queued for sync so PCs receive them (214203d)
+- **web:** review round 1 on import, photo flow and settings notices (4f97f79)
+- **web:** stale-tab writes, stuck search, guarded saves (3b8aff8)
+- **web:** lockout, search throttle, antiforgery on prefs, a11y fixes (3694feb)
+- **web:** cover switch label outside the web component (7381ef1)
+- **web:** theme sync, menus close, phone layout from screenshots (1182e4b)
+- **web:** key scan covers razor pages and skips web tests (880f4fc)
+- **sync:** reject unusable serverTime, cut connections are offline (2307737)
+- **web:** row quota, no-store, stricter user ids, review fixes (c6a7a06)
+- **sync:** bound web server data, clearer reconnect, SECURITY rows (ee7d574)
+
+### Performance
+
+- **web:** a shared search link searches once, after the page is live (25da7b3)
+- **web:** parse prefs.json once and skip static files in the shell (7ebe5ad)
+- **web:** queue changes update memory; filter is debounced and paged (6537fb2)
+
+### Documentation
+
+- **web:** hosting guide follows the review (5fa35b5)
+- link the hosting guide from the README (1769881)
+- **web:** Dockerfile and hosting guide (b9593bd)
+- name the MainWindow partial classes (7c06ae5)
+- secrets.dat, DataDir and the key ring limit (be09157)
+- ADR-0011, architecture, README and SECURITY for the web pages (833fe53)
+
+### Tests
+
+- drop two weak UTC tests; ci: absolute test-results paths (0ceacba)
+- **core:** pin matcher scores and merge rule, drop sleeps (fd22590)
+- run the real ServerSync client against the real SyncEngine (6d9c422)
+- **web:** the migration snapshot matches the model the app builds (606500a)
+- **web:** one test at a time and a private account db per host (15690b3)
+- **web:** component tests for queue, add and navigation (b9297c3)
+- **web:** fix the quota and model tests so they build (11b2434)
+
+### Refactoring
+
+- **web:** token service uses a context factory, small fixes (eecaf54)
+- **app:** split MainWindow into partial classes by area (c4ce406)
+- **core:** SyncSetup tries a connection on a copy of the settings (6ea5b21)
+- **app:** use QueueView for filter, saved lookup and typed albums (fe199af)
+
+### Build and CI
+
+- shared Directory.Build.props and central package versions (a9b7414)
+- build and test the web projects, cache NuGet, time limits (754891e)
+
+### Other
+
+- ignore scratch folders (1073e48)
+- **web:** newer AngleSharp for the bUnit tests (advisory) (7efc61d)
+
 ## [1.4.0] - 2026-10-14
 
 ### Features
