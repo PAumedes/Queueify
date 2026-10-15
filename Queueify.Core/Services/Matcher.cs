@@ -60,7 +60,8 @@ public static partial class Matcher
         var results = new List<AlbumResult>();
         foreach (var m in all.OrderByDescending(m => m.Score))
         {
-            var titleKey = Normalize(m.Title);
+            // A title with no letters or digits ("???") normalizes to nothing: keep what was typed, or every such album would merge.
+            var titleKey = Normalize(m.Title) is { Length: > 0 } t ? t : m.Title.Trim().ToLowerInvariant();
             var artistKey = m.Artists.Count > 0 ? Normalize(m.Artists[0]) : "";
             var existing = results.FirstOrDefault(r => r.TitleKey == titleKey &&
                 (r.ArtistKey == artistKey || r.ArtistKey.Length == 0 || artistKey.Length == 0));

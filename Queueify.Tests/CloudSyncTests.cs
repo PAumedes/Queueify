@@ -231,7 +231,7 @@ public sealed class CloudSyncEmulatorTests : IDisposable
         var onA = a.FindByUid(vasos.Uid)!;
         onA.Source = "Rolling Stone #12";
         a.Update(onA);
-        await Task.Delay(20);
+        SpinWait.SpinUntil(() => BacklogStore.Now() > onA.UpdatedAt);   // the second edit must carry a later stamp
         var onB = b.FindByUid(vasos.Uid)!;
         onB.Source = "Inrockuptibles #3";
         b.Update(onB);

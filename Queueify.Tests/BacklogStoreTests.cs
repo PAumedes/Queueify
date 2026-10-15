@@ -75,7 +75,7 @@ public sealed class BacklogStoreTests : IDisposable
         store.Insert(item);
         var uploaded = store.FindByUid(item.Uid)!;
 
-        Thread.Sleep(2);
+        SpinWait.SpinUntil(() => BacklogStore.Now() > uploaded.UpdatedAt);   // the edit below must carry a later stamp
         item.Rating = 5;
         store.Update(item);
         store.MarkUploaded(uploaded);

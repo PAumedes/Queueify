@@ -22,6 +22,7 @@ public class MatcherTests
     {
         var results = Search(raw, [Spotify(title, artist, released), Spotify("Greatest Hits", artist, released - 3)], []);
 
+        Assert.NotEmpty(results);
         Assert.Equal(title, results[0].Title);
         Assert.True(results[0].Score >= 0.8, $"score {results[0].Score}");
     }

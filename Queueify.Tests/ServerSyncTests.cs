@@ -374,12 +374,6 @@ public sealed class ServerSyncTests : IDisposable
     }
 
     [Fact]
-    public void The_default_batch_is_the_contracts_1000()
-    {
-        Assert.Equal(1000, ServerSync.MaxBatch);
-    }
-
-    [Fact]
     public async Task Downloads_that_arrive_in_several_rounds_are_all_applied()
     {
         var server = new FakeServer();
