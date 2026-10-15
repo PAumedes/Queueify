@@ -2,7 +2,7 @@
 @using Queueify.Web.Services
 
 <div class="keys" data-service="@Service">
-    <h3>@Name <span class="q-pill state @(Configured ? "configured" : "missing")">@(Configured ? "✓ " : "○ ")@Loc.T(Configured ? "webSettings.keys.on" : "webSettings.keys.off")</span></h3>
+    <h3>@Name <span class="q-pill state @(Configured ? "configured" : "missing")"><span aria-hidden="true">@(Configured ? "✓ " : "○ ")</span>@Loc.T(Configured ? "webSettings.keys.on" : "webSettings.keys.off")</span></h3>
     <details>
         <summary>@Loc.T("webSettings.steps")</summary>
         <p class="steps">@Steps</p>

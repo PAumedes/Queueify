@@ -245,7 +245,7 @@ html body a.q-navitem.active { color: var(--q-violet-text); }
 .q-menu-list .q-btn { justify-content: flex-start; border-color: transparent; background: transparent; width: 100%; }
 .q-menu-list .q-btn:hover { background: var(--q-sleeve-2); }
 /* The rail's triggers are narrow icons at its bottom and the rail scrolls: an absolute box under one would run off the left edge, below the page, or be clipped. */
-.q-rail .q-menu-list { position: fixed; inset-inline-start: calc(var(--q-rail) + 8px); inset-inline-end: auto; top: auto; bottom: 12px; }
+.q-rail .q-menu-list { position: fixed; inset-inline-start: calc(var(--q-rail) + 8px); inset-inline-end: auto; top: auto; bottom: 12px; max-height: calc(100dvh - 24px); overflow-y: auto; }
 
 .q-stars { display: inline-flex; gap: 2px; }
 .q-star { display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: none; color: var(--q-muted); cursor: pointer; padding: 0; border-radius: 6px; }
@@ -452,7 +452,7 @@ h1[tabindex="-1"]:focus, h1[tabindex="-1"]:focus-visible { outline: none; }
 .q-row .q-actions { justify-content: flex-end; }
 
 @media (pointer: coarse) {
-  .q-btn, .q-star, .q-check, .q-seg button, .q-switch { min-height: 44px; }
+  .q-btn, .q-star, .q-check, .q-seg button, .q-switch, .q-select, .q-linkbtn, input[type="file"]::file-selector-button { min-height: 44px; }
   .q-btn.icon, .q-star, .q-check { min-width: 44px; }
 }
 #blazor-error-ui .dismiss { background: none; border: 0; color: inherit; font-size: 18px; min-width: 44px; min-height: 44px; top: 0; }
@@ -494,3 +494,4 @@ input[type="file"]:focus-visible { outline: 2px solid var(--q-violet-text); outl
   .q-navitem { min-height: 46px; padding-block: 4px; gap: 1px; }
   .q-navlist { gap: 2px; }
 }
+.q-pill.state.configured { color: var(--q-ok); border-color: currentColor; }

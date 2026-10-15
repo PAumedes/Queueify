@@ -89,8 +89,9 @@ Desktop, 760 px and wider (the same destinations as the WinUI `NavigationView`, 
   follows the browser's. Both live behind one rail button, labelled "Language and theme" with a half-moon icon (a
   button showing only "EN" hid the theme); the "More" sheet on phones lists them too. The same two choices are in
   Settings, which saves them to the account.
-- Registration, and the passkey and password pages, show the password rules above the field before anything is
-  typed (`PasswordRules.Hint`, built from the server's `PasswordOptions`, so it cannot drift from what is enforced).
+- Every page where a password is chosen (register, reset, change, set) shows the rules under the field before
+  anything is typed: the `PasswordHint` component, from `PasswordRules.Hint` and the server's `PasswordOptions`, so
+  it cannot drift from what is enforced.
 - Keyboard: `Ctrl+F` filter (or the search box on Add), `Ctrl+K` Add, `F1` Help, `Esc` clears the box.
 
 ## One look for every page
@@ -98,8 +99,8 @@ Desktop, 760 px and wider (the same destinations as the WinUI `NavigationView`, 
 Every page opens with the same header (`q-head`: icon tile, title, one-line summary) and uses the shared
 controls: `q-btn`, `q-input`, `q-select`, `q-pill`. Page-scoped stylesheets (Settings, Photo, Help and their
 parts) use the `--q-*` tokens, never Fluent's `--color*` ones, so light and dark follow the same palette. The
-rail is ten buttons, about 740 px tall; on windows shorter than 820 px the buttons tighten instead of the rail
-scrolling.
+rail is nine buttons; on windows shorter than 820 px they tighten instead of the rail scrolling (checked at
+720 px tall, in Spanish).
 
 ## Floor (checked in review)
 
