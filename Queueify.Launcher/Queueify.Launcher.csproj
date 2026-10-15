@@ -7,8 +7,6 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <RootNamespace>Queueify.Launcher</RootNamespace>
     <AssemblyName>Queueify.Launcher</AssemblyName>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\Queueify\Assets\Queueify.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.4.0</Version>

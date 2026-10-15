@@ -9,10 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="1.8.4" />
-    <PackageReference Include="xunit.v3" Version="4.0.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
-    <PackageReference Include="bunit" Version="2.0.66" />
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="bunit" />
   </ItemGroup>
 
   <ItemGroup>

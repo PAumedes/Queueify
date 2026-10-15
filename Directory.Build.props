@@ -1,0 +1,17 @@
+<Project>
+  <!-- Rules shared by every project. The app version stays in Queueify\Queueify.csproj (and Core's): tools\package.ps1 and release.yml read it from there. -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- CI only (GitHub sets CI=true), so a local build is never blocked by an advisory published today:
+       known vulnerable packages (NuGet audit) and nullable warnings fail the build. -->
+  <PropertyGroup Condition="'$(CI)' == 'true' Or '$(ContinuousIntegrationBuild)' == 'true'">
+    <WarningsAsErrors>$(WarningsAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
+  </PropertyGroup>
+  <!-- Queueify.Web.Tests is left out until the possible-null dereferences in its AlbumSearchTests are fixed (CS8602). -->
+  <PropertyGroup Condition="('$(CI)' == 'true' Or '$(ContinuousIntegrationBuild)' == 'true') And '$(MSBuildProjectName)' != 'Queueify.Web.Tests'">
+    <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+  </PropertyGroup>
+</Project>

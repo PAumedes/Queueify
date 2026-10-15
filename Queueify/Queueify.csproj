@@ -15,8 +15,6 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <!-- Not Queueify.pri: WinUI looks for <exe name>.pri or resources.pri, whatever the exe is called. -->
     <ProjectPriFileName>resources.pri</ProjectPriFileName>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Queueify.ico</ApplicationIcon>
     <Version>1.4.0</Version>
@@ -47,8 +45,8 @@
   <ItemGroup>
     <!-- Only WinUI and what it needs; the Microsoft.WindowsAppSDK metapackage adds ~60 MB of AI, ML,
          search and widgets the app doesn't use. -->
-    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
-    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" />
   </ItemGroup>
 
   <ItemGroup>
