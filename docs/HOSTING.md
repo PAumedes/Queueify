@@ -23,7 +23,7 @@ ASP.NET Core reads `Section__Key` from the environment (or `appsettings.Producti
 | --- | --- |
 | `Queueify__DataDir` | The data folder. Default `App_Data` beside the app. In Docker: `/data`. |
 | `Queueify__PublicBaseUrl` | The address people reach the site at, e.g. `https://queue.example.org`. The connect text for the Windows app is built from it, and the CSP names its websocket. Set it: without it the text uses the request's Host header. |
-| `AllowedHosts` | Host names the server answers to, e.g. `queue.example.org`; default `*`. Set it to your name (`localhost` as well if a health check calls it by that name). |
+| `AllowedHosts` | Host names the server answers to, e.g. `queue.example.org`; default `*`. Separate names with `;`. Keep `localhost` in the list: the Docker image's health check calls the server by that name. |
 | `Queueify__AllowRegistration` | `true` lets anyone register. Default: the first account owns the server, then registration closes (deleting that account does not reopen it; see SECURITY.md). |
 | `Queueify__Proxy__KnownProxies` | Addresses of your reverse proxy (comma-free: `Queueify__Proxy__KnownProxies__0=10.0.0.5`). Only those may set `X-Forwarded-For/Proto`. `Queueify__Proxy__KnownNetworks__0=172.16.0.0/12` takes CIDR ranges. Without it the rate limit sees the proxy's address for everybody. |
 | `Queueify__AllowInsecureCookies` | `true` only for a plain-http server (see above). |
@@ -38,7 +38,7 @@ Check `/healthz` (answers `ok`) for monitoring.
 ```sh
 docker build -t queueify-web .
 docker run -d --name queueify --restart unless-stopped -p 127.0.0.1:8080:8080 -v queueify-data:/data \
-  -e Queueify__PublicBaseUrl=https://queue.example.org -e AllowedHosts=queue.example.org \
+  -e Queueify__PublicBaseUrl=https://queue.example.org -e "AllowedHosts=queue.example.org;localhost" \
   -e Queueify__Proxy__KnownProxies__0=172.17.0.1 queueify-web
 ```
 
@@ -64,7 +64,7 @@ a server that is down; keep the data folder on a disk you back up.
 
 ## A free-tier cloud VM (for example Oracle Cloud Always Free)
 
-A small Linux VM runs this fine (the app is light; photos use a few hundred MB of memory while reading).
+A small Linux VM runs this fine (the app is light; reading a very large photo can briefly use around a gigabyte, so keep `Ocr__MaxPixels` modest on a small VM).
 Offers and limits change: **check the provider's current free-tier terms and what it does with idle or
 unverified accounts before depending on it.** Steps, in short:
 
