@@ -102,7 +102,7 @@ The first account that registers owns the server; after that registration is clo
 configuration sets `Queueify:AllowRegistration` to `true`. Data lives under `Queueify:DataDir`
 (default `App_Data` beside the app: one folder per user, the Data Protection keys and `identity.db`, the account
 database, created on first run; back the whole folder up as one). Design notes are in [docs/WEB_DESIGN.md](docs/WEB_DESIGN.md),
-the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md).
+the decision in [ADR-0010](docs/adr/0010-web-app-and-shared-queue.md). To host it (Docker, a home PC behind a tunnel, a free VM) see [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Magazine photos
 
