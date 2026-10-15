@@ -17,7 +17,7 @@
     <ProjectPriFileName>resources.pri</ProjectPriFileName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Queueify.ico</ApplicationIcon>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
   </PropertyGroup>
 
   <!-- Compiled ahead of time to native code, so no .NET runtime ships with it; tools\package.ps1 then

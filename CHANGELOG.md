@@ -6,6 +6,13 @@ Each release section is written by `tools\release.ps1` from the
 [Conventional Commits](https://www.conventionalcommits.org/) since the previous tag. Don't edit released
 sections by hand; to change what the next release says, write better commit messages.
 
+## [1.5.1] - 2026-10-15
+
+### Fixes
+
+- **web:** show password rules on every page that sets a password (b1943f7)
+- **web:** unify Settings, Photo, Help and the Language and theme button (269a39c)
+
 ## [1.5.0] - 2026-10-15
 
 ### Features

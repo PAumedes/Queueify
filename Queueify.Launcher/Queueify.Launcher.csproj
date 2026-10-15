@@ -9,7 +9,7 @@
     <AssemblyName>Queueify.Launcher</AssemblyName>
     <ApplicationIcon>..\Queueify\Assets\Queueify.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
     <Product>Queueify</Product>
     <PublishAot>true</PublishAot>
     <OptimizationPreference>Size</OptimizationPreference>
