@@ -15,8 +15,13 @@
 
 <PageTitle>@Loc.T("webSettings.title")</PageTitle>
 
-<h1>@Loc.T("webSettings.title")</h1>
-<p class="summary">@Loc.T("webSettings.summary")</p>
+<header class="q-head">
+    <span class="q-head-ico"><Ico Name="settings" /></span>
+    <div>
+        <h1>@Loc.T("webSettings.title")</h1>
+        <p class="q-sub">@Loc.T("webSettings.summary")</p>
+    </div>
+</header>
 
 @if (_opened is not null)
 {
@@ -30,7 +35,7 @@
 
         <div class="field">
             <label for="preferred">@Loc.T("settings.preferred")</label>
-            <select id="preferred" @bind="_preferred">
+            <select id="preferred" class="q-select" @bind="_preferred">
                 <option value="Tidal">Tidal</option>
                 <option value="Spotify">Spotify</option>
             </select>
@@ -38,7 +43,7 @@
         </div>
         <div class="field">
             <label for="country">@Loc.T("settings.country")</label>
-            <select id="country" @bind="_country">
+            <select id="country" class="q-select" @bind="_country">
                 @foreach (var option in Countries.Options(_opened.CountryCode, Loc.Culture))
                 {
                     <option value="@option.Code">@option.Name</option>
@@ -46,14 +51,14 @@
             </select>
             <span class="help">@Loc.T("settings.country.text")</span>
         </div>
-        <button type="button" class="save-music primary" @onclick="SaveMusic">@Loc.T("webSettings.save")</button>
+        <button type="button" class="q-btn primary save-music" @onclick="SaveMusic">@Loc.T("webSettings.save")</button>
         <p class="notice @(_musicNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="music">@Show(_musicNotice)</p>
     </SettingsSection>
 
     <SettingsSection Id="sec-appearance" Title="@Loc.T("settings.appearance")">
         <div class="field">
             <label for="theme">@Loc.T("settings.theme")</label>
-            <select id="theme" value="@_prefs.Theme" @onchange="ThemeChanged">
+            <select id="theme" class="q-select" value="@_prefs.Theme" @onchange="ThemeChanged">
                 <option value="system">@Loc.T("webSettings.theme.system")</option>
                 <option value="light">@Loc.T("settings.theme.light")</option>
                 <option value="dark">@Loc.T("settings.theme.dark")</option>
@@ -62,7 +67,7 @@
         </div>
         <div class="field">
             <label for="language">@Loc.T("settings.language")</label>
-            <select id="language" value="@_prefs.Language" @onchange="LanguageChanged">
+            <select id="language" class="q-select" value="@_prefs.Language" @onchange="LanguageChanged">
                 <option value="system">@Loc.T("webSettings.language.system")</option>
                 <option value="en">English</option>
                 <option value="es">Español</option>
@@ -75,7 +80,7 @@
     <SettingsSection Id="sec-ocr" Title="@Loc.T("settings.ocr")">
         <div class="field">
             <label for="ocr">@Loc.T("settings.ocr.read")</label>
-            <select id="ocr" value="@_prefs.OcrLanguage" @onchange="OcrChanged">
+            <select id="ocr" class="q-select" value="@_prefs.OcrLanguage" @onchange="OcrChanged">
                 <option value="auto">@Loc.T("webSettings.ocr.auto")</option>
                 <option value="es">@Loc.T("webSettings.ocr.es")</option>
                 <option value="en">@Loc.T("webSettings.ocr.en")</option>
@@ -86,7 +91,7 @@
     </SettingsSection>
 
     <SettingsSection Id="sec-connect" Title="@Loc.T("webSettings.connect.title")" Text="@Loc.T("webSettings.connect.text")">
-        <a class="link connect" href="connect">@Loc.T("webSettings.connect.open")</a>
+        <a class="q-btn connect" href="connect">@Loc.T("webSettings.connect.open")</a>
     </SettingsSection>
 
     <SettingsSection Id="sec-data" Title="@Loc.T("webData.title")" Text="@Loc.T("webData.text")">
@@ -94,7 +99,7 @@
     </SettingsSection>
 
     <SettingsSection Id="sec-signout" Title="@Loc.T("webSettings.signout.title")" Text="@Loc.T("webSettings.signout.text")">
-        <a class="link account" href="Account/Manage">@Loc.T("webSettings.signout.open")</a>
+        <a class="q-btn account" href="Account/Manage">@Loc.T("webSettings.signout.open")</a>
     </SettingsSection>
 
     <SettingsSection Id="sec-delete" Title="@Loc.T("webSettings.delete.title")" Text="@Loc.T("webSettings.delete.text")">
@@ -102,7 +107,7 @@
             <input id="sure" type="checkbox" @bind="_sure" />
             <label for="sure">@Loc.T("webSettings.delete.sure")</label>
         </div>
-        <button type="button" class="delete danger" disabled="@(!_sure)" @onclick="DeleteAll">@Loc.T("webSettings.delete.button")</button>
+        <button type="button" class="q-btn danger delete" disabled="@(!_sure)" @onclick="DeleteAll">@Loc.T("webSettings.delete.button")</button>
         <p class="notice @(_deleteNotice?.IsError == true ? "error" : "")" role="status" aria-live="polite" data-status="delete">@Show(_deleteNotice)</p>
     </SettingsSection>
 }

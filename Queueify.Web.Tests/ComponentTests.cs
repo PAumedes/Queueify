@@ -395,6 +395,20 @@ public sealed class NavMenuTests : WebComponentTests
     [Fact]
     public void An_empty_queue_has_no_badges() =>
         Assert.Empty(Render<NavMenu>().FindAll(".q-badge"));
+
+    [Fact]
+    public void The_rail_button_for_language_and_theme_names_both_not_just_the_language()
+    {
+        var cut = Render<NavMenu>();
+
+        var menu = Assert.Single(cut.FindAll(".q-rail details.q-menu"));
+        // What a sighted user reads: the old button showed only the language code ("EN"), so nobody knew the theme was in there too.
+        var summary = menu.QuerySelector("summary")!;
+        foreach (var hidden in summary.QuerySelectorAll(".q-sr")) hidden.Remove();
+        Assert.Contains(Loc.T("web.pref.title"), summary.TextContent);
+        Assert.NotEmpty(menu.QuerySelectorAll("button[name='language']"));
+        Assert.NotEmpty(menu.QuerySelectorAll("button[name='theme']"));
+    }
 }
 
 public sealed class AddPageTests : WebComponentTests

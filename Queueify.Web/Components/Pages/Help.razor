@@ -7,8 +7,13 @@
 
 <PageTitle>@Loc.T("webHelp.title")</PageTitle>
 
-<h1>@Loc.T("webHelp.title")</h1>
-<p class="summary">@Loc.T("webHelp.summary")</p>
+<header class="q-head">
+    <span class="q-head-ico"><Ico Name="help" /></span>
+    <div>
+        <h1>@Loc.T("webHelp.title")</h1>
+        <p class="q-sub">@Loc.T("webHelp.summary")</p>
+    </div>
+</header>
 
 <section aria-labelledby="guide">
     <h2 id="guide">@Loc.T("help.guide")</h2>
@@ -17,7 +22,7 @@
     <p>@Loc.T("help.guide.3")</p>
     <p>@Loc.T("help.guide.4")</p>
     <p>@Loc.T("webHelp.guide.5")</p>
-    <button type="button" class="replay" @onclick="Tour.Replay">@Loc.T("help.replay")</button>
+    <button type="button" class="q-btn replay" @onclick="Tour.Replay">@Loc.T("help.replay")</button>
 </section>
 
 <section aria-labelledby="keys">

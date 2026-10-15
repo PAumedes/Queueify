@@ -41,8 +41,9 @@ else
             <ValidationMessage For="() => Input.Email" class="q-field-error" />
         </div>
         <div class="q-field">
-            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="new-password" aria-required="true" placeholder="password" />
+            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="q-input" autocomplete="new-password" aria-required="true" aria-describedby="password-rules" placeholder="password" />
             <label for="Input.Password">@Loc.T("web.auth.password")</label>
+            <PasswordHint />
             <ValidationMessage For="() => Input.Password" class="q-field-error" />
         </div>
         <div class="q-field">

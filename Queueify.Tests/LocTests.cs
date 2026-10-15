@@ -31,13 +31,21 @@ public partial class LocTests
     }
 
     [Fact]
+    public void TheKeyScan_ReadsACheckoutThatLivesUnderADotClaudeFolder_ButNotWorktreesNestedInIt()
+    {
+        var s = Path.DirectorySeparatorChar;
+        var root = string.Join(s, "C:", "r", ".claude", "worktrees", "w");
+        Assert.True(LocTests.IsAppSource(root, string.Join(s, root, "Queueify.Web", "Components", "X.razor")));
+        Assert.False(LocTests.IsAppSource(root, string.Join(s, root, ".claude", "worktrees", "v", "Queueify.Web", "X.razor")));
+        Assert.False(LocTests.IsAppSource(root, string.Join(s, root, "Queueify.Web", "obj", "X.cs")));
+    }
+
+    [Fact]
     public void EveryKeyTheAppUses_Exists()
     {
         var root = RepoRoot();
         var used = new HashSet<string>();
-        foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
-                     .Where(f => (f.EndsWith(".cs") || f.EndsWith(".xaml") || f.EndsWith(".razor")) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
-                                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") && !f.Contains("Queueify.Tests") && !f.Contains("Queueify.Web.Tests")))
+        foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories).Where(f => IsAppSource(root, f)))
         {
             var text = File.ReadAllText(file);
             foreach (Match m in CodeKey().Matches(text)) used.Add(m.Groups[1].Value);
@@ -170,6 +178,16 @@ public partial class LocTests
     // Only the numbers: a date format may differ between languages ("3 Oct 2026", "3 de oct. de 2026").
     private static HashSet<string> Placeholders(string text) =>
         Placeholder().Matches(text).Select(m => m.Groups[1].Value).ToHashSet();
+
+    /// <summary>Source the string-key scan reads. Judged on the path below the root, so a checkout that itself lives under .claude (an agent worktree) still counts.</summary>
+    internal static bool IsAppSource(string root, string file)
+    {
+        var s = Path.DirectorySeparatorChar;
+        var rel = s + Path.GetRelativePath(root, file);   // leading separator, so a top-level obj or .claude folder matches too
+        return (rel.EndsWith(".cs") || rel.EndsWith(".xaml") || rel.EndsWith(".razor"))
+            && !rel.Contains($"{s}obj{s}") && !rel.Contains($"{s}bin{s}") && !rel.Contains("Queueify.Tests") && !rel.Contains("Queueify.Web.Tests")
+            && !rel.Contains($"{s}.claude{s}");
+    }
 
     private static string RepoRoot([CallerFilePath] string here = "") =>
         Path.GetDirectoryName(Path.GetDirectoryName(here))!;

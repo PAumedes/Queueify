@@ -1,26 +1,11 @@
-.summary { color: var(--colorNeutralForeground2, #424242); }
-
-.field { display: flex; flex-direction: column; gap: 4px; margin-block: 12px; max-width: 28rem; }
-.field label { font-weight: 600; }
-.help { font-size: 0.875rem; color: var(--colorNeutralForeground2, #424242); }
-select { min-height: 44px; font: inherit; padding: 0 8px; border-radius: var(--borderRadiusMedium, 4px); border: 1px solid var(--colorNeutralStroke1, #d1d1d1); background: var(--colorNeutralBackground1, #fff); color: inherit; }
-
-.primary, .danger, .link {
-    display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600;
-    border-radius: var(--borderRadiusMedium, 4px); border: 1px solid transparent; text-decoration: none; cursor: pointer;
-}
-.primary { background: var(--colorBrandBackground, #0f6cbd); color: var(--colorNeutralForegroundOnBrand, #fff); }
-.link { border-color: var(--colorNeutralStroke1, #d1d1d1); background: var(--colorNeutralBackground1, #fff); color: inherit; }
-.danger { background: var(--colorPaletteRedBackground3, #b10e1c); color: #fff; }
-.danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-block: 12px; max-width: 28rem; }
+.field label { font-weight: 600; font-size: 13px; }
+.help { font-size: 0.8125rem; color: var(--q-muted); }
 
 .check { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; min-height: 44px; }
-.check input { width: 24px; height: 24px; }
+.check input { width: 24px; height: 24px; accent-color: var(--q-violet); }
+.check input:focus-visible { outline: 2px solid var(--q-violet-text); outline-offset: 2px; }
 
-.notice { min-height: 1.5rem; margin: 8px 0 0; }
-.notice.error { color: var(--colorPaletteRedForeground1, #b10e1c); }
-
-select:focus-visible, .primary:focus-visible, .danger:focus-visible, .link:focus-visible, .check input:focus-visible {
-    outline: 2px solid var(--colorStrokeFocus2, #000);
-    outline-offset: 2px;
-}
+.notice { margin: 8px 0 0; }
+.notice:empty { margin: 0; }
+.notice.error { color: var(--q-danger); }
