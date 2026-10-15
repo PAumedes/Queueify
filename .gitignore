@@ -6,3 +6,4 @@ publish/
 .cache/
 dist/
 Queueify.Web/App_Data/
+.scratch/
